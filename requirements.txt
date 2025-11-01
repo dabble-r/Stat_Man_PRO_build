@@ -1,0 +1,9 @@
+# UI Framework
+PySide6>=6.5.0
+
+# Build tools
+pyinstaller>=6.0.0
+pillow>=10.0.0  # Required for icon processing in PyInstaller
+
+# Add other dependencies as needed
+

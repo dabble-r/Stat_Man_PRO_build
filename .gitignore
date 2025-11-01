@@ -1,0 +1,77 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+fix_icon.py
+
+
+to_do.txt
+archive/
+Documentation/
+
+#md files 
+RESTRUCTURING_GUIDE.md
+RESTRUCTURING_SUMMARY.md
+REMOVED_FOLDERS.txt
+CLEANUP_COMPLETE.md
+BEFORE_AFTER.md
+PATH_UPDATES.md
+PATH_UPDATE_SUMMARY.md
+ICON_FIX.md
+fix-type-handling-bug.plan.md
+
+#test 
+tests/*
+
+# Virtual Environment
+myenv/
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Database
+*.db
+*.db-journal
+data/database/*.db
+
+# Exports
+data/exports/*
+!data/exports/.gitkeep
+
+# User Images
+data/images/*
+!data/images/.gitkeep
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
