@@ -1,8 +1,23 @@
+from email import message
 from typing import Iterable, Callable, Optional, List, Tuple, Any, Union
 import random
 from PySide6.QtWidgets import QTreeWidgetItem
 from PySide6.QtCore import Qt
 
+def enforce_positive_integer(value, message) -> int:
+    """Return integer value; tolerate strings/floats (0.0)/None by returning 0 on failure."""
+    print('value:', value)
+    try:
+        if isinstance(value, str):
+            print("string")
+            if int(value) > 0:
+                return int(value)
+            else:
+                message.show_message("Invalid value. Please enter a positive number without decimals.")
+                return 0
+    except Exception:
+        print("Invalid value. Expected string for player offense stat.")
+        return 0
 
 def coerce_at_bat(value) -> int:
     """Return integer at_bat value; tolerate strings/floats (0.0)/None by returning 0 on failure."""

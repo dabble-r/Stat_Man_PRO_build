@@ -20,6 +20,7 @@ from src.ui.logic.dialogs.update_offense_logic import (
     insert_widget as logic_insert_widget,
     stat_lst as logic_stat_lst,
     build_offense_undo_payload,
+    enforce_positive_integer
 )
 
 class UpdateOffenseDialog(QDialog):
@@ -187,7 +188,8 @@ class UpdateOffenseDialog(QDialog):
             #QMessageBox.warning(self, "Input Error", "Please enter value and select stat.")
             return
         
-        val = int(self.int_input.text())
+        #val = int(self.int_input.text())
+        val = enforce_positive_integer(self.int_input.text(), self.message)
 
         player, team, avg = self.selected
         find_team = self.league.find_team(team)
