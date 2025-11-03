@@ -142,7 +142,7 @@ class UpdateOffenseDialog(QDialog):
     def radio_btns_setup(self):
         """Create and configure offense radio buttons for supported stat updates."""
         options = ["default"]
-        options = ["hit", "bb", "hbp", "so", "hr", "rbi", "runs", "singles", "doubles", "triples", "sac fly", "fielder's choice"]
+        options = ["hit", "bb", "hbp", "so", "put out", "hr", "rbi", "runs", "singles", "doubles", "triples", "sac fly", "fielder's choice"]
 
         for i in range(len(options)):
             radio = QRadioButton(f"{options[i]}")
@@ -214,7 +214,10 @@ class UpdateOffenseDialog(QDialog):
             # stat passed to set new stat 
             # stat updated on player instance
         stat_result = logic_stat_lst(stat, val)
+        
         statType = build_offense_undo_payload(stat_result)
+
+        print("stat result-type:", statType)
 
         self.stack.add_node(find_player, team, stat_result, getattr(find_player, statType), self.set_new_stat_player, 'player')
 

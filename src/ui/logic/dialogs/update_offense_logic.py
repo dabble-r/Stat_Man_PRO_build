@@ -57,6 +57,7 @@ OFFENSE_SETTERS: dict[str, Callable[[Any, int], None]] = {
     'hit': lambda p, v: p.set_hit(v),
     'bb': lambda p, v: p.set_bb(v),
     'hbp': lambda p, v: p.set_hbp(v),
+    'put_out': lambda p, v: p.set_put_out(v),
     'so': lambda p, v: p.set_so(v),
     'hr': lambda p, v: p.set_hr(v),
     'rbi': lambda p, v: p.set_rbi(v),
@@ -140,7 +141,7 @@ def sort_leaderboard(lst: List[Tuple]) -> List[Tuple]:
 def stat_lst(stat: str, val: int) -> Union[List, str]:
     """Build stat update list for complex stats; returns list or plain stat string."""
     def check(s: str) -> bool:
-        lst = ["hit", "bb", "hbp", "so", "sac fly", "fielder's choice"]
+        lst = ["hit", "bb", "hbp", "so", "put out", "sac fly", "fielder's choice"]
         return s in lst
     
     one = ["pa"]
@@ -156,14 +157,17 @@ def stat_lst(stat: str, val: int) -> Union[List, str]:
             one += [val, "hbp"]
             return one
         elif stat == "so":
-            one += [val, "so"]
-            return one
+            two += [val, "so"]
+            return two
         elif stat == "sac fly":
-            one += [val, "sac_fly"]
-            return one
+            two += [val, "sac_fly"]
+            return two
         elif stat == "fielder's choice":
-            one += [val, "fielder_choice"]
-            return one
+            two += [val, "fielder_choice"]
+            return two
+        elif stat == "put out":
+            two += [val, "put_out"]
+            return two
     
     return stat
 

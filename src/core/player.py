@@ -116,7 +116,7 @@ class Player():
 
   def __str__(self):
     ret = f'Name: {self.name}\nNumber: {self.number}\nPrimary Position: {self.positions[0]}\n  Secondary Positions: {self.positions[1:]}\n'
-    ret += f'PA: {self.pa}\nAt Bats: {self.at_bat}\nHits: {self.hit}\nWalks: {self.bb}\nHBP: {self.hbp}\nSO: {self.so}\nHR: {self.hr}\n'
+    ret += f'PA: {self.pa}\nAt Bats: {self.at_bat}\nHits: {self.hit}\nWalks: {self.bb}\nHBP: {self.hbp}\nSO: {self.so}\nPut Out: {self.put_out}\nHR: {self.hr}\n'
     ret += f'Runs: {self.runs}\nRBI: {self.rbi}\nOBP: {self.OBP}\nBABIP: {self.BABIP}\nSLG: {self.SLG}\nAVG: {self.AVG}\nISO: {self.ISO}' 
     return ret
   
@@ -236,7 +236,7 @@ class Player():
     new_player = Player(name, number, team, positions)
     return new_player
 
-    # utilities 
+  # utilities 
 
   def format_decimal(self, num):        return "{:.3f}".format(num)
   
@@ -369,6 +369,12 @@ class Player():
   
   def set_so(self, val):
     self.so += val 
+    self.set_pa(val)
+    self.set_at_bat(val)
+    #self._validate_update('at_bat', 'so', val)
+  
+  def set_put_out(self, val):
+    self.put_out += val 
     self.set_pa(val)
     self.set_at_bat(val)
     #self._validate_update('at_bat', 'so', val)
@@ -535,7 +541,7 @@ class Pitcher(Player):
   
   def __str__(self):
     ret = f'Name: {self.name}\nNumber: {self.number}\nPrimary Position: {self.positions[0]}\nSecondary Positions: {self.positions[1:]}\n'
-    ret += f'Offense: ----- -----\n Plate Appearance: {self.pa}\nAt Bats: {self.at_bat}\n Hits: {self.hit}\n Walks: {self.bb}\n SO: {self.so}\n HR: {self.hr}\n'
+    ret += f'Offense: ----- -----\n Plate Appearance: {self.pa}\nAt Bats: {self.at_bat}\n Hits: {self.hit}\n Walks: {self.bb}\n SO: {self.so}\n Put Out: {self.put_out}\n HR: {self.hr}\n'
     ret += f' Runs: {self.runs}\n RBI: {self.rbi}\n OBP: {self.OBP}\nBABIP: {self.BABIP}\n SLG: {self.SLG}\n AVG: {self.AVG}\n ISO: {self.ISO}\n' 
     ret += f'Pitching: ----- -----\n Wins: {self.wins}\n Losses: {self.losses}\n G: {self.games_played}\n ERA: {self.era}\n'
     ret += f' IP: {self.ip}\n At Bats: {self.p_at_bats}\n SO: {self.p_so}\n BB: {self.p_bb}\n AVG: {self.p_avg}\n WHIP: {self.WHIP}\n K9: {self.k_9}\n BB9: {self.bb_9}'

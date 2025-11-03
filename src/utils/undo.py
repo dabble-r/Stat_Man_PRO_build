@@ -31,7 +31,7 @@ class Undo():
 
         if len(stat) == 3:
           pa, val, statType = stat  
-          #print("len 2: ", pa, statType, prev)
+          #print("len 3: ", pa, statType, prev)
           currPA = getattr(obj, pa)
           print("curr pa: ", currPA, prev, currPA-prev)
           paUpdate = currPA - val
@@ -41,7 +41,7 @@ class Undo():
 
         elif len(stat) == 4:
           pa, ab, val, statType = stat
-          print("len 3: ", pa, ab, val, statType)
+          #print("len 4: ", pa, ab, val, statType)
           currAB = getattr(obj, ab)
           currPA = getattr(obj, pa)
           paUpdate = currPA - val
@@ -54,8 +54,6 @@ class Undo():
       else:
 
         setattr(obj, stat, prev)
-
-
         #print(team, stat, prev, func, flag, player)
 
     self.stack.remove_last()
