@@ -18,8 +18,8 @@ stat_man_g/
 ├── requirements.txt         # Python dependencies
 ├── LICENSE.md               # License information
 ├── build_exe.bat            # Build project in Windows (venv build)
-|-- build_exe_.sh            # Build project in Linux (no venv build)
-|-- build_exe_venv.sh        # Build project in Linux (venv build)
+├── build_exe_.sh            # Build project in Linux (no venv build)
+├── build_exe_venv.sh        # Build project in Linux (venv build)
 │
 ├── src/                     # Main source code
 │   ├── core/                # Core business logic
