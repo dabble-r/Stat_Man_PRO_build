@@ -5,7 +5,7 @@ from PySide6.QtCore import Qt
 
 
 def coerce_at_bat(value) -> int:
-    """Return integer at_bat value; tolerate strings/floats/None by returning 0 on failure."""
+    """Return integer at_bat value; tolerate strings/floats (0.0)/None by returning 0 on failure."""
     try:
         if value is None:
             return 0
