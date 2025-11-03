@@ -17,7 +17,9 @@ stat_man_g/
 ├── main.py                  # Application entry point
 ├── requirements.txt         # Python dependencies
 ├── LICENSE.md               # License information
-├── to_do.txt                # Development TODO list
+├── build_exe.bat            # Build project in Windows (venv build)
+|-- build_exe_.sh            # Build project in Linux (no venv build)
+|-- build_exe_venv.sh        # Build project in Linux (venv build)
 │
 ├── src/                     # Main source code
 │   ├── core/                # Core business logic
