@@ -77,7 +77,8 @@ class UpdateTeamStatsDialog(QDialog):
 
         options = ["default"]
 
-        options = ["games played", "wins", "losses", "game stats"]
+        # "game stats" option removed
+        options = ["games played", "wins", "losses"]
 
         radio_buttons_layout = QVBoxLayout()
         radio_buttons_layout.setAlignment(Qt.AlignTop)
@@ -130,9 +131,11 @@ class UpdateTeamStatsDialog(QDialog):
     def render_input_form(self):
         text = self.radio_group.checkedButton().text()
         if text == "game stats":
-            self.int_input.hide()
+            #self.int_input.hide()
+            pass
         else:
             self.int_input.show()
+            
 
     def get_team_stat(self):
         # radio button selection 
@@ -150,7 +153,7 @@ class UpdateTeamStatsDialog(QDialog):
                 team.set_games_played(val, self)
                 self.enable_buttons()
             case 'game stats':
-                print('game stats')
+                pass
 
     def update_stats(self):
         stat = None 
