@@ -4,11 +4,11 @@ class Undo():
     self.stack = stack
     self.league = league
   
-  def undo_exp(self):
+  def undo_exp(self, message=None):
     """Pop and revert the last stack action by restoring previous values/structures."""
     if self.stack.is_empty():
       return 
-  
+    
     last_action = self.stack.get_last()
     obj, team, stat, prev, func, flag, player = last_action
     
@@ -33,6 +33,13 @@ class Undo():
           pa, val, statType = stat  
           #print("len 3: ", pa, statType, prev)
           currPA = getattr(obj, pa)
+          
+          # Validation: prevent undo if PA is 0 (would make it negative)
+          if currPA == 0:
+            if message is not None:
+              message.show_message("Player at bat and pa are 0")
+            return
+          
           print("curr pa: ", currPA, prev, currPA-prev)
           paUpdate = currPA - val
 
@@ -44,6 +51,13 @@ class Undo():
           #print("len 4: ", pa, ab, val, statType)
           currAB = getattr(obj, ab)
           currPA = getattr(obj, pa)
+          
+          # Validation: prevent undo if PA or AB is 0 (would make it negative)
+          if currPA == 0 or currAB == 0:
+            if message is not None:
+              message.show_message("Player at bat and pa are 0")
+            return
+          
           paUpdate = currPA - val
           abUpdate = currAB - val
 

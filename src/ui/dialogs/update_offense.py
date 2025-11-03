@@ -244,7 +244,7 @@ class UpdateOffenseDialog(QDialog):
         if find_team:
             find_player = find_team.get_player(player)
             if find_player:
-                self.undo.undo_exp()
+                self.undo.undo_exp(self.message)
                 logic_refresh_player(find_player)
                 logic_refresh_team(find_team)
                 self.leaderboard.refresh_leaderboard(find_player)
