@@ -74,6 +74,10 @@ class DonutBreakdownChart(QChart):
         breakdown_series.setLabelsVisible()
 
         for pie_slice in breakdown_series.slices():
+            #print("pie slice:", pie_slice, dir(pie_slice), pie_slice.value())
+            slice_val = pie_slice.value()
+            if slice_val == 0.0:
+               pie_slice.setLabelVisible(False)
             color = QColor(color).lighter(115)
             pie_slice.setBrush(color)
             pie_slice.setLabelFont(font)
@@ -92,6 +96,7 @@ class DonutBreakdownChart(QChart):
         angle = 0
         slices = self.main_series.slices()
         for pie_slice in slices:
+            #print("pie slice:", pie_slice)
             breakdown_series = pie_slice.get_breakdown_series()
             breakdown_series.setPieStartAngle(angle)
             angle += pie_slice.percentage() * 360.0  # full pie is 360.0
@@ -111,7 +116,7 @@ class DonutBreakdownChart(QChart):
                     label = marker.slice().label()
                     p = marker.slice().percentage() * 100
                     marker.setLabel(f"{label} {p:.2f}%")
-                    marker.setFont(QFont("Arial", 12))
+                    marker.setFont(QFont("Arial", 14))
     
     def pop_dict(self):
       for indx, el in enumerate(self.raw_data):
@@ -157,24 +162,27 @@ class DonutBreakdownChart(QChart):
         amount = el[a_key]
 
         for el in amount:
-            ##print(el)
+            #print(el)
             type, num = list(el.keys()) + list(el.values()) 
-            ##print(type, num)
+            #print("donut graph:", type, num)
             series.append(type, num)
+
         self.series_dict[stat].append(series)
-            ##print(series_dic)
+        #print(series_dic)
     
     def add_breakdowns(self):
+      #print("add breakdown:", self.series_dict)
       for el in self.series_dict:
-      ##print(el, series_dic[el])
         series_lst = self.series_dict[el]
+        #print("series el:", self.series_dict[el][0], dir(self.series_dict[el][0]))
         for series in series_lst:
+          #print("series:", series)
           color = self.get_rand_color(self.colors, self.series_dict)
           self.add_breakdown_series(series, color)
     
     def get_rand_color(self, colors, dict):
       if len(colors) == 0:
-         return self.color 
+        return self.color 
       
       for el in dict:
         ##print(el)
