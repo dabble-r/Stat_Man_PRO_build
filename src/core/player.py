@@ -494,12 +494,12 @@ class Player():
   def calc_ISO(self):
     #(1x2B + 2x3B + 3xHR) / At-bats OR Slugging percentage - Batting average
     ret = 0
-    print('slg:', self.SLG)
-    print('avg:', self.AVG)
+    #print('slg:', self.SLG)
+    #print('avg:', self.AVG)
     if self.at_bat == 0:
       return self.format_decimal(ret)
     if float(self.SLG) - float(self.AVG) > 0:
-      ret = ( (1 * self.doubles) + (2 * self.triples) + (3 * self.hr ) ) / float(self.SLG) - float(self.AVG)
+      ret = ( (1 * self.doubles) + (2 * self.triples) + (3 * self.hr ) ) / (float(self.SLG) - float(self.AVG))
     return self.format_decimal(ret)
 
 class Pitcher(Player):
