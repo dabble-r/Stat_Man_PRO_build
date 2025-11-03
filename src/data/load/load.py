@@ -221,6 +221,7 @@ class Load():
               hit INTEGER DEFAULT 0,
               bb INTEGER DEFAULT 0,
               hbp INTEGER DEFAULT 0,
+              put_out INTEGER DEFAULT 0,
               so INTEGER DEFAULT 0,
               hr INTEGER DEFAULT 0,
               rbi INTEGER DEFAULT 0,
@@ -494,7 +495,7 @@ class Load():
   def save_player(self):
     ##print('save player!')
     def keep_attrs_player(obj):
-      keep = ['playerID', 'name', 'leagueID', 'teamID', 'number', 'team', 'positions', 'pa', 'at_bat', 'fielder_choice', 'hit', 'bb', 'hbp', 'so', 'hr', 'rbi', 'runs', 'singles', 'doubles', 'triples', 'sac_fly', 'OBP', 'BABIP', 'SLG', 'AVG', 'ISO', 'image']
+      keep = ['playerID', 'name', 'leagueID', 'teamID', 'number', 'team', 'positions', 'pa', 'at_bat', 'fielder_choice', 'hit', 'bb', 'hbp', 'put_out', 'so', 'hr', 'rbi', 'runs', 'singles', 'doubles', 'triples', 'sac_fly', 'OBP', 'BABIP', 'SLG', 'AVG', 'ISO', 'image']
       dir_list = [x for x in keep if self.sql_safe(x)] 
       return dir_list
     
@@ -929,7 +930,7 @@ def load_all_from_db(db_path: str, parent) -> Optional[LinkedList]:
       player.leagueID = league.leagueID
 
       # Offensive stats
-      for key in ['pa','at_bat','fielder_choice','hit','bb','hbp','so','hr','rbi','runs','singles','doubles','triples','sac_fly']:
+      for key in ['pa','at_bat','fielder_choice','hit','bb','hbp','put_out','so','hr','rbi','runs','singles','doubles','triples','sac_fly']:
         try:
           setattr(player, key, int(prow.get(key) or 0))
         except Exception:
