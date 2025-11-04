@@ -4,12 +4,14 @@ from pathlib import Path
 import sqlite3
 
 # Silence all print statements unless STATMANG_DEBUG=1 is set
-'''try:
+'''
+try:
     if os.environ.get("STATMANG_DEBUG", "0") != "1":
         import builtins
         builtins.print = lambda *args, **kwargs: None
 except Exception:
-    pass'''
+    pass
+'''
 
 from src.ui.main_window import MainWindow
 from PySide6.QtWidgets import QApplication

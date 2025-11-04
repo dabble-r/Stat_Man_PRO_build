@@ -173,11 +173,14 @@ STATMANG_DEBUG = 1 python3 main.py
 - Create and manage teams
 - Add players with detailed statistics
 - Track wins, losses, and averages
+- ![Alt text](/assets/screenshots/sm_launch1.jpg?raw=true "Launch League")
+
 
 #### Data Import/Export
 - **Load**: Import league data from CSV files
 - **Save**: Export data to CSV or save to database
 - Timestamp-based file organization
+- ![Alt text](/assets/screenshots/sm_load1.jpg?raw=true "Save/Load")
 
 #### Statistics Tracking
 - Offensive statistics (batting average, hits, runs, etc.)
@@ -188,6 +191,8 @@ STATMANG_DEBUG = 1 python3 main.py
 - Team performance graphs
 - Player stat breakdowns
 - Interactive leaderboards
+- ![Alt text](/assets/screenshots/teamGraph1.jpg?raw=true "Team Graph")
+- ![Alt text](/assets/screenshots/playerGraph1.jpg?raw=true "Player Graph")
 
 ## Development
 
