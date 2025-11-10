@@ -198,7 +198,7 @@ class Ui_StatDialog(QDialog):
         flag = find_player.graph_view_format_player()[1]
 
         #self.view_graph_btn.clicked.connect(lambda: self.get_graph(flag))
-        colors = [Qt.red, Qt.darkRed, Qt.green, Qt.darkGreen, Qt.blue, Qt.darkBlue, Qt.magenta, Qt.darkMagenta, Qt.cyan, Qt.darkCyan, Qt.yellow, Qt.darkYellow, Qt.gray, Qt.darkGray, Qt.lightGray, Qt.transparent]
+        colors = [Qt.red, Qt.darkRed, Qt.green, Qt.darkGreen, Qt.blue, Qt.darkBlue, Qt.magenta, Qt.darkMagenta, Qt.cyan, Qt.darkCyan, Qt.yellow, Qt.darkYellow, Qt.gray, Qt.darkGray, Qt.lightGray]
 
         self.donut_breakdown = DonutBreakdownChart(self.data_player, colors)
         self.donut_breakdown.setAnimationOptions(QChart.AllAnimations)
