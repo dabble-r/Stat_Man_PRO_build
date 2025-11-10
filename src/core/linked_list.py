@@ -515,27 +515,6 @@ class LinkedList():
     return ret
 
 
-  
-
-# create league
-#PBL = LinkedList('People\'s Baseball League')
-
-#add team to league
-#PBL.add_team(beef)
-#PBL.add_team(rougarou)
-
-# view all players
-#all_players_league = PBL.view_all()
-###print(all_players_league)
-
-#find existing team in league
-#team_search = PBL.find_team('Rougarou')
-###print(team_search)
-
-# curr state of league, view all teams
-###print(PBL)
-
-
 
   
 

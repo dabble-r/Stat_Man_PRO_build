@@ -208,25 +208,6 @@ class MainWindow(QWidget):
         except Exception as e:
             print(f"Error clearing database on close: {e}")
 
-    
-    '''def exec_wizard(self):
-        #self.wizard.center_over_parent()
-        self.showMaximized()
-        #self.setStyleSheet(self.styles.modern_styles)
-        self.show()
-        
-        self.wizard = InstallWizardDialog(parent=self)
-        self.wizard.resize(self.wizard.sizeHint())  # Ensure layout is applied
-        self.wizard.center_over_parent() 
-        self.wizard.exec()      # Now center it
-
-        if self.wizard.flag == False:
-            QApplication.quit()
-            sys.exit()
-        #dir_path = self.wizard.get_selected_path()
-        #self.file_dir = dir_path
-        ##print(f'file dir-main window: {self.file_dir}')'''
-
     def set_event_filter(self):
         for tree in self.tree_widgets:
             tree.viewport().installEventFilter(self.event_filter)

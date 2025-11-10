@@ -3,76 +3,6 @@ from PySide6.QtWidgets import QMessageBox
 from PySide6.QtWidgets import QMessageBox
 
 
-class SamplePlayer():
-  def __init__(self, name, number, team, league, positions=[], message=None, parent=None):
-    self.name = name 
-    self.number = number 
-    self.team = team
-    self.league = league
-    self.positions = positions
-    self.pa = 0
-    self.at_bat = 0 
-    self.fielder_choice = 0
-    self.hit = 0 
-    self.bb = 0
-    self.hbp = 0
-    self.put_out = 0
-    self.so = 0
-    self.hr = 0
-    self.rbi = 0
-    self.runs = 0
-    self.singles = 0
-    self.doubles = 0
-    self.triples = 0
-    self.sac_fly = 0
-    self.OBP = 0
-    self.BABIP = 0
-    self.SLG = 0
-    self.AVG = 0
-    self.ISO = 0
-    self.max = 0
-    self.image = None
-
-    #message box
-    self.message = message
-    ##print('player initialized - msg inst', self.message)
-
-    # message box self 
-    self.parent = parent
-
-  def __str__(self):
-    ret = f'Name: {self.name}\nNumber: {self.number}\nPrimary Position: {self.positions[0]}\n  Secondary Positions: {self.positions[1:]}\n'
-    ret += f'PA: {self.pa}\nAt Bats: {self.at_bat}\nHits: {self.hit}\nWalks: {self.bb}\nHBP: {self.hbp}\nSO: {self.so}\nHR: {self.hr}\n'
-    ret += f'Runs: {self.runs}\nRBI: {self.rbi}\nOBP: {self.OBP}\nBABIP: {self.BABIP}\nSLG: {self.SLG}\nAVG: {self.AVG}\nISO: {self.ISO}' 
-    return ret
-  
-  def set_min(self):
-      #self.message.show_message('Sample chart. Player has no updated stats!')
-      print('sample player set min called!')
-      self.at_bat = 60 
-      self.pa = 75
-      self.bb = 10 
-      self.hbp = 5
-      self.hit = 20
-      self.sac_fly = 10
-      self.put_out = 5
-      self.so = 20 
-      self.fielder_choice = 5
-      self.hr = 3  
-      self.singles = 10 
-      self.doubles = 5 
-      self.triples = 2
-  
-  def _get_attrs(self):
-      directory = dir(self)
-      ret = []
-      for el in directory:
-        temp = getattr(self, el)
-        if isinstance(temp, (int)):
-            ###print(temp, el)
-            ret.append((el, temp))
-      return ret
-  
   
 class Player():
   def __init__(self, name, number, team, league, positions=[], message=None, parent=None):
@@ -725,4 +655,72 @@ class Pitcher(Player):
   def get_era(self):          return self.era
   def get_p_at_bats(self):    return self.p_at_bats
 
+class SamplePlayer(Player):
+  def __init__(self, name, number, team, league, positions=[], message=None, parent=None):
+    super().__init__(name, number, team, league, positions=[], message=None)
+
+    self.name = name 
+    self.number = number 
+    self.team = team
+    self.league = league
+    self.positions = positions
+    self.message = message
+    self.parent = parent
+
+    '''self.pa = 0
+    self.at_bat = 0 
+    self.fielder_choice = 0
+    self.hit = 0 
+    self.bb = 0
+    self.hbp = 0
+    self.put_out = 0
+    self.so = 0
+    self.hr = 0
+    self.rbi = 0
+    self.runs = 0
+    self.singles = 0
+    self.doubles = 0
+    self.triples = 0
+    self.sac_fly = 0
+    self.OBP = 0
+    self.BABIP = 0
+    self.SLG = 0
+    self.AVG = 0
+    self.ISO = 0
+    self.max = 0
+    self.image = None'''
+
+
+  '''def __str__(self):
+    ret = f'Name: {self.name}\nNumber: {self.number}\nPrimary Position: {self.positions[0]}\n  Secondary Positions: {self.positions[1:]}\n'
+    ret += f'PA: {self.pa}\nAt Bats: {self.at_bat}\nHits: {self.hit}\nWalks: {self.bb}\nHBP: {self.hbp}\nSO: {self.so}\nHR: {self.hr}\n'
+    ret += f'Runs: {self.runs}\nRBI: {self.rbi}\nOBP: {self.OBP}\nBABIP: {self.BABIP}\nSLG: {self.SLG}\nAVG: {self.AVG}\nISO: {self.ISO}' 
+    return ret'''
+  
+  def set_min(self):
+      #self.message.show_message('Sample chart. Player has no updated stats!')
+      print('sample player set min called!')
+      self.at_bat = 60 
+      self.pa = 75
+      self.bb = 10 
+      self.hbp = 5
+      self.hit = 20
+      self.sac_fly = 10
+      self.put_out = 5
+      self.so = 20 
+      self.fielder_choice = 5
+      self.hr = 3  
+      self.singles = 10 
+      self.doubles = 5 
+      self.triples = 2
+  
+  def _get_attrs(self):
+      directory = dir(self)
+      ret = []
+      for el in directory:
+        temp = getattr(self, el)
+        if isinstance(temp, (int)):
+            ###print(temp, el)
+            ret.append((el, temp))
+      return ret
   
