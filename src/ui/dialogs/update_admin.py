@@ -9,7 +9,10 @@ from src.ui.dialogs.update_positions import UpdatePositionsDialog
 from src.ui.logic.dialogs.update_admin_logic import (
     validate_roster_value,
     normalize_stat_name_for_stack,
+    set_new_stat_team,
 )
+from src.core.team import Team
+from src.ui.dialogs.message import Message
 import random
 
 class UpdateAdminDialog(QDialog):
@@ -122,7 +125,7 @@ class UpdateAdminDialog(QDialog):
             self.form_widget.show()
         
            
-    def set_new_stat_team(self, stat, input, team):
+    def set_new_stat_team(stat: str, input: str, team: Team, message_instance: Message) -> bool:
         """Apply admin change to team: manager/lineup/positions/max_roster with validation."""
         val = None
         match stat:
@@ -136,7 +139,7 @@ class UpdateAdminDialog(QDialog):
             case 'max_roster':
                 is_valid, val = validate_roster_value(input)
                 if not is_valid:
-                    self.message.show_message("Roster value must be an integer between 1 and 50!")
+                    message_instance.show_message("Roster value must be an integer between 1 and 50!")
                     return False
                 team.set_max_roster(val)
                 return True
