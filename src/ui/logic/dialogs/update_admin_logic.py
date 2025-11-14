@@ -1,7 +1,10 @@
 """Logic functions for team admin/management update dialog."""
-from typing import Tuple
+from typing import Tuple, Callable
 from src.core.team import Team
 from src.ui.dialogs.message import Message
+from src.core.linked_list import LinkedList
+from src.core.stack import Stack
+from PySide6.QtWidgets import QLineEdit
 
 def set_new_stat_team(stat: str, input: str, team: Team, message_instance: Message) -> bool:
         """Apply admin change to team: manager/lineup/positions/max_roster with validation."""
@@ -22,39 +25,41 @@ def set_new_stat_team(stat: str, input: str, team: Team, message_instance: Messa
                 team.set_max_roster(val)
                 return True
 
-def update_stats():
+def update_stats(selected: Tuple[str, int], get_team_stat: Callable, update_lineup_handler: Callable, 
+                update_positions_handler: Callable, input: QLineEdit, message_instance: Message, league_instance: LinkedList, 
+                stack_instance: Stack, set_new_stat_team: Callable, normalize_stat_name_for_stack: Callable) -> None:
+
         """Validate selection/value and update the chosen admin stat or open sub-dialogs."""
-        stat = None
-        input = None
-        team, num = self.selected
+        
+        # Extract team name early for error handling
+        team, avg = selected
+        
         try:
-            stat = self.get_team_stat()
-            ##print('stat before if:', stat)
+            stat = get_team_stat()
+            print('stat before:', stat)
             
             # if stat is lineup, exec lineup dialog pop up
             if stat == 'lineup':
                 ##print('lineup selected')
-                self.update_lineup_handler()
+                update_lineup_handler()
                 return
             
             if stat == 'positions':
                 ##print('positions selected')
-                self.update_positions_handler()
+                update_positions_handler()
                 return
 
-            input = self.input.text()
+            updated_input = input.text()
 
-            if not stat or not input:
+            if not stat or not updated_input:
                 raise ValueError("Must select stat and enter value.")
             
-        except:
-            ##print('Exception', e)
-            #QMessageBox.warning(self, "Error", f"{stat} update not successful.")
-            self.message.show_message(f"{team} update not successful.")
+        except Exception as e:
+            #print("Exception:", e)
+            message_instance.show_message(f"{team} update not successful.")
             return
 
-        team, avg = self.selected
-        find_team = self.league.find_team(team)
+        find_team = league_instance.find_team(team)
 
         ##print('team before:', find_team)
 
@@ -62,16 +67,18 @@ def update_stats():
         # new_node = NodeStack(obj, team, stat, prev, func, flag, player=None)
         stat_stack = normalize_stat_name_for_stack(stat)
 
-        self.stack.add_node(find_team, team, stat_stack, getattr(find_team, stat_stack), self.set_new_stat_team, 'team')
+        # Pass function reference, not call it - store previous value before update
+        stack_instance.add_node(find_team, team, stat_stack, getattr(find_team, stat_stack), set_new_stat_team, 'team')
         
         ##print('stat - update stats:', stat)
-        self.set_new_stat_team(stat, input, find_team)
+        # Now call the function to actually update the team
+        set_new_stat_team(stat, updated_input, find_team, message_instance)
 
-        self.message.show_message(f'Team {stat} successfully updated!')
+        message_instance.show_message(f'Team {stat} successfully updated!')
         #msg = show_message(self, f'Team {stat} successfully updated!')
         #msg.exec()
 
-        self.input.clear()
+        input.clear()
 
         ##print('stack after:', self.stack)
         ##print('team after:', find_team)

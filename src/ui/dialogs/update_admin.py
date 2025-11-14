@@ -10,6 +10,7 @@ from src.ui.logic.dialogs.update_admin_logic import (
     validate_roster_value,
     normalize_stat_name_for_stack,
     set_new_stat_team,
+    update_stats,
 )
 import src.core.team as Team
 import src.ui.dialogs.message as Message
@@ -41,7 +42,7 @@ class UpdateAdminDialog(QDialog):
         # ----- Submit Button ----- #
         self.submit_button = QPushButton("Submit")
         self.submit_button.setFixedWidth(100)
-        self.submit_button.clicked.connect(self.update_stats)
+        self.submit_button.clicked.connect(self.update_stats_handler)
 
         # ----- Undo Button ----- #
         self.undo_button = QPushButton("Undo")
@@ -124,26 +125,6 @@ class UpdateAdminDialog(QDialog):
         else:
             self.form_widget.show()
         
-           
-    '''def set_new_stat_team(stat: str, input: str, team: Team, message_instance: Message) -> bool:
-        """Apply admin change to team: manager/lineup/positions/max_roster with validation."""
-        val = None
-        match stat:
-            case 'manager':
-                team.set_manager(input)
-                return True
-            case 'lineup':
-                print('lineup selected')
-            case 'positions':
-                print("positions selected")
-            case 'max_roster':
-                is_valid, val = validate_roster_value(input)
-                if not is_valid:
-                    message_instance.show_message("Roster value must be an integer between 1 and 50!")
-                    return False
-                team.set_max_roster(val)
-                return True
-                '''
 
     def update_lineup_handler(self):
         """Open lineup dialog to adjust batting order for the current team."""
@@ -157,7 +138,11 @@ class UpdateAdminDialog(QDialog):
         dialog = UpdatePositionsDialog(self.league, self.selected, self.leaderboard, self.lv_teams, self.stack, self.undo, self.message, parent=self)
         dialog.exec()
     
-    def update_stats(self):
+    def update_stats_handler(self):
+        update_stats(self.selected, self.get_team_stat, self.update_lineup_handler, self.update_positions_handler, 
+                    self.input, self.message, self.league, self.stack, set_new_stat_team, normalize_stat_name_for_stack)
+
+    '''def update_stats(self):
         """Validate selection/value and update the chosen admin stat or open sub-dialogs."""
         stat = None
         input = None
@@ -209,7 +194,7 @@ class UpdateAdminDialog(QDialog):
         self.input.clear()
 
         ##print('stack after:', self.stack)
-        ##print('team after:', find_team)
+        ##print('team after:', find_team)'''
     
     def undo_stat(self):
         self.undo.undo_exp()
