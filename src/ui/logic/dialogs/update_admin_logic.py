@@ -21,6 +21,60 @@ def set_new_stat_team(stat: str, input: str, team: Team, message_instance: Messa
                     return False
                 team.set_max_roster(val)
                 return True
+
+def update_stats():
+        """Validate selection/value and update the chosen admin stat or open sub-dialogs."""
+        stat = None
+        input = None
+        team, num = self.selected
+        try:
+            stat = self.get_team_stat()
+            ##print('stat before if:', stat)
+            
+            # if stat is lineup, exec lineup dialog pop up
+            if stat == 'lineup':
+                ##print('lineup selected')
+                self.update_lineup_handler()
+                return
+            
+            if stat == 'positions':
+                ##print('positions selected')
+                self.update_positions_handler()
+                return
+
+            input = self.input.text()
+
+            if not stat or not input:
+                raise ValueError("Must select stat and enter value.")
+            
+        except:
+            ##print('Exception', e)
+            #QMessageBox.warning(self, "Error", f"{stat} update not successful.")
+            self.message.show_message(f"{team} update not successful.")
+            return
+
+        team, avg = self.selected
+        find_team = self.league.find_team(team)
+
+        ##print('team before:', find_team)
+
+        # node - stack
+        # new_node = NodeStack(obj, team, stat, prev, func, flag, player=None)
+        stat_stack = normalize_stat_name_for_stack(stat)
+
+        self.stack.add_node(find_team, team, stat_stack, getattr(find_team, stat_stack), self.set_new_stat_team, 'team')
+        
+        ##print('stat - update stats:', stat)
+        self.set_new_stat_team(stat, input, find_team)
+
+        self.message.show_message(f'Team {stat} successfully updated!')
+        #msg = show_message(self, f'Team {stat} successfully updated!')
+        #msg.exec()
+
+        self.input.clear()
+
+        ##print('stack after:', self.stack)
+        ##print('team after:', find_team)
                 
 
 def validate_roster_value(input_str: str) -> Tuple[bool, int]:

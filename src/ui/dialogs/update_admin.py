@@ -11,8 +11,8 @@ from src.ui.logic.dialogs.update_admin_logic import (
     normalize_stat_name_for_stack,
     set_new_stat_team,
 )
-from src.core.team import Team
-from src.ui.dialogs.message import Message
+import src.core.team as Team
+import src.ui.dialogs.message as Message
 import random
 
 class UpdateAdminDialog(QDialog):
@@ -125,7 +125,7 @@ class UpdateAdminDialog(QDialog):
             self.form_widget.show()
         
            
-    def set_new_stat_team(stat: str, input: str, team: Team, message_instance: Message) -> bool:
+    '''def set_new_stat_team(stat: str, input: str, team: Team, message_instance: Message) -> bool:
         """Apply admin change to team: manager/lineup/positions/max_roster with validation."""
         val = None
         match stat:
@@ -143,7 +143,7 @@ class UpdateAdminDialog(QDialog):
                     return False
                 team.set_max_roster(val)
                 return True
-                
+                '''
 
     def update_lineup_handler(self):
         """Open lineup dialog to adjust batting order for the current team."""
@@ -197,10 +197,10 @@ class UpdateAdminDialog(QDialog):
         # new_node = NodeStack(obj, team, stat, prev, func, flag, player=None)
         stat_stack = normalize_stat_name_for_stack(stat)
 
-        self.stack.add_node(find_team, team, stat_stack, getattr(find_team, stat_stack), self.set_new_stat_team, 'team')
+        self.stack.add_node(find_team, team, stat_stack, getattr(find_team, stat_stack), set_new_stat_team(stat, input, find_team, self.message), 'team')
         
         ##print('stat - update stats:', stat)
-        self.set_new_stat_team(stat, input, find_team)
+        set_new_stat_team(stat, input, find_team, self.message)
 
         self.message.show_message(f'Team {stat} successfully updated!')
         #msg = show_message(self, f'Team {stat} successfully updated!')
