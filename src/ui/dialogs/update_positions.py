@@ -2,6 +2,7 @@ from PySide6.QtWidgets import QWidget, QDialog, QLabel, QLineEdit, QPushButton, 
 from PySide6.QtGui import QIntValidator
 from PySide6.QtCore import QCoreApplication, Qt, QTimer
 from src.ui.views.league_view_teams import LeagueViewTeams
+from src.ui.logic.dialogs.update_positions_logic import set_positions_team, update_stats
 
 from src.ui.styles.stylesheets import StyleSheets
 import random
@@ -21,8 +22,6 @@ class UpdatePositionsDialog(QDialog):
 
         self.setWindowTitle("Update Positions")
         self.resize(400, 300)
-        self.styles = StyleSheets()
-        self.setStyleSheet(self.styles.modern_styles)
         
         # Widgets
         # player input - lineup
@@ -34,7 +33,7 @@ class UpdatePositionsDialog(QDialog):
         # ----- Submit Button ----- #
         self.submit_button = QPushButton("Submit")
         self.submit_button.setFixedWidth(100)
-        self.submit_button.clicked.connect(self.update_stats)
+        self.submit_button.clicked.connect(self.update_stats_handler)
 
         # ----- Undo Button ------
         self.undo_button = QPushButton("Undo")
@@ -103,53 +102,12 @@ class UpdatePositionsDialog(QDialog):
         # radio button selection 
         selection = self.radio_group.checkedButton().text()
         return selection        
-
-    def set_positions_team(self, pos, player, team):
-        """Apply the given position to team using team.set_pos with confirmation prompts."""
-        '''"pitcher", "catcher", "first base", "second base", "third base", "shortstop", "left field", "center field", "right field"'''
-        match pos:
-            case 'pitcher':
-                team.set_pos('positions', pos, player, self)
-            case 'catcher':
-                team.set_pos('positions', pos, player, self)
-            case 'first base':
-                team.set_pos('positions', pos, player, self)
-            case 'second base':
-                team.set_pos('positions', pos, player, self)
-            case 'third base':
-                team.set_pos('positions', pos, player, self)
-            case 'shortstop':
-                team.set_pos('positions', pos, player, self)
-            case 'left field':
-                team.set_pos('positions', pos, player, self)
-            case 'center field':
-                team.set_pos('positions', pos, player, self)
-            case 'right field':
-                team.set_pos('positions', pos, player, self)
-
-    def update_stats(self):
-        """Validate inputs, push to undo stack, and update team position assignment."""
-        pos = self.get_team_pos()
-        player = self.player_input.text()
-        team, avg = self.selected
-        find_team = self.league.find_team(team)
-
-        if not pos or not player:
-            #QMessageBox.warning(self, "Input Error", "Enter player name and select position.")
-            self.message.show_message("Enter player name and select position.")
-            return 
-     
-        ##print('team before:', find_team)
-
-        # stack add node 
-        # new_node = NodeStack(obj, team, stat, prev, func, flag, player=None)
-        self.stack.add_node(find_team, team, 'positions', (pos, find_team.positions[pos]), self.set_positions_team, 'team')
-
-        self.set_positions_team(pos, player, find_team)
-
-        ##print('team after:', find_team.return_stats())
-
-        ###print('team after:', find_team)
+    
+    def update_stats_handler(self):
+        update_stats(self.selected, self.get_team_pos(), self.player_input.text(), self.stack, self.message, self.league, self=self)
+        self.message.show_message("Position successfully updated!")
+        self.player_input.clear()
+        
     
     def undo_stat(self):
         self.undo.undo_exp()

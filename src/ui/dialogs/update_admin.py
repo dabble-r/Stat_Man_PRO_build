@@ -11,6 +11,8 @@ from src.ui.logic.dialogs.update_admin_logic import (
     normalize_stat_name_for_stack,
     set_new_stat_team,
     update_stats,
+    update_lineup_handler as update_lineup_handler_logic,
+    update_positions_handler as update_positions_handler_logic,
 )
 import src.core.team as Team
 import src.ui.dialogs.message as Message
@@ -126,21 +128,60 @@ class UpdateAdminDialog(QDialog):
             self.form_widget.show()
         
 
-    def update_lineup_handler(self):
-        """Open lineup dialog to adjust batting order for the current team."""
-        ##print('lineup handler called')
-        dialog = UpdateLineupDialog(self.league, self.selected, self.leaderboard, self.lv_teams, self.stack, self.undo, self.message, parent=self)
-        dialog.exec()
-    
-    def update_positions_handler(self):
-        """Open positions dialog to assign field positions for the current team."""
-        ##print('positions handler called')
-        dialog = UpdatePositionsDialog(self.league, self.selected, self.leaderboard, self.lv_teams, self.stack, self.undo, self.message, parent=self)
-        dialog.exec()
-    
+    def _create_lineup_handler_wrapper(self):
+        """Create a wrapper function that captures dialog instance data for the lineup handler."""
+        def wrapper(league_instance, selected, leaderboard_instance, lv_teams_instance, stack_instance, undo_instance, message_instance, parent=None):
+            """Wrapper that calls the logic function with dialog's instance data."""
+            update_lineup_handler_logic(
+                league_instance, 
+                selected, 
+                leaderboard_instance, 
+                lv_teams_instance, 
+                stack_instance, 
+                undo_instance, 
+                message_instance, 
+                parent=parent
+            )
+        return wrapper
+
+    def _create_positions_handler_wrapper(self):
+        """Create a wrapper function that captures dialog instance data for the positions handler."""
+        def wrapper(league_instance, selected, leaderboard_instance, lv_teams_instance, stack_instance, undo_instance, message_instance, parent=None):
+            """Wrapper that calls the logic function with dialog's instance data."""
+            update_positions_handler_logic(
+                league_instance, 
+                selected, 
+                leaderboard_instance, 
+                lv_teams_instance, 
+                stack_instance, 
+                undo_instance, 
+                message_instance, 
+                parent=parent
+            )
+        return wrapper
+
+
     def update_stats_handler(self):
-        update_stats(self.selected, self.get_team_stat, self.update_lineup_handler, self.update_positions_handler, 
-                    self.input, self.message, self.league, self.stack, set_new_stat_team, normalize_stat_name_for_stack)
+        # Create wrapper for lineup handler that matches the expected signature
+        lineup_handler_wrapper = self._create_lineup_handler_wrapper()
+        positions_handler_wrapper = self._create_positions_handler_wrapper()
+
+        update_stats(
+            self.selected, 
+            self.get_team_stat, 
+            lineup_handler_wrapper, 
+            positions_handler_wrapper, 
+            self.input, 
+            self.message, 
+            self.league, 
+            self.stack, 
+            self.undo, 
+            self.leaderboard, 
+            self.lv_teams, 
+            set_new_stat_team, 
+            normalize_stat_name_for_stack, 
+            parent=self
+        )
 
     
     def undo_stat(self):

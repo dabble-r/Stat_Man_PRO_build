@@ -12,6 +12,7 @@ from src.ui.logic.dialogs.update_lineup_logic import (
   validate_custom_slot,
   build_undo_payload_for_lineup,
   apply_lineup_assignment,
+  update_stats
 )
 
 class UpdateLineupDialog(QDialog):
@@ -29,8 +30,7 @@ class UpdateLineupDialog(QDialog):
         
         self.setWindowTitle("Update Lineup")
         self.resize(400, 300)
-        self.styles = StyleSheets()
-        self.setStyleSheet(self.styles.modern_styles)
+        
         
         # Widgets
         # player input - lineup
@@ -42,7 +42,7 @@ class UpdateLineupDialog(QDialog):
         # ----- Submit Button ----- #
         self.submit_button = QPushButton("Submit")
         self.submit_button.setFixedWidth(100)
-        self.submit_button.clicked.connect(self.update_stats)
+        self.submit_button.clicked.connect(self.update_stats_handler)
 
         # ----- Undo Button ------
         self.undo_button = QPushButton("Undo")
@@ -129,7 +129,10 @@ class UpdateLineupDialog(QDialog):
         else:
             self.custom_order_input.hide()
 
-    def update_stats(self):
+    def update_stats_handler(self): 
+        update_stats(self.get_team_bat_order(), self.player_input.text(), self.stack, self.message, self.custom_order_input, self.league, self.selected, self._apply_lineup_ui_delegate)
+    
+    '''def update_stats(self):
         """Validate inputs, push undo action, and update team lineup accordingly."""
         order_label = self.get_team_bat_order()
         player = self.player_input.text()
@@ -155,7 +158,7 @@ class UpdateLineupDialog(QDialog):
         self.stack.add_node(find_team, team, 'lineup', undo_prev, self._apply_lineup_ui_delegate, 'team')
 
         # Apply lineup assignment
-        self._apply_lineup_ui_delegate(order_label, player, find_team)
+        self._apply_lineup_ui_delegate(order_label, player, find_team)'''
 
     def _apply_lineup_ui_delegate(self, order_label, player, team_obj):
         """Delegate that applies lineup from order label (kept for undo compatibility)."""

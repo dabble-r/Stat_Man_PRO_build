@@ -1,7 +1,11 @@
 # Logic for UpdateLineupDialog (pure functions, no Qt types)
 
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Callable
 from src.core.team import Team
+from PySide6.QtWidgets import QLineEdit 
+from src.ui.dialogs.message import Message
+from src.core.stack import Stack
+from src.core.linked_list import LinkedList
 
 
 def order_to_slot(order_label: str, custom_text: Optional[str]) -> Optional[str]:
@@ -43,3 +47,31 @@ def build_undo_payload_for_lineup(team: Team, slot: str) -> Tuple[str, Optional[
 def apply_lineup_assignment(team: Team, slot: str, player_name: str, parent) -> None:
     """Apply lineup assignment via team.set_lineup with existing replace semantics."""
     team.set_lineup('lineup', slot, player_name, parent)
+
+def update_stats(order_label: Optional[str], player: str, stack: Stack, message_instance: Message,     
+                custom_order_input: QLineEdit, league_instance: LinkedList, selected: Tuple[str, int], 
+                _apply_lineup_ui_delegate: Callable) -> None:
+        """Validate inputs, push undo action, and update team lineup accordingly."""
+        team, avg = selected
+        find_team = league_instance.find_team(team)
+
+        if not order_label or not player:
+            message_instance.show_message("Enter player name and select batting order.")
+            return 
+
+        # Map order to slot and validate custom slot if needed
+        custom_text = custom_order_input.text() if order_label == 'custom' else None
+        slot = order_to_slot(order_label, custom_text)
+        if order_label == 'custom':
+            try:
+                validate_custom_slot(slot, find_team.get_max_roster())
+            except Exception as e:
+                message_instance.show_message(f"Inpute Error: {e}")
+                return
+
+        # Build undo payload and push
+        undo_prev = build_undo_payload_for_lineup(find_team, slot if slot else '')
+        stack.add_node(find_team, team, 'lineup', undo_prev, _apply_lineup_ui_delegate, 'team')
+
+        # Apply lineup assignment
+        _apply_lineup_ui_delegate(order_label, player, find_team)
