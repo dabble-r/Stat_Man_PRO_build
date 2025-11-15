@@ -13,7 +13,7 @@ def enforce_positive_integer(value, message) -> int:
             if int(value) > 0:
                 return int(value)
             else:
-                message.show_message("Invalid value. Please enter a positive number without decimals.")
+                message.show_message("Invalid value. Please enter a positive number without decimals.", btns_flag=False, timeout_ms=2000)
                 return 0
     except Exception:
         print("Invalid value. Expected string for player offense stat.")

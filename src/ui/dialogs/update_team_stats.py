@@ -167,12 +167,12 @@ class UpdateTeamStatsDialog(QDialog):
             val = int(self.int_input.text())
             if not stat or not val:
                 #QMessageBox.warning(self, "Input Error", "Enter value and select stat.")
-                self.message.show_message("Enter value and select stat.")
+                self.message.show_message("Enter value and select stat.", btns_flag=False, timeout_ms=2000)
                 return 
             
         except:
             #QMessageBox.warning(self, "Input Error", "Enter value and select stat.")
-            self.message.show_message("Enter value and select stat.")
+            self.message.show_message("Enter value and select stat.", btns_flag=False, timeout_ms=2000)
             return 
         
             ###print('team before:', find_team)

@@ -140,7 +140,7 @@ class UpdateLineupDialog(QDialog):
         find_team = self.league.find_team(team)
 
         if not order_label or not player:
-            self.message.show_message("Enter player name and select batting order.")
+            self.message.show_message("Enter player name and select batting order.", btns_flag=False, timeout_ms=2000)
             return 
 
         # Map order to slot and validate custom slot if needed
@@ -150,7 +150,7 @@ class UpdateLineupDialog(QDialog):
             try:
                 validate_custom_slot(slot, find_team.get_max_roster())
             except Exception as e:
-                self.message.show_message(f"Inpute Error: {e}")
+                self.message.show_message(f"Inpute Error: {e}", btns_flag=False, timeout_ms=2000)
                 return
 
         # Build undo payload and push

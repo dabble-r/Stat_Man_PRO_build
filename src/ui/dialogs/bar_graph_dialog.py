@@ -83,7 +83,7 @@ class BarGraphDialog(QDialog):
           #self.parent.teams_selected.append(el)
       #print('teams selected - submit')
       if len(self.teams_selected) == 0:
-          self.message.show_message("Select at least one team.")
+          self.message.show_message("Select at least one team.", btns_flag=False, timeout_ms=2000)
       else:
         self.close()
         
@@ -95,7 +95,7 @@ class BarGraphDialog(QDialog):
             if len(self.teams_selected) < self.max_check:
               self.teams_selected.append(team)
             else:
-              self.message.show_message("Limit five teams per graph.")
+              self.message.show_message("Limit five teams per graph.", btns_flag=False, timeout_ms=2000)
               el.setChecked(False)
               #self.teams_selected.remove(team)
               #self.parent.teams_selected.remove(team)

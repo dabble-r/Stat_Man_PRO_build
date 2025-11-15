@@ -38,7 +38,7 @@ class FileDialog(QWidget):
 
         if not db_file:
             print("No database file selected.")
-            self.message.show_message("No database file selected!\nCreating new database!")
+            self.message.show_message("No database file selected!\nCreating new database!", btns_flag=False, timeout_ms=2000)
             db_file = None
             
 
@@ -53,7 +53,7 @@ class FileDialog(QWidget):
 
         if not csv_file:
             print("No CSV file selected.")
-            self.message.show_message("No CSV file selected! No data imported!")
+            self.message.show_message("No CSV file selected! No data imported!", btns_flag=False, timeout_ms=2000)
             return
 
         # --- Validate and Store Paths ---
@@ -69,7 +69,7 @@ class FileDialog(QWidget):
             else:
                 raise FileNotFoundError("One or both selected files are invalid.")
         except Exception as e:
-            self.message.show_message(f"Error:\n{e}")
+            self.message.show_message(f"Error:\n{e}", btns_flag=False, timeout_ms=2000)
    
     def open_file_dialog(self):
         """Open file or directory selection depending on flag ('save' or 'load'); returns path."""
@@ -101,7 +101,7 @@ class FileDialog(QWidget):
                 # prompt user - merge or overwrite data
             else:
                 print("No file selected.")
-                self.message.show_message("No file selected!")
+                self.message.show_message("No file selected!", btns_flag=False, timeout_ms=2000)
 
         elif self.flag == 'load':
             filter_str = "All Files (*.*)"
@@ -128,7 +128,7 @@ class FileDialog(QWidget):
                 # prompt user - merge or overwrite data
             else:
                 print("No folder selected.")
-                self.message.show_message("No folder selected!")
+                self.message.show_message("No folder selected!", btns_flag=False, timeout_ms=2000)
     
     # not in use
     def open_file_dialog_csv(self):

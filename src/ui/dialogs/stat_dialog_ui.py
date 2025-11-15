@@ -160,12 +160,12 @@ class Ui_StatDialog(QDialog):
         #print('get graph flag:', flag)
         match flag:
             case 'sample league':
-                self.message.show_message("No teams in league.\nSample league bar graph.")
+                self.message.show_message("No teams in league.\nSample league bar graph.", btns_flag=False, timeout_ms=2000)
                 self.get_sample_league()
             case 'league':
                 self.get_curr_league()
             case 'sample team':
-                self.message.show_message("Must update player hits, walks, and so.\nSample team bar graph.")
+                self.message.show_message("Must update player hits, walks, and so.\nSample team bar graph.", btns_flag=False, timeout_ms=2000)
                 self.get_sample_team() 
             case 'team':
                 self.get_curr_graph() 
@@ -185,7 +185,7 @@ class Ui_StatDialog(QDialog):
         if flag == True:
             return 'player'
         elif flag == False:
-            self.message.show_message("Must update: hits, so, and walks\nSample Player Graph")
+            self.message.show_message("Must update: hits, so, and walks\nSample Player Graph", btns_flag=False, timeout_ms=2000)
             return 'sample player'
     
     def get_donut(self):
@@ -279,7 +279,7 @@ class Ui_StatDialog(QDialog):
         teams_selected = [x for x in self.teams_selected]
         #print('teams selected:', teams_selected) 
         if len(teams_selected) == 0:
-            self.message.show_message("Must select at least on team!")
+            self.message.show_message("Must select at least on team!", btns_flag=False, timeout_ms=2000)
             return
                 
         teams, data = self.get_graph_data_spec(teams_selected)

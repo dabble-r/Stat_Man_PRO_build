@@ -26,7 +26,7 @@ def set_new_stat_team(stat: str, input: str, team: Team, message_instance: Messa
             case 'max_roster':
                 is_valid, val = validate_roster_value(input)
                 if not is_valid:
-                    message_instance.show_message("Roster value must be an integer between 1 and 50!")
+                    message_instance.show_message("Roster value must be an integer between 1 and 50!", btns_flag=False, timeout_ms=2000)
                     return False
                 team.set_max_roster(val)
                 return True
@@ -57,10 +57,10 @@ def update_stats(selected: Tuple[str, int], get_team_stat: Callable, update_line
             stat = get_team_stat()
             print('stat before:', stat)
         except AttributeError:
-            message_instance.show_message("Please select a stat option (manager, lineup, positions, or max roster).")
+            message_instance.show_message("Please select a stat option (manager, lineup, positions, or max roster).", btns_flag=False, timeout_ms=2000)
             return
         except Exception as e:
-            message_instance.show_message(f"Error reading stat selection: {str(e)}")
+            message_instance.show_message(f"Error reading stat selection: {str(e)}", btns_flag=False, timeout_ms=2000)
             return
         
         # Handle lineup dialog
@@ -68,10 +68,10 @@ def update_stats(selected: Tuple[str, int], get_team_stat: Callable, update_line
             try:
                 update_lineup_handler(league_instance, selected, leaderboard_instance, lv_teams_instance, stack_instance, undo_instance, message_instance, parent=parent)
             except TypeError as e:
-                message_instance.show_message(f"Lineup dialog error: Invalid arguments. {str(e)}")
+                message_instance.show_message(f"Lineup dialog error: Invalid arguments. {str(e)}", btns_flag=False, timeout_ms=2000)
                 return
             except Exception as e:
-                message_instance.show_message(f"Failed to open lineup dialog: {str(e)}")
+                message_instance.show_message(f"Failed to open lineup dialog: {str(e)}", btns_flag=False, timeout_ms=2000)
                 return
             return
         
@@ -80,10 +80,10 @@ def update_stats(selected: Tuple[str, int], get_team_stat: Callable, update_line
             try:
                 update_positions_handler(league_instance, selected, leaderboard_instance, lv_teams_instance, stack_instance, undo_instance, message_instance, parent=parent)
             except TypeError as e:
-                message_instance.show_message(f"Positions dialog error: Invalid arguments. {str(e)}")
+                message_instance.show_message(f"Positions dialog error: Invalid arguments. {str(e)}", btns_flag=False, timeout_ms=2000)
                 return
             except Exception as e:
-                message_instance.show_message(f"Failed to open positions dialog: {str(e)}")
+                message_instance.show_message(f"Failed to open positions dialog: {str(e)}", btns_flag=False, timeout_ms=2000)
                 return
             return
 
@@ -94,10 +94,10 @@ def update_stats(selected: Tuple[str, int], get_team_stat: Callable, update_line
             if not stat or not updated_input:
                 raise ValueError("Must select stat and enter value.")
         except ValueError as e:
-            message_instance.show_message(str(e))
+            message_instance.show_message(str(e), btns_flag=False, timeout_ms=2000)
             return
         except Exception as e:
-            message_instance.show_message(f"Error reading input value: {str(e)}")
+            message_instance.show_message(f"Error reading input value: {str(e)}", btns_flag=False, timeout_ms=2000)
             return
 
         find_team = league_instance.find_team(team)
@@ -115,7 +115,7 @@ def update_stats(selected: Tuple[str, int], get_team_stat: Callable, update_line
         # Now call the function to actually update the team
         set_new_stat_team(stat, updated_input, find_team, message_instance)
 
-        message_instance.show_message(f'Team {stat} successfully updated!')
+        message_instance.show_message(f'Team {stat} successfully updated!', btns_flag=False, timeout_ms=2000)
         #msg = show_message(self, f'Team {stat} successfully updated!')
         #msg.exec()
 

@@ -35,6 +35,10 @@ class SamplePlayer():
 
     #message box
     self.message = message
+    '''self.message.set_buttons(False)
+    if self.message:
+      self.message.set_timer(1000)'''
+   
     ##print('player initialized - msg inst', self.message)
 
     # message box self 
@@ -109,6 +113,9 @@ class Player():
 
     #message box
     self.message = message
+    '''self.message.set_buttons(False)
+    if self.message:
+      self.message.set_timer(1000)'''
     ##print('player initialized - msg inst', self.message)
 
     # message box self 
@@ -263,7 +270,7 @@ class Player():
   def _warn(self, message):
       #QMessageBox.warning(self.parent, "Stat Input Error", message)
       #print('warn error msg inst', self.message)
-      self.message.show_message(message)
+      self.message.show_message(message, btns_flag=False, timeout_ms=2000)
       
   def _get_attrs(self):
       directory = dir(self)
@@ -512,6 +519,9 @@ class Pitcher(Player):
     self.team = team
     self.positions = positions
     self.message = message
+    '''if self.message:
+      self.message.set_buttons(False)
+      self.message.set_timer(1000)'''
 
     # pitching attr
     self.wins = 0 
@@ -552,7 +562,7 @@ class Pitcher(Player):
   def _show_error(self, message):
       #QMessageBox.warning(self.parent, "Input Error", message)
       #print('show error - msg inst', self.message)
-      self.message.show_message(message)
+      self.message.show_message(message, btns_flag=False, timeout_ms=2000)
 
   
   
@@ -626,22 +636,22 @@ class Pitcher(Player):
   def set_wins(self, val):
       if self.games_played > 0 and (self.wins + self.losses) == self.games_played:
           #QMessageBox.warning(self.parent, "Input Error", "Update games played before wins and losses.")
-          self.message.show_message("Update games played before wins and losses.")
+          self.message.show_message("Update games played before wins and losses.", btns_flag=False, timeout_ms=2000)
           return 
       if (self.wins + val + self.losses) > self.games_played:
           #QMessageBox.warning(self.parent, "Input Error", "Wins - Losses do not match total games played.")
-          self.message.show_message("Wins - Losses do not match total games played.")
+          self.message.show_message("Wins - Losses do not match total games played.", btns_flag=False, timeout_ms=2000)
           return 
       self.wins += val
 
   def set_losses(self, val):
       if self.games_played > 0 and (self.wins + self.losses) == self.games_played:
           #QMessageBox.warning(self.parent, "Input Error", "Update games played before wins and losses.")
-          self.message.show_message("Update games played before wins and losses.")
+          self.message.show_message("Update games played before wins and losses.", btns_flag=False, timeout_ms=2000)
           return
       if (self.wins + val + self.losses) > self.games_played:
           #QMessageBox.warning(self.parent, "Input Error", "Wins - Losses do not match total games played.")
-          self.message.show_message("Wins - Losses do not match total games played.")
+          self.message.show_message("Wins - Losses do not match total games played.", btns_flag=False, timeout_ms=2000)
           return 
       self.losses += val
 

@@ -140,7 +140,7 @@ class LeagueViewPlayers(QWidget):
 
     def new_player_handler(self):
         if not must_have_team_before_add(self.league):
-            self.message.show_message("Must create a team before adding players.")
+            self.message.show_message("Must create a team before adding players.", btns_flag=False, timeout_ms=2000)
             return
         
         # create new player dialog for each 

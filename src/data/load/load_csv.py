@@ -836,7 +836,7 @@ def load_all_gui(instances, parent, league, mode=None):
                                 pass
                             try:
                                 if hasattr(parent, 'message') and getattr(parent, 'message', None) is not None:
-                                    parent.message.show_message(f"Merge warning for {getattr(existing,'name','player')}: could not merge {attr_name}.")
+                                    parent.message.show_message(f"Merge warning for {getattr(existing,'name','player')}: could not merge {attr_name}.", btns_flag=False, timeout_ms=2000)
                             except Exception:
                                 pass
                     # Recalculate derived offense metrics
@@ -981,7 +981,7 @@ def load_all_gui(instances, parent, league, mode=None):
                                     pass
                                 try:
                                     if hasattr(parent, 'message') and getattr(parent, 'message', None) is not None:
-                                        parent.message.show_message(f"Merge warning for {getattr(new_pitcher,'name','pitcher')}: could not merge {attr_name}.")
+                                        parent.message.show_message(f"Merge warning for {getattr(new_pitcher,'name','pitcher')}: could not merge {attr_name}.", btns_flag=False, timeout_ms=2000)
                                 except Exception:
                                     pass
                     else:
@@ -1046,7 +1046,7 @@ def load_all_gui(instances, parent, league, mode=None):
                                     pass
                                 try:
                                     if hasattr(parent, 'message') and getattr(parent, 'message', None) is not None:
-                                        parent.message.show_message(f"Merge warning for {getattr(existing_player,'name','pitcher')}: could not merge {attr_name}.")
+                                        parent.message.show_message(f"Merge warning for {getattr(existing_player,'name','pitcher')}: could not merge {attr_name}.", btns_flag=False, timeout_ms=2000)
                                 except Exception:
                                     pass
                     else:

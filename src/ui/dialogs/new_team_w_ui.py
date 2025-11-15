@@ -195,11 +195,11 @@ class Ui_NewTeam(QWidget, object):
         error = self.check_input()
         if error[0] == 0:
             #QMessageBox.warning(self, "Input Error", f"{error[1]}") 
-            self.message.show_message(f"{error[1]}")
+            self.message.show_message(f"{error[1]}", btns_flag=False, timeout_ms=2000)
             return
         
         elif self.check_dups(team) == True:
-            self.message.show_message("Team already exsits!")
+            self.message.show_message("Team already exsits!", btns_flag=False, timeout_ms=2000)
             return
         
         # item WL
@@ -226,7 +226,7 @@ class Ui_NewTeam(QWidget, object):
             #new_team_logo, file_path = self.get_icon(self.file_path)
             item_WL.setIcon(0, self.logo)
             item_AVG.setIcon(0, self.logo)
-            self.message.show_message('Team logo successfully added!')
+            self.message.show_message('Team logo successfully added!', btns_flag=False, timeout_ms=2000)
 
 
         #self.league_view_WL.setColumnCount(2)

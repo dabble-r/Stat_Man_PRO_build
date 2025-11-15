@@ -182,7 +182,7 @@ class UpdateGameDialog(QDialog):
 
         if not order or not player:
             #QMessageBox.warning(self, "Input Error", "Enter player name and select batting order.")
-            self.message.show_message("Enter player name and select batting order.")
+            self.message.show_message("Enter player name and select batting order.", btns_flag=False, timeout_ms=2000)
             return 
         
         if order == 'custom':
@@ -203,11 +203,11 @@ class UpdateGameDialog(QDialog):
             else:
                 max_roster = find_team.get_max_roster()
                 #QMessageBox.warning(self, "Input Error", f"Enter number between 9 and team max roster: {max_roster}.")
-                self.message.show_message(f"Enter number between 9 and team max roster: {max_roster}.")
+                self.message.show_message(f"Enter number between 9 and team max roster: {max_roster}.", btns_flag=False, timeout_ms=2000)
 
           except Exception as e:
               #QMessageBox.warning(self, "Input Error", f"{e}") 
-              self.message.show_message(f"Inpute Error: {e}")
+              self.message.show_message(f"Inpute Error: {e}", btns_flag=False, timeout_ms=2000)
 
         elif order != "custom":
             ###print('team before:', find_team)

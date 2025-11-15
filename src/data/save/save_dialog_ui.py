@@ -57,7 +57,7 @@ import os
         print(f"Saving progress for league: {self.league.admin['Name']}")
 
         if self.league.admin['Name'] == 'League':
-            self.message.show_message(f"Please update league name:\n '{self.league.admin['Name']}' before saving!")
+            self.message.show_message(f"Please update league name:\n '{self.league.admin['Name']}' before saving!", btns_flag=False, timeout_ms=2000)
             return
        
         save = Save(self.db, self.league, self.message, self.file_dir)
@@ -133,7 +133,7 @@ class SaveDialog(QDialog):
 
         if not selections:
             # Nothing selected -> show error
-            self.message.show_message("Please select at least one save option.")
+            self.message.show_message("Please select at least one save option.", btns_flag=False, timeout_ms=2000)
             return
 
         # Return selected items
@@ -141,7 +141,7 @@ class SaveDialog(QDialog):
         print(f"User selected save option(s): {self.selection}")
 
         if self.league.admin['Name'] == 'League':
-            self.message.show_message(f"Please update league name:\n '{self.league.admin['Name']}' before saving!")
+            self.message.show_message(f"Please update league name:\n '{self.league.admin['Name']}' before saving!", btns_flag=False, timeout_ms=2000)
             return
        
         save = Save(self.db, self.league, self.message, self.file_dir, self.selection)

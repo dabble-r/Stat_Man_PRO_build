@@ -56,7 +56,7 @@ def update_stats(order_label: Optional[str], player: str, stack: Stack, message_
         find_team = league_instance.find_team(team)
 
         if not order_label or not player:
-            message_instance.show_message("Enter player name and select batting order.")
+            message_instance.show_message("Enter player name and select batting order.", btns_flag=False, timeout_ms=2000)
             return 
 
         # Map order to slot and validate custom slot if needed
@@ -66,7 +66,7 @@ def update_stats(order_label: Optional[str], player: str, stack: Stack, message_
             try:
                 validate_custom_slot(slot, find_team.get_max_roster())
             except Exception as e:
-                message_instance.show_message(f"Inpute Error: {e}")
+                message_instance.show_message(f"Inpute Error: {e}", btns_flag=False, timeout_ms=2000)
                 return
 
         # Build undo payload and push

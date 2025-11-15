@@ -345,7 +345,7 @@ class Team():
   def set_max_roster(self, val):        
     if self.max_roster + val < len(self.players):
       new_total = self.max_roster + val
-      self.message.show_message(f"Roster max_roster {new_total} cannot be less than current roster {self.max_roster}.")
+      self.message.show_message(f"Roster max_roster {new_total} cannot be less than current roster {self.max_roster}.", btns_flag=False, timeout_ms=2000)
       #QMessageBox.warning(self, "Input Error", f"Roster max_roster {new_total} cannot be less than current roster {self.max_roster}.")  
       return     
     self.max_roster = val
@@ -395,7 +395,7 @@ class Team():
       self.games_played += val 
       return
     #QMessageBox.warning(parent, "Input Error", "Enter a value greater than zero.")
-    self.message.show_message("Enter a value greater than zero.")
+    self.message.show_message("Enter a value greater than zero.", btns_flag=False, timeout_ms=2000)
   
   def set_wins(self, val, parent):
     """Increment wins with guard that wins+losses ≤ games_played."""
@@ -406,7 +406,7 @@ class Team():
         self.wins += val 
         return 
     #QMessageBox.warning(parent, "Input Error", f"Wins-Losses cannot exceed games played\n\n          W:{self.wins} L:{self.losses} G:{self.games_played}.")
-    self.message.show_message(f"Wins-Losses cannot exceed games played\n\n          W:{self.wins} L:{self.losses} G:{self.games_played}.")
+    self.message.show_message(f"Wins-Losses cannot exceed games played\n\n          W:{self.wins} L:{self.losses} G:{self.games_played}.", btns_flag=False, timeout_ms=2000)
   
   def set_losses(self, val, parent):
     """Increment losses with guard that wins+losses ≤ games_played."""
@@ -417,7 +417,7 @@ class Team():
         self.losses += val
         return 
     #QMessageBox.warning(parent, "Input Error", f"Wins-Losses cannot exceed games played\n\n          W:{self.wins} L:{self.losses} G:{self.games_played}.")
-    self.message.show_message(f"Wins-Losses cannot exceed games played\n\n          W:{self.wins} L:{self.losses} G:{self.games_played}.")
+    self.message.show_message(f"Wins-Losses cannot exceed games played\n\n          W:{self.wins} L:{self.losses} G:{self.games_played}.", btns_flag=False, timeout_ms=2000)
   
   def set_team_era(self):
     """Recalculate and store team ERA from pitchers on roster."""

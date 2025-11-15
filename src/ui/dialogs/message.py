@@ -7,59 +7,13 @@ from PySide6.QtGui import QFontMetrics
 from PySide6.QtCore import Qt
 
 
-
-class Message_1(QDialog):
-  def __init__(self, styles, parent=None):
-    """Simple message box wrapper for OK-only notifications with autosizing."""
-    self.parent = parent
-    self.box = QMessageBox(parent=self.parent)
-    self.styles = styles
-    self.box.setWindowTitle('Update Message')
-    self.box.setStandardButtons(QMessageBox.Ok)
-    #self.box.setStyleSheet(self.styles.modern_styles)
-    self.choice = None
-
-  def set_box_text(self, text):
-    """Set message text on the internal QMessageBox."""
-    self.box.setText(text)
-
-  def show_message(self, text):
-    """Show message modally after adjusting box size to content."""
-    self.set_box_text(text)
-    self._resize_to_fit_text(text)
-
-    # show not functional - non-modal
-    #self.box.show()
-
-    # message exec - modal
-    self.box.exec()
-  
-  def _resize_to_fit_text(self, text):
-        """Compute and set a minimum dialog size based on text metrics."""
-        # Use font metrics to calculate text size
-        font_metrics = QFontMetrics(self.box.font())
-        text_width = font_metrics.horizontalAdvance(text)
-        text_height = font_metrics.height()
-
-        # Add padding and set minimum size
-        padding = 100  # Adjust as needed
-        min_width = max(250, text_width + padding)
-        min_height = 150  # You can also adjust based on line count
-
-        self.box.setMinimumSize(min_width, min_height)
-
-   
-    
-    
-
-
 class Message(QDialog):
-    def __init__(self, styles=None, parent=None):
+    def __init__(self, parent=None, timeout_ms=None):
         """Flexible message dialog returning 'ok'/'no'/'cancel' per user choice."""
         super().__init__(parent)
-        self.styles = styles
         self.setWindowTitle("Update Message")
         self.choice = None
+        
 
         # Layout
         self.layout = QVBoxLayout(self)
@@ -81,15 +35,30 @@ class Message(QDialog):
         self.buttons.rejected.connect(self._handle_cancel)  # Cancel
         self.buttons.button(QDialogButtonBox.No).clicked.connect(self._handle_no)
 
+    def set_timer(self, timeout_ms: int): 
+        self.timer = QTimer(self)
+        self.timer.setSingleShot(True) # Timer fires only once
+        self.timer.timeout.connect(self.reject) # Close dialog (as rejected) when timer expires
+        self.timer.start(timeout_ms) # Start the timer with the specified timeout
+
+    def set_buttons(self, flag: bool):
+        if flag:
+            self.buttons.setVisible(True)
+        else:
+            self.buttons.setVisible(False)
 
     def set_box_text(self, text: str):
         """Set the message text and resize the dialog accordingly."""
         self.label.setText(text)
         self._resize_to_fit_text(text)
 
-    def show_message(self, text: str) -> str:
+    def show_message(self, text: str, btns_flag: bool = True, timeout_ms: int = 2000) -> str:
         """Show the dialog and return the clicked button value."""
         self.set_box_text(text)
+        if not btns_flag:
+            self.set_buttons(False)
+            self.set_timer(timeout_ms)
+        
         self.exec()
         return self.choice
 

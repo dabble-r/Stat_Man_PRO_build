@@ -179,12 +179,12 @@ class UpdateOffenseDialog(QDialog):
         try:
             stat = self.get_player_stat()
         except:
-            self.message.show_message("Must select a player stat to update.")
+            self.message.show_message("Must select a player stat to update.", btns_flag=False, timeout_ms=2000)
             #QMessageBox.warning(self, "Input Error", "Must select a player stat to update.")
             return
 
         if not stat or not self.int_input.text():
-            self.message.show_message("Please enter value and select stat.")
+            self.message.show_message("Please enter value and select stat.", btns_flag=False, timeout_ms=2000)
             #QMessageBox.warning(self, "Input Error", "Please enter value and select stat.")
             return
         
@@ -194,11 +194,11 @@ class UpdateOffenseDialog(QDialog):
         player, team, avg = self.selected
         find_team = self.league.find_team(team)
         if not find_team:
-            self.message.show_message("Selected team is no longer available. Refresh and try again.")
+            self.message.show_message("Selected team is no longer available. Refresh and try again.", btns_flag=False, timeout_ms=2000)
             return
         find_player = find_team.get_player(player)
         if not find_player:
-            self.message.show_message("Selected player is no longer available. Refresh and try again.")
+            self.message.show_message("Selected player is no longer available. Refresh and try again.", btns_flag=False, timeout_ms=2000)
             return
 
         # Normalize numeric fields on the target player to avoid string concatenation

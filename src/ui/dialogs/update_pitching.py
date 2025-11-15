@@ -155,12 +155,12 @@ class UpdatePitchingDialog(QDialog):
     
     def update_stats_handler(self): 
         if update_stats(self.selected, self.get_player_stat(), self.int_input.text(), self.stack, self.message, self.league, self.enable_buttons):
-            self.message.show_message(f"Pitching {self.get_player_stat()} successfully updated!")
+            self.message.show_message(f"Pitching {self.get_player_stat()} successfully updated!", btns_flag=False, timeout_ms=2000)
         self.int_input.clear()
 
     def undo_stat_handler(self):
         undo_stat(self.selected, self.undo, self.league, self.message)
-        self.message.show_message(f"Pitching {self.get_player_stat()} successfully undone!")
+        self.message.show_message(f"Pitching {self.get_player_stat()} successfully undone!", btns_flag=False, timeout_ms=2000)
     
     '''def view_player_stats(self):
         self.stat_widget = QDialog(self)

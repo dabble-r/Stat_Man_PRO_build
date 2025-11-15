@@ -105,7 +105,7 @@ class UpdatePositionsDialog(QDialog):
     
     def update_stats_handler(self):
         update_stats(self.selected, self.get_team_pos(), self.player_input.text(), self.stack, self.message, self.league, self=self)
-        self.message.show_message("Position successfully updated!")
+        self.message.show_message("Position successfully updated!", btns_flag=False, timeout_ms=2000)
         self.player_input.clear()
         
     

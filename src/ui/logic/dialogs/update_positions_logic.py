@@ -43,7 +43,7 @@ def update_stats(selected: Tuple[str, int], pos: str, player_input: str,
 
         if not pos or not player:
             #QMessageBox.warning(self, "Input Error", "Enter player name and select position.")
-            message_instance.show_message("Enter player name and select position.")
+            message_instance.show_message("Enter player name and select position.", btns_flag=False, timeout_ms=2000)
             return 
      
         ##print('team before:', find_team)

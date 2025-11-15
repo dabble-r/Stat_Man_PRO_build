@@ -37,7 +37,7 @@ class Undo():
           # Validation: prevent undo if PA is 0 (would make it negative)
           if currPA == 0:
             if message is not None:
-              message.show_message("Player at bat and pa are 0")
+              message.show_message("Player at bat and pa are 0", btns_flag=False, timeout_ms=2000)
             return
           
           print("curr pa: ", currPA, prev, currPA-prev)
@@ -55,7 +55,7 @@ class Undo():
           # Validation: prevent undo if PA or AB is 0 (would make it negative)
           if currPA == 0 or currAB == 0:
             if message is not None:
-              message.show_message("Player at bat and pa are 0")
+              message.show_message("Player at bat and pa are 0", btns_flag=False, timeout_ms=2000)
             return
           
           paUpdate = currPA - val

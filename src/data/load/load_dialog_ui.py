@@ -63,7 +63,7 @@ class Ui_LoadDialog:
         if self.db:
             load_all_csv_to_db(self.league, csv_dir, self.db, self.parent.stack, parent=self.parent)
         else:
-            self.message.show_message("Database path not available. Please set a league name before loading.")
+            self.message.show_message("Database path not available. Please set a league name before loading.", btns_flag=False, timeout_ms=2000)
             return
 
         self.parent.accept()

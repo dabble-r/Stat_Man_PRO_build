@@ -267,7 +267,7 @@ class Ui_NewPlayer(QWidget, object):
     def input_check(self):
         if not self.name.text() or not self.number.text() or self.selection_team == '' or len(self.selection_pos) == 0:
             ##print('check:',self.new_player_text())
-            self.message.show_message("Please enter a player name, number, team, and select at least one position.")
+            self.message.show_message("Please enter a player name, number, team, and select at least one position.", btns_flag=False, timeout_ms=2000)
             #QMessageBox.warning(self, "Input Error", "Please enter a player name, number, team, and select at least one position.")
             return False
         
@@ -277,7 +277,7 @@ class Ui_NewPlayer(QWidget, object):
         for el in pos:
             ###print('el:', el)
             if el not in options:
-                self.message.show_message(f"' {el} ' not a valid player position.")
+                self.message.show_message(f"' {el} ' not a valid player position.", btns_flag=False, timeout_ms=2000)
                 #QMessageBox.warning(self, "Input Error", f"' {el} ' not a valid player position.")
                 return False
 
@@ -295,13 +295,13 @@ class Ui_NewPlayer(QWidget, object):
         if self.team_check(team) == False:
             #print('team not found') 
             self.new_player_flag = True
-            self.message.show_message("Error: player not created!")
+            self.message.show_message("Error: player not created!", btns_flag=False, timeout_ms=2000)
             return
 
         elif self.check_dups(name, team) == True:
             #print('player already exists!')
             self.new_player_flag = True
-            self.message.show_message("Player already exists!")
+            self.message.show_message("Player already exists!", btns_flag=False, timeout_ms=2000)
             return
         
         else:
@@ -312,7 +312,7 @@ class Ui_NewPlayer(QWidget, object):
                 new_player = Player(name, num, find_team, self.league, pos, message=self.message)
                 #print(f'new player: {pos}') 
             if self.image and self.file_path:
-                self.message.show_message('Player image successfully added!')
+                self.message.show_message('Player image successfully added!', btns_flag=False, timeout_ms=2000)
                 new_player.image = self.file_path
 
             #print('new player message inst', new_player.message)

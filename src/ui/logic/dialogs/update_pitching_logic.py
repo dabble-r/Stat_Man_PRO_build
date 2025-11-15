@@ -147,22 +147,22 @@ def update_stats(selected: Tuple[str, str, int], stat: str, val: str, stack: Sta
             stat = stat
             val = int(val)
             if not stat or not val:
-                message_instance.show_message("Must select a stat and enter value.")
+                message_instance.show_message("Must select a stat and enter value.", btns_flag=False, timeout_ms=2000)
                 #QMessageBox.warning(self, "Input Error", "Must select a stat and enter value.")
                 return
         except:
-            message_instance.show_message("Must enter a number value to update stat.")
+            message_instance.show_message("Must enter a number value to update stat.", btns_flag=False, timeout_ms=2000)
             #QMessageBox.warning(self, "Input Error", "Must enter a number value to update stat.")
             return
 
         player, team, num = selected
         find_team = league_instance.find_team(team)
         if not find_team:
-            message_instance.show_message("Team not found.")
+            message_instance.show_message("Team not found.", btns_flag=False, timeout_ms=2000)
             return
         find_player = find_team.get_player(player)
         if not find_player:
-            message_instance.show_message("Player not found.")
+            message_instance.show_message("Player not found.", btns_flag=False, timeout_ms=2000)
             return
 
         normalize_pitcher_numeric_fields(find_player, ['games_played', 'wins', 'losses', 'games_started', 'games_completed', 'shutouts', 'saves', 'save_ops', 'ip', 'p_at_bats', 'p_hits', 'p_runs', 'er', 'p_hr', 'p_hb', 'p_bb', 'p_so'])
@@ -181,7 +181,7 @@ def update_stats(selected: Tuple[str, str, int], stat: str, val: str, stack: Sta
             refresh_pitcher_derived_stats(find_player, find_team)
 
         except:
-            message_instance.show_message(f"Error updating pitching {stat}.")
+            message_instance.show_message(f"Error updating pitching {stat}.", btns_flag=False, timeout_ms=2000)
            
        
 def undo_stat(selected: Tuple[str, str, float], undo: Undo, league_instance: LinkedList, message_instance: Message) -> None:
@@ -194,9 +194,9 @@ def undo_stat(selected: Tuple[str, str, float], undo: Undo, league_instance: Lin
             undo.undo_exp()
             refresh_pitcher_derived_stats(find_player, find_team)
         else:
-            message_instance.show_message("Player not found.")
+            message_instance.show_message("Player not found.", btns_flag=False, timeout_ms=2000)
     else:
-        message_instance.show_message("Team not found.")
+        message_instance.show_message("Team not found.", btns_flag=False, timeout_ms=2000)
 
 def view_player_stats(selected: Tuple[str, str, float], league_instance: LinkedList, message_instance: Message, self) -> None:
     stat_widget = QDialog(self)
