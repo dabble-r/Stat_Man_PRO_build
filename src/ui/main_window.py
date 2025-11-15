@@ -97,6 +97,14 @@ class MainWindow(QWidget):
         #self.button_group_bottom.addButton(self.btn_update)
         self.btn_update.clicked.connect(lambda: self.get_item(self.setup_update_ui))
 
+        # ------------------------------------------------------------- # 
+        # update button to the right of the second tree widget at the bottom
+
+        self.btn_search = QPushButton("Search")
+        self.v_layout_buttons_bottom.addWidget(self.btn_search)
+        self.buttons_bottom.append(self.btn_search)
+        self.btn_search.clicked.connect(lambda: self.get_item(self.setup_search_ui))
+
          # ------------------------------------------------------------- #
 
         # remove button to the right of the second tree widget at the bottom
@@ -233,26 +241,22 @@ class MainWindow(QWidget):
         print(f"get_item called with function: {func.__name__}")
         print(f"selected_is_none() returned: {selection_result}")
         
-        if not self.selected_is_none():
+        if self.selected_is_none() is None:
             ##print('league')
             ##print('func:', func.__name__)
+            
             func_name = func.__name__
             
-            if func_name == 'setup_update_ui':
+            if func_name == 'setup_update_ui' or 'setup_stat_ui':
                 # When nothing is selected, Update button shows league settings
                 self.setup_league_ui()
-
-            elif func_name == 'setup_stat_ui':
-                # When nothing is selected, Stat button should show a warning
-                QMessageBox.warning(self, "No Selection", "Please select a team or player to view stats.")
-                return
             
-            elif func_name == 'setup_remove_ui':
+            else:
                 # When nothing is selected, Remove button should show a warning
                 QMessageBox.warning(self, "No Selection", "Please select a team or player to remove.")
                 return
             
-        elif self.selected_is_none():
+        elif self.selected_is_none() is not None:
             curr = self.selected_is_none()[0]
             obj_name = self.selected_is_none()[1].objectName()
             # ##print('obj name:', obj_name)
@@ -285,22 +289,17 @@ class MainWindow(QWidget):
         self.stat_ui.get_stats(self.selected)
         self.stat_ui.exec()
         print("Stat dialog closed")
-        
-        #self.stat_widget.setWindowTitle(f"Stats")
-        #self.stat_widget.setModal(True)
-
-        #self.stat_layout = QVBoxLayout()
-        #self.stat_layout.addWidget(self.stat_ui)
-
-        #self.stat_widget.setLayout(self.stat_layout)
-        #self.stat_ui.populate_stats(self.selected)
-        
-        #self.stat_widget.show()
     
     def setup_update_ui(self):
         ##print("view update")
         dialog = UpdateDialog(self.league, self.selected, self.leaderboard, self.league_view_teams, self.stack, self.undo, self.file_dir, self.styles, self.message, parent=self)
         dialog.exec()
+
+    def setup_search_ui(self):
+        ##print("view update")
+        #dialog = UpdateDialog(self.league, self.selected, self.leaderboard, self.league_view_teams, self.stack, self.undo, self.file_dir, self.styles, self.message, parent=self)
+        #dialog.exec()
+        print("search dialog!")
     
     def setup_remove_ui(self):
         print("Remove button clicked")
