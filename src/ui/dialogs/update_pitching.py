@@ -8,9 +8,11 @@ from src.ui.dialogs.stat_dialog_ui import Ui_StatDialog
 from src.ui.logic.dialogs.update_pitching_logic import (
     check_games_played_for_enablement,
     normalize_pitcher_numeric_fields,
-    apply_pitching_update,
     build_pitching_undo_payload,
     refresh_pitcher_derived_stats,
+    update_stats,
+    undo_stat,
+    view_player_stats
 )
 import random
 
@@ -44,17 +46,17 @@ class UpdatePitchingDialog(QDialog):
         # ----- Submit Button -----
         self.submit_button = QPushButton("Submit")
         self.submit_button.setFixedWidth(100)
-        self.submit_button.clicked.connect(self.update_stats)
+        self.submit_button.clicked.connect(self.update_stats_handler)
 
         # ----- Undo Button ------
         self.undo_button = QPushButton("Undo")
         self.undo_button.setFixedWidth(100)
-        self.undo_button.clicked.connect(self.undo_stat)
+        self.undo_button.clicked.connect(self.undo_stat_handler)
 
         # ----- current view team -------- 
         self.view_team_button = QPushButton("Current\nView")
         self.view_team_button.setFixedWidth(150)
-        self.view_team_button.clicked.connect(self.view_player_stats)
+        self.view_team_button.clicked.connect(self.view_player_stats_handler)
 
         self.button_layout.addWidget(self.submit_button, alignment=Qt.AlignCenter)
         self.button_layout.addWidget(self.undo_button, alignment=Qt.AlignCenter)
@@ -80,16 +82,6 @@ class UpdatePitchingDialog(QDialog):
 
         self.radio_buttons_layout = QVBoxLayout()
         self.radio_buttons_layout.setAlignment(Qt.AlignTop)
-
-        '''for i in range(len(options)):
-            radio = QRadioButton(f"{options[i]}")
-            if options[i] == 'games played':
-                radio.setChecked(True)
-            else:
-                radio.setEnabled(False)
-            self.radio_group.addButton(radio, i)
-            self.radio_buttons.append(radio)
-            self.radio_buttons_layout.addWidget(radio)'''
 
         # setup buttons - stat check 
         self.radio_btns_setup()
@@ -161,101 +153,16 @@ class UpdatePitchingDialog(QDialog):
         selection = self.radio_group.checkedButton().text()
         return selection
     
-    def set_new_stat_pitcher(self, stat, val, player):
-        """Route chosen stat to the matching pitcher setter on the player instance."""
-        apply_pitching_update(player, stat, val)
-        if stat == 'games played':
-            self.enable_buttons()
+    def update_stats_handler(self): 
+        if update_stats(self.selected, self.get_player_stat(), self.int_input.text(), self.stack, self.message, self.league, self.enable_buttons):
+            self.message.show_message(f"Pitching {self.get_player_stat()} successfully updated!")
+        self.int_input.clear()
 
-    def reformat_stack_stat(self, stat):
-        """Map human-readable stat label to the internal attribute name used in stack."""
-        return build_pitching_undo_payload(stat)
-
-    def update_stats(self):
-        """Validate selection and value, update pitcher stats, and push to the undo stack."""
-        stat = None
-        val = None
-
-        try:
-            stat = self.get_player_stat()
-            val = int(self.int_input.text())
-            if not stat or not val:
-                self.message.show_message("Must select a stat and enter value.")
-                #QMessageBox.warning(self, "Input Error", "Must select a stat and enter value.")
-                return
-        except:
-            self.message.show_message("Must enter a number value to update stat.")
-            #QMessageBox.warning(self, "Input Error", "Must enter a number value to update stat.")
-            return
-
-        player, team, num = self.selected
-        find_team = self.league.find_team(team)
-        if not find_team:
-            self.message.show_message("Team not found.")
-            return
-        find_player = find_team.get_player(player)
-        if not find_player:
-            self.message.show_message("Player not found.")
-            return
-
-        normalize_pitcher_numeric_fields(find_player, ['games_played', 'wins', 'losses', 'games_started', 'games_completed', 'shutouts', 'saves', 'save_ops', 'ip', 'p_at_bats', 'p_hits', 'p_runs', 'er', 'p_hr', 'p_hb', 'p_bb', 'p_so'])
-
-        stat_stack = self.reformat_stack_stat(stat)
-        self.stack.add_node(find_player, team, stat_stack, getattr(find_player, stat_stack), self.set_new_stat_pitcher, 'player')
-        self.set_new_stat_pitcher(stat, val, find_player)
-
-        refresh_pitcher_derived_stats(find_player, find_team)
-
-        ##print('after:', find_player, "\n")
-
-        #self.leaderboard.refresh_leaderboard(find_player)
-        #find_team.set_bat_avg()
-
-        #self.refresh_leaderboard(find_team, self.lv_teams.tree2_bottom)
-        #self.insert_end_avg(find_team)
-        
-    def refresh_player_pitching(self, player, team):
-        """Legacy wrapper; now delegates to logic module."""
-        refresh_pitcher_derived_stats(player, team)
-        
-    # deprecated
-    def rand_avg(self):
-        rand = random.randint(100, 1000)
-        rand /= 1000 
-        rand_str = str(rand)
-        ###print('rand avg:', rand)
-        return rand_str
-
-    # deprecated
-    def rand_wl(self):
-        w = random.randint(0,100)
-        l = 100 - w
-        wl = w / 100
-        ret = (w, l, wl)
-        ###print("wl str:", wl_str, type(wl_str))
-        return str(ret)
+    def undo_stat_handler(self):
+        undo_stat(self.selected, self.undo, self.league, self.message)
+        self.message.show_message(f"Pitching {self.get_player_stat()} successfully undone!")
     
-    def undo_stat(self):
-        player, team, avg = self.selected
-
-        find_team = self.league.find_team(team)
-        if find_team:
-            find_player = find_team.get_player(player)
-            if find_player:
-                self.undo.undo_exp()
-                refresh_pitcher_derived_stats(find_player, find_team)
-    
-    # deprecated
-    def view_player_stats_1(self):
-        ##print("view stats")
-        ###print('selected:', self.selected)
-        #self.stat_ui.setupUi(self.stat_widget)
-        self.stat_ui = Ui_StatDialog(self.league, self.message, self.selected, self.styles, parent=self.stat_widget)
-        #self.stat_ui.populate_stats(self.selected)
-        self.stat_ui.get_stats(self.selected)
-        self.stat_widget.exec()
-    
-    def view_player_stats(self):
+    '''def view_player_stats(self):
         self.stat_widget = QDialog(self)
         self.stat_widget.setWindowTitle("Stats")
         self.stat_widget.setModal(True)
@@ -267,7 +174,10 @@ class UpdatePitchingDialog(QDialog):
         
         self.stat_ui.get_stats(self.selected)
 
-        self.stat_ui.exec()
+        self.stat_ui.exec()'''
+
+    def view_player_stats_handler(self):
+        view_player_stats(self.selected, self.league, self.message, self)
 
 
 

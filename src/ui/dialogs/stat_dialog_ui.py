@@ -32,7 +32,7 @@ import random
 import sys
 
 class Ui_StatDialog(QDialog):
-    def __init__(self, league, message, selected, styles, parent=None):
+    def __init__(self, league, message, selected, parent=None):
         """Stats dialog showing charts and trees for a selected player/team context."""
         super().__init__(parent)
         self.league = league
@@ -40,7 +40,7 @@ class Ui_StatDialog(QDialog):
         self.selected = selected
         #self.styles = StyleSheets()
         self.teams_selected = []
-        self.styles = styles
+        
         self.parent = parent
 
         self.tree_widget = QTreeWidget(self)
@@ -273,7 +273,7 @@ class Ui_StatDialog(QDialog):
     def get_curr_league(self):
         stats = ['hits', 'so', 'runs', 'era', 'k', 'avg']
         
-        self.graph_dialog = BarGraphDialog(self.league, self.selected, self.message, self.styles, self.teams_selected, self)
+        self.graph_dialog = BarGraphDialog(self.league, self.selected, self.message, self.teams_selected, self)
         self.graph_dialog.exec()
 
         teams_selected = [x for x in self.teams_selected]

@@ -1,5 +1,18 @@
 """Logic functions for pitching stat update dialog."""
-from typing import Iterable, Dict, Callable, Any
+from typing import Iterable, Dict, Callable, Any, Tuple
+from src.core.stack import Stack
+from src.core.linked_list import LinkedList
+from src.core.player import Player
+from src.core.team import Team
+from src.ui.dialogs.message import Message
+from src.utils.undo import Undo
+from PySide6.QtWidgets import QDialog, QVBoxLayout
+from src.ui.dialogs.stat_dialog_ui import Ui_StatDialog
+
+# custom exception class for pitcher stat update errors
+class PitcherStatUpdateError(Exception):
+    """Raised when a pitcher stat update fails due to validation logic."""
+    pass
 
 
 def check_games_played_for_enablement(games_played) -> bool:
@@ -77,16 +90,45 @@ STAT_TO_ATTR_NAME: Dict[str, str] = {
 }
 
 
-def apply_pitching_update(player, stat_label: str, val: int) -> None:
-    """Apply validated pitching stat update via the matching setter; no UI logic."""
-    setter = PITCHER_SETTERS.get(stat_label)
-    if setter:
-        setter(player, val)
-
+def set_new_stat_pitcher(stat: str, val: int, player: Player) -> None:
+    """Route chosen pitching stat to the matching setter on the player instance.
+    
+    Raises PitcherStatUpdateError if the setter fails to update due to validation.
+    
+    Args:
+        stat: Human-readable stat label (e.g., 'wins', 'games played', 'IP')
+        val: Integer value to set/add to the stat
+        player: Player instance to update
+        
+    Raises:
+        PitcherStatUpdateError: If the setter fails validation and doesn't update the stat
+    """
+    
+    setter = PITCHER_SETTERS.get(stat)
+    if not setter:
+        raise PitcherStatUpdateError(f"Unknown stat: {stat}")
+    
+    # Store the value before update to detect if it changed
+    attr_name = STAT_TO_ATTR_NAME.get(stat, stat.replace(" ", "_"))
+    old_value = getattr(player, attr_name, 0)
+    
+    # Call the setter
+    setter(player, val)
+    
+    # Check if the value actually changed (detect silent failures)
+    new_value = getattr(player, attr_name, 0)
+    
+    # If value didn't change and we expected it to, the setter failed validation
+    if old_value == new_value and val != 0:
+        raise PitcherStatUpdateError(f"Failed to update {stat}: validation failed")
 
 def build_pitching_undo_payload(stat_label: str) -> str:
     """Map human-readable stat label to internal attribute name for undo stack."""
     return STAT_TO_ATTR_NAME.get(stat_label, stat_label.replace(" ", "_"))
+
+def reformat_stack_stat(stat):
+    """Map human-readable stat label to the internal attribute name used in stack."""
+    return build_pitching_undo_payload(stat)
 
 
 def refresh_pitcher_derived_stats(player, team) -> None:
@@ -98,3 +140,70 @@ def refresh_pitcher_derived_stats(player, team) -> None:
     player.set_bb_9()
     team.set_team_era()
 
+def update_stats(selected: Tuple[str, str, int], stat: str, val: str, stack: Stack, message_instance: Message, 
+                 league_instance: LinkedList, enable_buttons: Callable) -> None:
+        """Validate selection and value, update pitcher stats, and push to the undo stack."""
+        try:
+            stat = stat
+            val = int(val)
+            if not stat or not val:
+                message_instance.show_message("Must select a stat and enter value.")
+                #QMessageBox.warning(self, "Input Error", "Must select a stat and enter value.")
+                return
+        except:
+            message_instance.show_message("Must enter a number value to update stat.")
+            #QMessageBox.warning(self, "Input Error", "Must enter a number value to update stat.")
+            return
+
+        player, team, num = selected
+        find_team = league_instance.find_team(team)
+        if not find_team:
+            message_instance.show_message("Team not found.")
+            return
+        find_player = find_team.get_player(player)
+        if not find_player:
+            message_instance.show_message("Player not found.")
+            return
+
+        normalize_pitcher_numeric_fields(find_player, ['games_played', 'wins', 'losses', 'games_started', 'games_completed', 'shutouts', 'saves', 'save_ops', 'ip', 'p_at_bats', 'p_hits', 'p_runs', 'er', 'p_hr', 'p_hb', 'p_bb', 'p_so'])
+
+        stat_stack = reformat_stack_stat(stat)
+        stack.add_node(find_player, team, stat_stack, getattr(find_player, stat_stack), set_new_stat_pitcher, 'player')
+        
+        try: 
+           # Apply the stat update
+            set_new_stat_pitcher(stat, val, find_player)
+
+             # Handle UI callback if needed
+            if stat == 'games played':
+                enable_buttons()
+
+            refresh_pitcher_derived_stats(find_player, find_team)
+
+        except:
+            message_instance.show_message(f"Error updating pitching {stat}.")
+           
+       
+def undo_stat(selected: Tuple[str, str, float], undo: Undo, league_instance: LinkedList, message_instance: Message) -> None:
+    player, team, avg = selected
+
+    find_team = league_instance.find_team(team)
+    if find_team:
+        find_player = find_team.get_player(player)
+        if find_player:
+            undo.undo_exp()
+            refresh_pitcher_derived_stats(find_player, find_team)
+        else:
+            message_instance.show_message("Player not found.")
+    else:
+        message_instance.show_message("Team not found.")
+
+def view_player_stats(selected: Tuple[str, str, float], league_instance: LinkedList, message_instance: Message, self) -> None:
+    stat_widget = QDialog(self)
+    stat_widget.setWindowTitle("Stats")
+    stat_widget.setModal(True)
+    #stat_layout = QVBoxLayout(stat_widget)
+
+    stat_ui = Ui_StatDialog(league_instance, message_instance, selected, parent=stat_widget)
+    stat_ui.get_stats(selected)
+    stat_ui.exec()
