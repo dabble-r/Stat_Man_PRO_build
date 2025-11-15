@@ -22,6 +22,7 @@ from src.utils.undo import Undo
 from src.ui.dialogs.message import Message
 from src.ui.dialogs.close import CloseDialog
 from src.utils.file_dialog import FileDialog
+from src.ui.dialogs.search_dialog import SearchDialog
 
 class MainWindow(QWidget):
     def __init__(self, app):
@@ -43,6 +44,7 @@ class MainWindow(QWidget):
         self.title = "Welcome to the league"
         self.setWindowTitle(self.title)
         self.setObjectName("Main Window") 
+    
          
          # ---------------------------------------- install wizard setup ----------------------------------- #
 
@@ -152,6 +154,7 @@ class MainWindow(QWidget):
 
         # setup league basics on program start
         self.showMaximized()
+        
 
         self.league_dialog = UpdateLeagueDialog(self.league, self.selected, self.message, self.leaderboard, self.league_view_teams, self.stack, self.undo, self.styles, parent=self)
         self.pos_center(self.league_dialog)
@@ -242,70 +245,78 @@ class MainWindow(QWidget):
         print(f"selected_is_none() returned: {selection_result}")
         
         if self.selected_is_none() is None:
-            ##print('league')
-            ##print('func:', func.__name__)
-            
+            #print('league')
+            #print('func:', func.__name__)
             func_name = func.__name__
             
-            if func_name == 'setup_update_ui' or 'setup_stat_ui':
+            if func_name == 'setup_update_ui' or func_name == 'setup_stat_ui':
                 # When nothing is selected, Update button shows league settings
                 self.setup_league_ui()
             
+            elif func_name == 'setup_search_ui':
+                self.setup_search_ui()
+
             else:
                 # When nothing is selected, Remove button should show a warning
-                QMessageBox.warning(self, "No Selection", "Please select a team or player to remove.")
+                self.message.show_message("No Selection: Please select a team or player to remove.", btns_flag=False, timeout_ms=2000)
                 return
             
         elif self.selected_is_none() is not None:
             curr = self.selected_is_none()[0]
             obj_name = self.selected_is_none()[1].objectName()
-            # ##print('obj name:', obj_name)
+            #print('obj name:', obj_name)
             
             if "top" in obj_name:
                 name = curr.text(0)
                 team = curr.text(1)
                 avg = curr.text(2)
                 self.selected = [name, team, avg]
+
             else:
                 team = curr.text(0)
                 avg = curr.text(1)
-                ###print('avg', avg, len(avg))
+                #print('avg', avg, len(avg))
                 if len(avg) > 5:
                     avg = avg[8:-1]
                 self.selected = [team, avg]
-            ###print(self.selected)
+            #print(self.selected)
             #self.setup_stat_ui()
             func()
-        ##print("nothing selected")
+        #print("nothing selected")
     
     def setup_stat_ui(self):
-        print("Stat button clicked")
-        print(f"Selected item: {self.selected}")
+        #print("Stat button clicked")
+        #print(f"Selected item: {self.selected}")
         if not self.selected or len(self.selected) == 0:
-            QMessageBox.warning(self, "No Selection", "Please select a team or player to view stats.")
+            self.message.show_message("No Selection: Please select a team or player to view stats.", btns_flag=False, timeout_ms=2000)
             return
         
-        self.stat_ui = Ui_StatDialog(self.league, self.message, self.selected, self.styles, parent=self.stat_widget)
+        self.stat_ui = Ui_StatDialog(self.league, self.message, self.selected, parent=self.stat_widget)
         self.stat_ui.get_stats(self.selected)
         self.stat_ui.exec()
-        print("Stat dialog closed")
+        #print("Stat dialog closed")
     
     def setup_update_ui(self):
-        ##print("view update")
+        #print("view update")
         dialog = UpdateDialog(self.league, self.selected, self.leaderboard, self.league_view_teams, self.stack, self.undo, self.file_dir, self.styles, self.message, parent=self)
         dialog.exec()
 
     def setup_search_ui(self):
-        ##print("view update")
+        #print("view update")
         #dialog = UpdateDialog(self.league, self.selected, self.leaderboard, self.league_view_teams, self.stack, self.undo, self.file_dir, self.styles, self.message, parent=self)
         #dialog.exec()
         print("search dialog!")
+        if self.league.COUNT == 0:
+            self.message.show_message("There are no teams in league.", btns_flag=False, timeout_ms=2000)
+            return
+        dialog = SearchDialog(self.league, self.selected, self.stack, self.undo, self.message, parent=self)
+        dialog.exec()
     
     def setup_remove_ui(self):
         print("Remove button clicked")
         print(f"Selected item: {self.selected}")
         if not self.selected or len(self.selected) == 0:
-            QMessageBox.warning(self, "No Selection", "Please select a team or player to remove.")
+            self.message.show_message("No Selection: Please select a team or player to remove.", btns_flag=False, timeout_ms=2000)
             return
         dialog = RemoveDialog(self.league, self.selected, self.leaderboard, self.league_view_teams, self.league_view_players, parent=self)
         dialog.exec()
@@ -325,7 +336,7 @@ class MainWindow(QWidget):
         print("Refresh button clicked by user")
         print(f"LinkedList.COUNT (class var): {LinkedList.COUNT}")
         if LinkedList.COUNT == 0:
-            QMessageBox.information(self, "No Data", "There are no teams or players to refresh. Please load data first.")
+            self.message.show_message("No Data: There are no teams or players to refresh. Please load data first.", btns_flag=False, timeout_ms=2000)
             return
         self.refresh_view()
     

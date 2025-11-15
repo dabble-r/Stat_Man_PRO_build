@@ -142,7 +142,6 @@ class UpdateOffenseDialog(QDialog):
     
     def radio_btns_setup(self):
         """Create and configure offense radio buttons for supported stat updates."""
-        options = ["default"]
         options = ["hit", "bb", "hbp", "so", "put out", "hr", "rbi", "runs", "singles", "doubles", "triples", "sac fly", "fielder's choice"]
 
         for i in range(len(options)):
@@ -259,6 +258,6 @@ class UpdateOffenseDialog(QDialog):
         #self.stat_ui.populate_stats(self.selected)
         # last attmept - not functional for player
         #self.stat_ui.get_stats(self.selected)
-        self.stat_ui = Ui_StatDialog(self.league, self.message, self.selected, self.styles, self.stat_widget)
+        self.stat_ui = Ui_StatDialog(self.league, self.message, self.selected, parent=self.stat_widget)
         self.stat_ui.get_stats(self.selected)
         self.stat_ui.exec()

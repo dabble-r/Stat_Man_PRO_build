@@ -170,7 +170,7 @@ class UpdatePitchingDialog(QDialog):
        
         #print('selected pitching:', self.selected)
 
-        self.stat_ui = Ui_StatDialog(self.league, self.message, self.selected, self.styles, parent=self.stat_widget)
+        self.stat_ui = Ui_StatDialog(self.league, self.message, self.selected, parent=self.stat_widget)
         
         self.stat_ui.get_stats(self.selected)
 

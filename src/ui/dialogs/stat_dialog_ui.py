@@ -38,9 +38,7 @@ class Ui_StatDialog(QDialog):
         self.league = league
         self.message = message
         self.selected = selected
-        #self.styles = StyleSheets()
         self.teams_selected = []
-        
         self.parent = parent
 
         self.tree_widget = QTreeWidget(self)
@@ -51,11 +49,6 @@ class Ui_StatDialog(QDialog):
         self.label.setAlignment(Qt.AlignCenter)
         
 
-    #def setupUi(self, StatDialog):
-        #if not StatDialog.objectName():
-            #StatDialog.setObjectName(u"StatDialog")
-        #StatDialog.resize(1000, 750)
-       
         ##print('selected:', self.selected)
         self.sample_player = SamplePlayer('Sample Player', 1, 'Sample Team', 'Sample League', ['first', 'second', 'third'], message=self.message)
         
@@ -86,8 +79,6 @@ class Ui_StatDialog(QDialog):
         self.tree_widget.header().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.tree_widget.setMinimumHeight(400)  # Optional: ensures it's not too small
 
-
-        #self.layout_main.addWidget(self.tree_widget)
 
         # Optional: Add vertical spacer to center content if needed
         self.layout_main.addSpacerItem(QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding))
@@ -333,7 +324,7 @@ class Ui_StatDialog(QDialog):
 
     # deprecated - not in use
     def populate_stats(self, selected):
-        ###print('selected', selected)
+        #print('selected', selected)
         item = None
         if selected is None:
             return
