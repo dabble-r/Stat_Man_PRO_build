@@ -366,6 +366,21 @@ class LinkedList():
       traverser = traverser.next
     return None
 
+  def find_player_by_number(self, target: int) -> list:
+    ret = []
+    traverser = self.head 
+    if traverser == None:
+      return ret      
+    if len(traverser.team.players) == 0:
+      return ret
+    while traverser != None:
+      for el in traverser.team.players:
+        print("traverser player nums:", el.number, target, type(el.number), type(target))
+        if int(el.number) == target:
+          ret.append(el)
+      traverser = traverser.next
+    return ret
+
   def view_all(self):
     """Return string summary of teams and first-position players across league."""
     if LinkedList.COUNT == 0:

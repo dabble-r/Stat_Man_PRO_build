@@ -58,6 +58,8 @@ class Message(QDialog):
         if not btns_flag:
             self.set_buttons(False)
             self.set_timer(timeout_ms)
+        else:
+            self.set_buttons(True)
         
         self.exec()
         return self.choice

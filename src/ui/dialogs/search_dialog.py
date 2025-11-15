@@ -6,6 +6,9 @@ from src.ui.views.league_view_teams import LeagueViewTeams
 from src.ui.styles.stylesheets import StyleSheets
 from src.core.node import NodeStack
 from src.ui.dialogs.stat_dialog_ui import Ui_StatDialog
+from typing import Union
+from src.core.player import Player
+from src.core.team import Team
 import random
 
 
@@ -26,7 +29,7 @@ class SearchDialog(QDialog):
         self.int_label = QLabel("Enter value:")
         self.int_label.setAlignment(Qt.AlignCenter)
         self.int_input = QLineEdit()
-        self.int_input.setValidator(self.string_validator())
+        #self.int_input.setValidator(self.string_validator())
         self.int_input.setAlignment(Qt.AlignCenter)
 
         # button layout 
@@ -124,12 +127,18 @@ class SearchDialog(QDialog):
           self.search_tree_widget.setColumnWidth(1, 100)
           self.search_tree_widget.setColumnWidth(2, 100)
           
-          
         elif selection == "team":
           self.search_tree_widget.setHeaderLabels(["Team", "Average"])
           self.search_tree_widget.setColumnCount(2)
           self.search_tree_widget.setColumnWidth(0, 100)
           self.search_tree_widget.setColumnWidth(1, 100)
+        
+        elif selection == "number":
+          self.search_tree_widget.setHeaderLabels(["Name", "Team", "Average"])
+          self.search_tree_widget.setColumnCount(3)
+          self.search_tree_widget.setColumnWidth(0, 100)
+          self.search_tree_widget.setColumnWidth(1, 100)
+          self.search_tree_widget.setColumnWidth(2, 100)
           
         else:
           self.message.show_message("Invalid selection.", btns_flag=False, timeout_ms=2000)
@@ -171,7 +180,7 @@ class SearchDialog(QDialog):
 
         self.int_input.clear()
 
-    def populate_search_tree(self, selection: str): 
+    def populate_search_tree(self, selection: Union[str, int]): 
       """Populate the search tree with the search results.""" 
 
       if selection == "player": 
@@ -180,17 +189,7 @@ class SearchDialog(QDialog):
         print("find player:", find_player)
 
         if find_player:
-          self.search_tree_widget.setVisible(True)
-          self.resize(500, 750)
-          self.type = "player"
-          player = find_player.name  
-          team = find_player.team.name
-          avg = find_player.get_AVG()
-          item = QTreeWidgetItem([player, team, str(avg)])
-          item.setTextAlignment(0, Qt.AlignCenter)
-          item.setTextAlignment(1, Qt.AlignCenter)
-          item.setTextAlignment(2, Qt.AlignCenter)
-          self.search_tree_widget.addTopLevelItem(item)
+          self.dups_handler(find_player.name, player=find_player)
           
         else:
           self.message.show_message("Player not found.", btns_flag=False, timeout_ms=2000)
@@ -201,18 +200,27 @@ class SearchDialog(QDialog):
         find_team = self.league.find_team(team) 
 
         if find_team:
-          self.search_tree_widget.setVisible(True)
-          self.resize(500, 750)
-          self.type = "team"
-          name = find_team.name 
-          avg = find_team.get_bat_avg()
-          item = QTreeWidgetItem([name, str(avg)])
-          item.setTextAlignment(0, Qt.AlignCenter)
-          item.setTextAlignment(1, Qt.AlignCenter)
-          self.search_tree_widget.addTopLevelItem(item)
+          self.dups_handler(find_team.name, team=find_team)
 
         else:
           self.message.show_message("Team not found.", btns_flag=False, timeout_ms=2000)
+          return
+      
+      elif selection == "number": 
+        try:
+          number = int(self.int_input.text())
+        except ValueError:
+          self.message.show_message("Please enter a valid number.", btns_flag=False, timeout_ms=2000)
+          return
+        
+        find_player_list = self.league.find_player_by_number(number)
+        print("find player list:", find_player_list)
+
+        if len(find_player_list) > 0:
+          self.dups_handler(find_player_list)
+
+        else:
+          self.message.show_message("Player number not found.", btns_flag=False, timeout_ms=2000)
           return
 
     def curr_view_handler(self):  
@@ -228,6 +236,10 @@ class SearchDialog(QDialog):
 
       elif self.type == "team":
         self.selected = [self.selected.text(0), self.selected.text(1)]
+
+      elif self.type == "number":
+        self.selected = [self.selected.text(0), self.selected.text(1), self.selected.text(2)]
+       
 
       dialog = Ui_StatDialog(self.league, self.message, self.selected, parent=self.stat_widget)
       dialog.get_stats(self.selected)
@@ -246,4 +258,108 @@ class SearchDialog(QDialog):
       self.search_tree_widget.clear()
       self.search_tree_widget.setVisible(False)
       self.resize(500, 350)
+
+    def check_dups(self, target: str) -> bool:
+      for i in range(self.search_tree_widget.topLevelItemCount()):
+        item = self.search_tree_widget.topLevelItem(i)
+        if item.text(0) == target:
+          return True
+      return False
+    
+    def permit_dups(self, target: Union[str, list]) -> bool | None:
+      if isinstance(target, str) and self.check_dups(target):
+        # Explicitly show buttons for user choice
+        self.message.show_message(f"Search results for {target} already found.", btns_flag=True)
+        if self.message.choice == "ok": 
+          return True  # User wants to add duplicate
+        elif self.message.choice == "no": 
+          return False  # User doesn't want to add - do nothing
+        else:  # "cancel" or None
+          return None  # User cancelled - clear tree
+      elif isinstance(target, str) and not self.check_dups(target):
+        # No duplicates found - proceed with adding
+        return True
+
+      elif isinstance(target, list):
+        ret = []
+        for el in target: 
+          if self.check_dups(el.name):
+            ret.append(el.name)
+        if len(ret) > 0:
+          # Explicitly show buttons for user choice
+          self.message.show_message(f"Search results for\n {[x for x in ret]}]\n already found.", btns_flag=True)
+          if self.message.choice == "ok": 
+            return True  # User wants to add duplicates
+          elif self.message.choice == "no": 
+            return False  # User doesn't want to add - do nothing
+          elif self.message.choice == "cancel":
+            return None  # User cancelled - clear tree
+        else:
+          # No duplicates found in list - proceed with adding
+          return True
+    
+    def dups_handler(self, target: Union[str, list], player: Player = None, team: Team = None): 
+      ret = self.permit_dups(target)
+      
+      if ret == False: 
+        # User selected "no" - do nothing, message already closed
+        return False
+
+      elif ret == None:
+        # User selected "cancel" - clear tree and hide it
+        self.search_tree_widget.clear()
+        self.search_tree_widget.setVisible(False)
+        self.resize(500, 350)
+        return None
+
+      elif ret == True: 
+        # User selected "ok" OR no duplicates found - add item to tree
+        if player:
+          self.add_item_player(player)
+          return
+        elif team:
+          self.add_item_team(team)
+          return
+        elif isinstance(target, list):
+          self.add_item_number(target)
+          return
+
+    def add_item_player(self, player: Player):
+      self.search_tree_widget.setVisible(True)
+      self.resize(500, 750)
+      self.type = "player"
+      player_name = player.name  
+      team = player.team.name
+      avg = player.get_AVG()
+      item = QTreeWidgetItem([player_name, team, str(avg)])
+      item.setTextAlignment(0, Qt.AlignCenter)
+      item.setTextAlignment(1, Qt.AlignCenter)
+      item.setTextAlignment(2, Qt.AlignCenter)
+      self.search_tree_widget.addTopLevelItem(item)
+
+    def add_item_team(self, team: Team):
+      self.search_tree_widget.setVisible(True)
+      self.resize(500, 750)
+      self.type = "team"
+      name = team.name 
+      avg = team.get_bat_avg()
+      item = QTreeWidgetItem([name, str(avg)])
+      item.setTextAlignment(0, Qt.AlignCenter)
+      item.setTextAlignment(1, Qt.AlignCenter)
+      self.search_tree_widget.addTopLevelItem(item)
+
+    def add_item_number(self, player_list: list):
+      self.search_tree_widget.setVisible(True)
+      self.resize(500, 750)
+      self.type = "number"
+      for el in player_list:
+        player_name = el.name  
+        team = el.team.name
+        avg = el.get_AVG()
+        item = QTreeWidgetItem([player_name, team, str(avg)])
+        item.setTextAlignment(0, Qt.AlignCenter)
+        item.setTextAlignment(1, Qt.AlignCenter)
+        item.setTextAlignment(2, Qt.AlignCenter)
+        self.search_tree_widget.addTopLevelItem(item)
+
     
