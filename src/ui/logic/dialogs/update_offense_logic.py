@@ -4,6 +4,8 @@ import random
 from PySide6.QtWidgets import QTreeWidgetItem
 from PySide6.QtCore import Qt
 
+# --------------------------------------------------
+
 def enforce_positive_integer(value, message) -> int:
     """Return integer value; tolerate strings/floats (0.0)/None by returning 0 on failure."""
     print('value:', value)
@@ -18,6 +20,8 @@ def enforce_positive_integer(value, message) -> int:
     except Exception:
         print("Invalid value. Expected string for player offense stat.")
         return 0
+
+# --------------------------------------------------
 
 def coerce_at_bat(value) -> int:
     """Return integer at_bat value; tolerate strings/floats (0.0)/None by returning 0 on failure."""
@@ -37,11 +41,13 @@ def coerce_at_bat(value) -> int:
     except Exception:
         return 0
 
+# --------------------------------------------------
 
 def should_enable_buttons(at_bat_int: int) -> bool:
     """Return True if offense radios beyond 'hit' should be enabled (has ABs)."""
     return at_bat_int > 0
 
+# --------------------------------------------------
 
 def normalize_numeric_fields(obj, fields: Iterable[str]) -> None:
     """Coerce listed numeric attributes on obj to ints in-place to ensure arithmetic safety."""

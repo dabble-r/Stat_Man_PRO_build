@@ -1,7 +1,8 @@
 from src.core.node import Node
 from PySide6.QtWidgets import QMessageBox, QDialog
 import random
-#from team import beef, rougarou
+
+# --------------------------------------------------
 
 class LinkedList():
   COUNT = 0

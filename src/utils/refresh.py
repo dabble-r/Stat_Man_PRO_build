@@ -7,6 +7,8 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
     QPalette, QPixmap, QRadialGradient, QTransform)
 from PySide6.QtWidgets import (QApplication, QLabel, QSizePolicy, QWidget, QTreeWidget, QPushButton, QVBoxLayout, QHBoxLayout, QDialog, QHeaderView, QTreeWidgetItem)
 
+# --------------------------------------------------
+
 class Refresh():
   def __init__(self, league, lv_teams, lv_players, leaderboard):
     """Helper to reconcile GUI tree views with the current league state."""

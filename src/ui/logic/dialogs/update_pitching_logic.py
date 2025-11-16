@@ -9,11 +9,14 @@ from src.utils.undo import Undo
 from PySide6.QtWidgets import QDialog, QVBoxLayout
 from src.ui.dialogs.stat_dialog_ui import Ui_StatDialog
 
+# --------------------------------------------------
+
 # custom exception class for pitcher stat update errors
 class PitcherStatUpdateError(Exception):
     """Raised when a pitcher stat update fails due to validation logic."""
     pass
 
+# --------------------------------------------------
 
 def check_games_played_for_enablement(games_played) -> bool:
     """Return True if player has any games played to enable all radio buttons."""

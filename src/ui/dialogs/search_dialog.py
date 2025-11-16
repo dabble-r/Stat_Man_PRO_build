@@ -2,7 +2,6 @@ from PySide6.QtWidgets import QWidget, QTreeWidget, QDialog, QLabel, QLineEdit, 
 from PySide6.QtGui import QIntValidator, QValidator, QRegularExpressionValidator
 from PySide6.QtCore import QCoreApplication, Qt, QTimer, QRegularExpression
 from src.ui.views.league_view_teams import LeagueViewTeams
-
 from src.ui.styles.stylesheets import StyleSheets
 from src.core.node import NodeStack
 from src.ui.dialogs.stat_dialog_ui import Ui_StatDialog
@@ -11,6 +10,7 @@ from src.core.player import Player
 from src.core.team import Team
 import random
 
+# --------------------------------------------------
 
 class SearchDialog(QDialog):
     def __init__(self, league, selected, stack, undo, message, parent=None):

@@ -12,6 +12,8 @@ from src.utils.undo import Undo
 from src.ui.dialogs.update_lineup import UpdateLineupDialog
 from src.ui.dialogs.update_positions import UpdatePositionsDialog
 
+# --------------------------------------------------
+
 def set_new_stat_team(stat: str, input: str, team: Team, message_instance: Message) -> bool:
         """Apply admin change to team: manager/lineup/positions/max_roster with validation."""
         val = None
@@ -31,17 +33,23 @@ def set_new_stat_team(stat: str, input: str, team: Team, message_instance: Messa
                 team.set_max_roster(val)
                 return True
 
+# --------------------------------------------------
+
 def update_lineup_handler(league_instance, selected, leaderboard_instance, lv_teams_instance, stack_instance, undo_instance, message_instance, parent=None):
         """Open lineup dialog to adjust batting order for the current team."""
         ##print('lineup handler called')
         dialog = UpdateLineupDialog(league_instance, selected, leaderboard_instance, lv_teams_instance, stack_instance, undo_instance, message_instance, parent=parent)
         dialog.exec()
 
+# --------------------------------------------------
+
 def update_positions_handler(league_instance, selected, leaderboard_instance, lv_teams_instance, stack_instance, undo_instance, message_instance, parent=None):
         """Open positions dialog to adjust player positions for the current team."""
         ##print('positions handler called')
         dialog = UpdatePositionsDialog(league_instance, selected, leaderboard_instance, lv_teams_instance, stack_instance, undo_instance, message_instance, parent=parent)
         dialog.exec()
+
+# --------------------------------------------------
 
 def update_stats(selected: Tuple[str, int], get_team_stat: Callable, update_lineup_handler: Callable, 
                 update_positions_handler: Callable, input: QLineEdit, message_instance: Message, league_instance: LinkedList, 

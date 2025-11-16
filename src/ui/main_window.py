@@ -1,6 +1,9 @@
 from readline import read_init_file
 import sys 
 import os
+
+# --------------------------------------------------
+
 from src.ui.views.league_view_players import LeagueViewPlayers
 from src.ui.views.league_view_teams import LeagueViewTeams
 from src.ui.dialogs.add_save_ui import Ui_Add_Save
@@ -26,6 +29,7 @@ from src.utils.file_dialog import FileDialog
 from src.ui.dialogs.search_dialog import SearchDialog
 from src.utils.mouse_events import MyHoverWidget
 
+# --------------------------------------------------
 
 class MainWindow(QWidget):
     def __init__(self, app):
@@ -36,27 +40,26 @@ class MainWindow(QWidget):
         self.styles = StyleSheets()
         self.stack = Stack()
         self.app = app
-        
-        
-        
         self.undo = Undo(self.stack, self.league)
         #self.file_dir = None
         self.message = Message(parent=self)
         self.setStyleSheet(self.styles.light_styles)
         self.theme = None
-        
         self.title = "Welcome to the league"
         self.setWindowTitle(self.title)
         self.setObjectName("Main Window") 
-    
-         
-         # ---------------------------------------- install wizard setup ----------------------------------- #
-
-        #self.exec_wizard() 
-        #dir_path = self.wizard.get_selected_path()
+        
+        # --------------------------------------------------
+        # Initialization: File Dialog and Directory Setup
+        # --------------------------------------------------
+        
         self.file_dialog = FileDialog(self.message, self)
         self.file_dir = self.file_dialog.get_file_dir()
 
+        # --------------------------------------------------
+        # Initialization: View Components
+        # --------------------------------------------------
+        
         self.league_view_teams = LeagueViewTeams(self.league, self.styles, self.stack, self.file_dir, self.message, parent=self)
         self.league_view_players = LeagueViewPlayers(self.league_view_teams, self.selected, self.league, self.styles, self.undo, self.file_dir, self.message, parent=self)
 
@@ -66,11 +69,19 @@ class MainWindow(QWidget):
         # restores all league items to main view
         self.refresh = Refresh(self.league, self.league_view_teams, self.league_view_players, self.leaderboard)
 
+        # --------------------------------------------------
+        # Initialization: Event Filters
+        # --------------------------------------------------
+        
         self.tree_widgets = [self.league_view_players.tree1_top, self.league_view_players.tree2_top, self.league_view_teams.tree1_bottom, self.league_view_teams.tree2_bottom]
         self.event_filter = TreeEventFilter(self.tree_widgets, self)
         # tree event filter to enforce single selection and clear selection on whitespace
         self.set_event_filter()
 
+        # --------------------------------------------------
+        # Initialization: Stat Snapshot Popup
+        # --------------------------------------------------
+        
         # Create stat snapshot dialog first
         self.stat_widget_snapshot_ui = Ui_StatDialog(self.league, self.message, self.selected, parent=self, flag=False, resize=True) 
         self.stat_widget_snapshot_ui.setWindowFlags(Qt.WindowType.Popup | Qt.WindowType.FramelessWindowHint | Qt.WindowType.NoDropShadowWindowHint)
@@ -90,8 +101,10 @@ class MainWindow(QWidget):
         self.hover_widget.item_hovered.connect(self.stat_snapshot_handler)
         self.hover_widget.hover_ended.connect(lambda: self.stat_snapshot_handler(instance=None))
 
-                                                # ------------------------------------------------------------------ # 
-
+        # --------------------------------------------------
+        # UI Setup: Button Groups and Layouts
+        # --------------------------------------------------
+        
         # button group box - all buttons
         self.button_group_bottom = QGroupBox('Modify', self)
         #self.button_group_bottom.setGeometry(QRect(1,1,50,75))
@@ -175,11 +188,13 @@ class MainWindow(QWidget):
 
         self.setLayout(self.main_h_layout) 
 
-
+        # --------------------------------------------------
+        # Initialization: League Dialog Setup
+        # --------------------------------------------------
+        
         # setup league basics on program start
         self.showMaximized()
         
-
         self.league_dialog = UpdateLeagueDialog(self.league, self.selected, self.message, self.leaderboard, self.league_view_teams, self.stack, self.undo, self.styles, parent=self)
         self.pos_center(self.league_dialog)
         #self.app.processEvents()
@@ -189,7 +204,10 @@ class MainWindow(QWidget):
         self.title = f"Welcome to {self.league.admin['Name']}" if self.league.admin['Name'] else "Welcome to the league"
         self.setWindowTitle(self.title)
 
-        # ----------------------------------------------------------------------------- #
+    # --------------------------------------------------
+    # Event Handlers
+    # --------------------------------------------------
+    
     def stat_snapshot_handler(self, instance=None):
         """Handle stat snapshot display based on hover state.
         
@@ -206,7 +224,9 @@ class MainWindow(QWidget):
             # Mouse left - hide stats
             print("Hiding stat snapshot dialog")
             self.stat_widget_snapshot_ui.hide()
-
+    
+    # --------------------------------------------------
+    
     def closeEvent(self, event=QCloseEvent):
         reply = QMessageBox.question(
                 self,
@@ -224,6 +244,10 @@ class MainWindow(QWidget):
             event.ignore()
             self.show()
             #self.show()
+    
+    # --------------------------------------------------
+    # Helper Methods
+    # --------------------------------------------------
     
     def _clear_database_on_close(self):
         """Clear all data from database on application close"""
@@ -258,11 +282,17 @@ class MainWindow(QWidget):
             
         except Exception as e:
             print(f"Error clearing database on close: {e}")
-
+    
+    # --------------------------------------------------
+    
     def set_event_filter(self):
         for tree in self.tree_widgets:
             tree.viewport().installEventFilter(self.event_filter)
             tree.setSelectionMode(QTreeWidget.SingleSelection)
+    
+    # --------------------------------------------------
+    # Selection Methods
+    # --------------------------------------------------
     
     def selected_is_none(self):
         locs = [self.league_view_players.tree1_top, self.league_view_players.tree2_top, self.league_view_teams.tree1_bottom, self.league_view_teams.tree2_bottom]
@@ -273,6 +303,8 @@ class MainWindow(QWidget):
             if curr: 
                 return (curr, el)
         return None
+    
+    # --------------------------------------------------
     
     def get_item(self, func):
         locs = [self.league_view_players.tree1_top, self.league_view_players.tree2_top, self.league_view_teams.tree1_bottom, self.league_view_teams.tree2_bottom]
@@ -324,6 +356,10 @@ class MainWindow(QWidget):
             func()
         #print("nothing selected")
     
+    # --------------------------------------------------
+    # Dialog Setup Methods
+    # --------------------------------------------------
+    
     def setup_stat_ui(self):
         #print("Stat button clicked")
         #print(f"Selected item: {self.selected}")
@@ -336,11 +372,15 @@ class MainWindow(QWidget):
         self.stat_ui.exec()
         #print("Stat dialog closed")
     
+    # --------------------------------------------------
+    
     def setup_update_ui(self):
         #print("view update")
         dialog = UpdateDialog(self.league, self.selected, self.leaderboard, self.league_view_teams, self.stack, self.undo, self.file_dir, self.styles, self.message, parent=self)
         dialog.exec()
-
+    
+    # --------------------------------------------------
+    
     def setup_search_ui(self):
         #print("view update")
         #dialog = UpdateDialog(self.league, self.selected, self.leaderboard, self.league_view_teams, self.stack, self.undo, self.file_dir, self.styles, self.message, parent=self)
@@ -352,6 +392,8 @@ class MainWindow(QWidget):
         dialog = SearchDialog(self.league, self.selected, self.stack, self.undo, self.message, parent=self)
         dialog.exec()
     
+    # --------------------------------------------------
+    
     def setup_remove_ui(self):
         print("Remove button clicked")
         print(f"Selected item: {self.selected}")
@@ -362,6 +404,8 @@ class MainWindow(QWidget):
         dialog.exec()
         print("Remove dialog closed")
     
+    # --------------------------------------------------
+    
     def setup_league_ui(self):
         #dialog = UpdateLeagueDialog(self.league, self.selected, self.message, self.leaderboard, self.league_view_teams, self.stack, self.undo, self.styles, parent=self)
         # Get screen geometry and center point
@@ -370,7 +414,11 @@ class MainWindow(QWidget):
         #self.pos_center(dialog)
         #QTimer.singleShot(0, lambda: self.pos_center(dialog))
         self.league_dialog.exec()
-
+    
+    # --------------------------------------------------
+    # Refresh Methods
+    # --------------------------------------------------
+    
     def on_refresh_button_clicked(self):
         """Handler for when the user clicks the Refresh button"""
         print("Refresh button clicked by user")
@@ -385,7 +433,11 @@ class MainWindow(QWidget):
         print(f"Refreshing views (LinkedList.COUNT: {LinkedList.COUNT})")
         self.refresh.restore_all()
         print("Refresh completed")
-
+    
+    # --------------------------------------------------
+    # Utility Methods
+    # --------------------------------------------------
+    
     def pos_center(self, dialog):
         screen = self.app.primaryScreen()
         screen_geometry = screen.availableGeometry()

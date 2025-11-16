@@ -7,8 +7,8 @@ from src.core.linked_list import LinkedList
 from src.core.stack import Stack
 from PySide6.QtWidgets import QLineEdit, QWidget 
 from src.ui.dialogs.message import Message
-from src.core.stack import Stack
-from src.core.linked_list import LinkedList
+
+# --------------------------------------------------
 
 def set_positions_team(pos: str, player: Player, team: Team, self: QWidget):
         """Apply the given position to team using team.set_pos with confirmation prompts."""
@@ -32,6 +32,8 @@ def set_positions_team(pos: str, player: Player, team: Team, self: QWidget):
                 team.set_pos('positions', pos, player, self)
             case 'right field':
                 team.set_pos('positions', pos, player, self)
+
+# --------------------------------------------------
 
 def update_stats(selected: Tuple[str, int], pos: str, player_input: str,
                  stack: Stack, message_instance: Message, league_instance: LinkedList, 

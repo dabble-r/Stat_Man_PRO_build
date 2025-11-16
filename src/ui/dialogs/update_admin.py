@@ -2,7 +2,6 @@ from PySide6.QtWidgets import QWidget, QDialog, QLabel, QLineEdit, QPushButton, 
 from PySide6.QtGui import QIntValidator
 from PySide6.QtCore import QCoreApplication, Qt, QTimer
 from src.ui.views.league_view_teams import LeagueViewTeams
-
 from src.ui.styles.stylesheets import StyleSheets
 from src.ui.dialogs.update_lineup import UpdateLineupDialog
 from src.ui.dialogs.update_positions import UpdatePositionsDialog
@@ -17,6 +16,8 @@ from src.ui.logic.dialogs.update_admin_logic import (
 import src.core.team as Team
 import src.ui.dialogs.message as Message
 import random
+
+# --------------------------------------------------
 
 class UpdateAdminDialog(QDialog):
     def __init__(self, league, selected, leaderboard, lv_teams, stack, undo, message, parent=None):

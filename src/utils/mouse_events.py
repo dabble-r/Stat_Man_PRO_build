@@ -2,6 +2,7 @@ from PySide6.QtCore import Qt, QEvent, QPoint, QObject, Signal, QTimer
 from PySide6.QtWidgets import QWidget, QApplication, QDialog
 from PySide6.QtGui import QHoverEvent, QMouseEvent, QCursor 
 
+# --------------------------------------------------
 
 class MyHoverWidget(QObject):
     # Define signals
@@ -20,6 +21,8 @@ class MyHoverWidget(QObject):
         self.hover_timer.timeout.connect(self._emit_hover_signal)
         self.pending_instance = None  # Store instance data while waiting for timer
         self.current_tree = None  # Track which tree widget we're currently hovering over 
+
+    # --------------------------------------------------
 
     def eventFilter(self, obj: QObject, event: QEvent) -> bool:
         # Handle mouse clicks - hide popup if clicking outside
@@ -49,6 +52,10 @@ class MyHoverWidget(QObject):
             return False
         
         return False  # Let other events pass through
+    
+    # --------------------------------------------------
+    # Helper Methods
+    # --------------------------------------------------
     
     def _is_click_inside_popup(self, global_pos: QPoint) -> bool:
         """Check if the click position is inside the popup dialog."""
@@ -87,6 +94,8 @@ class MyHoverWidget(QObject):
                     break
         return False
     
+    # --------------------------------------------------
+    
     def _get_item_instance(self, tree, pos):
         """Extract item instance data from tree at given position."""
         item = tree.itemAt(pos)
@@ -96,6 +105,8 @@ class MyHoverWidget(QObject):
             else:
                 return [item.text(0), item.text(1)]
         return None
+    
+    # --------------------------------------------------
     
     def _start_hover_timer_for_item(self, tree, instance):
         """Start the hover timer for a given item instance."""
@@ -111,6 +122,10 @@ class MyHoverWidget(QObject):
         # Start timer for 1000ms before emitting signal
         self.hover_timer.start(1000)
         print(f"Started hover timer (1000ms) for item: {instance}")
+    
+    # --------------------------------------------------
+    # Event Handlers
+    # --------------------------------------------------
     
     def handle_hover_enter_tree(self, obj: QObject, event: QHoverEvent):
         """Handle mouse entering a tree widget - start 1000ms timer to show popup."""
@@ -132,14 +147,17 @@ class MyHoverWidget(QObject):
                         print("Moved to empty space in tree")
                 break
     
+    # --------------------------------------------------
+    
     def _emit_hover_signal(self):
         """Called when hover timer expires - emit the signal with pending instance."""
         if self.pending_instance is not None:
             print(f"Hover timer expired, emitting signal for: {self.pending_instance}")
             self.stat_widget_show = True
             self.item_hovered.emit(self.pending_instance)
-                     
-
+    
+    # --------------------------------------------------
+    
     def handle_hover_leave_tree(self, obj: QObject, event: QHoverEvent):
         """Handle mouse leaving a tree widget - only cancel timer if not moving to another item (item 1 & 5)."""
         for tree in self.tree_widgets:
@@ -197,6 +215,8 @@ class MyHoverWidget(QObject):
                 # Note: Don't hide popup here - it will hide on click outside
                 break
     
+    # --------------------------------------------------
+    
     def handle_mouse_click(self, obj: QObject, event: QMouseEvent):
         """Handle mouse clicks - hide popup if clicking outside the dialog."""
         if not self.stat_widget_show or not self.stat_popup or not self.stat_popup.isVisible():
@@ -230,7 +250,9 @@ class MyHoverWidget(QObject):
             print("Mouse clicked outside popup - hiding dialog")
             self.stat_widget_show = False
             self.hover_ended.emit()
-
+    
+    # --------------------------------------------------
+    
     def handle_hover_move(self, obj: QObject, event: QHoverEvent):
         """Handle mouse move within tree widgets - detect item changes and restart timer (item 2)."""
         # Check if it's one of our tree widgets

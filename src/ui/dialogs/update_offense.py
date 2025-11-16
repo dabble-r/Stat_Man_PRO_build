@@ -2,13 +2,10 @@ from PySide6.QtWidgets import QWidget, QDialog, QLabel, QLineEdit, QPushButton, 
 from PySide6.QtGui import QIntValidator
 from PySide6.QtCore import QCoreApplication, Qt, QTimer
 from src.ui.views.league_view_teams import LeagueViewTeams
-
 from src.ui.styles.stylesheets import StyleSheets
 from src.core.node import NodeStack
 from src.ui.dialogs.stat_dialog_ui import Ui_StatDialog
 import random
-
-# New: logic helpers - imported with aliases to avoid name collision with class methods
 from src.ui.logic.dialogs.update_offense_logic import (
     coerce_at_bat,
     should_enable_buttons,
@@ -22,6 +19,8 @@ from src.ui.logic.dialogs.update_offense_logic import (
     build_offense_undo_payload,
     enforce_positive_integer
 )
+
+# --------------------------------------------------
 
 class UpdateOffenseDialog(QDialog):
     def __init__(self, league, selected, leaderboard, lv_teams, stack, undo, styles, message, parent=None):

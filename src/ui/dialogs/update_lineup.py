@@ -2,11 +2,8 @@ from PySide6.QtWidgets import QWidget, QDialog, QLabel, QLineEdit, QPushButton, 
 from PySide6.QtGui import QIntValidator
 from PySide6.QtCore import QCoreApplication, Qt, QTimer
 from src.ui.views.league_view_teams import LeagueViewTeams
-
 from src.ui.styles.stylesheets import StyleSheets
 import random
-
-# New: import logic helpers
 from src.ui.logic.dialogs.update_lineup_logic import (
   order_to_slot,
   validate_custom_slot,
@@ -14,6 +11,8 @@ from src.ui.logic.dialogs.update_lineup_logic import (
   apply_lineup_assignment,
   update_stats
 )
+
+# --------------------------------------------------
 
 class UpdateLineupDialog(QDialog):
     def __init__(self, league, selected, leaderboard, lv_teams, stack, undo, message, parent=None):

@@ -7,6 +7,7 @@ from src.ui.dialogs.message import Message
 from src.core.stack import Stack
 from src.core.linked_list import LinkedList
 
+# --------------------------------------------------
 
 def order_to_slot(order_label: str, custom_text: Optional[str]) -> Optional[str]:
     """Map human-readable order label to numeric slot string; use custom_text when 'custom'."""
@@ -27,6 +28,7 @@ def order_to_slot(order_label: str, custom_text: Optional[str]) -> Optional[str]
     }
     return mapping.get(order_label, str(order_label))
 
+# --------------------------------------------------
 
 def validate_custom_slot(slot_text: str, team_max_roster: int) -> None:
     """Raise ValueError if custom slot not in [10, team_max_roster]."""
@@ -37,16 +39,20 @@ def validate_custom_slot(slot_text: str, team_max_roster: int) -> None:
     if slot <= 9 or slot > int(team_max_roster):
         raise ValueError("Must enter a number greater than 9 and less than or equal to team max roster.")
 
+# --------------------------------------------------
 
 def build_undo_payload_for_lineup(team: Team, slot: str) -> Tuple[str, Optional[str]]:
     """Return (slot, previous_player_name) tuple for undo stack use."""
     prev_value = team.lineup.get(slot)
     return (slot, prev_value)
 
+# --------------------------------------------------
 
 def apply_lineup_assignment(team: Team, slot: str, player_name: str, parent) -> None:
     """Apply lineup assignment via team.set_lineup with existing replace semantics."""
     team.set_lineup('lineup', slot, player_name, parent)
+
+# --------------------------------------------------
 
 def update_stats(order_label: Optional[str], player: str, stack: Stack, message_instance: Message,     
                 custom_order_input: QLineEdit, league_instance: LinkedList, selected: Tuple[str, int], 

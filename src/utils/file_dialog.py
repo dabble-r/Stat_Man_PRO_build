@@ -1,9 +1,10 @@
 from PySide6.QtWidgets import QDialog, QFileDialog, QApplication, QWidget
-
 import os 
 import sys
 import platform
 from src.utils.path_resolver import get_app_base_path, get_data_path
+
+# --------------------------------------------------
 
 class FileDialog(QWidget):
     def __init__(self, message, parent=None, flag=None):
