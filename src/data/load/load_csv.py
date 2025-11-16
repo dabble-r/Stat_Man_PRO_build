@@ -606,8 +606,7 @@ def load_all_gui(instances, parent, league, mode=None):
             print(f"Team merge/add error: {e}")
     print('league after load', league)
     print('league after load', league.view_all())
-    print(f'LinkedList.COUNT (class var): {LinkedList.COUNT}')
-    print(f'league.COUNT (checking if instance var exists): {getattr(league, "COUNT", "No instance var - using class var")}')
+    print(f'Team count: {len(league.teams)}')
 
     # Build quick-lookup maps for teams
     def _norm_name(s):
@@ -1251,15 +1250,9 @@ def load_all_csv_to_db(league, directory: str, db_path: str, stack, parent=None)
         # Step 2c: Clear the league object in memory to remove all existing data
         print("Clearing league data from memory...")
         # Clear all teams from league
-        league.head = None
-        # Reset the CLASS variable COUNT (not an instance variable)
-        LinkedList.COUNT = 0
-        # Remove any instance variable COUNT if it exists
-        if hasattr(league, 'COUNT') and 'COUNT' in league.__dict__:
-            delattr(league, 'COUNT')
+        league.teams = []
         
-        print(f"League data cleared. LinkedList.COUNT reset to: {LinkedList.COUNT}")
-        print(f"league has instance COUNT: {'COUNT' in league.__dict__}")
+        print(f"League data cleared. Team count: {len(league.teams)}")
         print("Only CSV data will be loaded.")
         
         # Clear all GUI tree widgets to remove visual display of old data
@@ -1324,10 +1317,7 @@ def load_all_csv_to_db(league, directory: str, db_path: str, stack, parent=None)
                 return
             # Clear in-memory league and GUI
             try:
-                league.head = None
-                LinkedList.COUNT = 0
-                if hasattr(league, 'COUNT') and 'COUNT' in league.__dict__:
-                    delattr(league, 'COUNT')
+                league.teams = []
                 if parent and hasattr(parent, 'league_view_players'):
                     if hasattr(parent.league_view_players, 'tree1_top'):
                         parent.league_view_players.tree1_top.clear()

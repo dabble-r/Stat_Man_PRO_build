@@ -213,11 +213,11 @@ class Ui_StatDialog(QDialog):
     def check_league(self):
         flag = self.get_graph_data()
         if self.selected is None:
-            if self.league.get_count() == 0:
+            if not self.league.teams:
                 return 'sample league' 
-            elif self.league.get_count() >=1 and flag == False:
+            elif len(self.league.teams) >= 1 and flag == False:
                 return 'sample league' 
-            elif self.league.get_count() >= 1 and flag:
+            elif len(self.league.teams) >= 1 and flag:
                 return 'league'
         elif self.selected is not None:
             if len(self.selected) == 2:

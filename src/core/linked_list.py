@@ -1,539 +1,373 @@
-from src.core.node import Node
 from PySide6.QtWidgets import QMessageBox, QDialog
 import random
 
 # --------------------------------------------------
 
-class LinkedList():
-  COUNT = 0
+class LinkedList:
+    def __init__(self, message=None, name=None, head=None):
+        self.admin = {
+            "Name": 'League',
+            "Commissioner": None,
+            "Treasurer": None,
+            "Communications": None,
+            "Historian": None,
+            "Recruitment": None,
+            "Start": None,
+            "Stop": None
+        }
+        self.date = None
+        self.season = None
+        self.location = None
+        self.teams = []  # Replaced linked list with built-in list
+        self.name = 'League'
+        self.message = message
+        self.leagueID = self.get_hash()
 
-  @classmethod
-  def get_count(cls):
-    return cls.COUNT 
-  
-  @classmethod
-  def set_count(cls):
-    cls.COUNT += 1
-  
-  def __init__(self, message=None, name=None, head=None):
-    self.admin = {
-      "Name": 'League',
-      "Commissioner": None,
-      "Treasurer": None,
-      "Communications": None,
-      "Historian": None,
-      "Recruitment": None,
-      "Start": None,
-      "Stop": None
-    }
-    self.date = None
-    self.season = None
-    self.location = None
-    self.head = head 
-    self.name = 'League' 
-    self.message = message 
-    self.leagueID = self.get_hash()
+    # --------------------------------------------------
 
-    # --------------------------------------------------------------- # 
+    def get_count(self):
+        """Return the number of teams in the league."""
+        return len(self.teams)
 
-  def get_hash(self):
-    def indx(a, b):
-        index = a.index(b)
-        if index == 0:
-            return 2 
-        return index
-    ord_lst = [sum(ord(x)*indx(self.admin['Name'], x) for x in self.admin['Name'])]
-    
-    return ord_lst.pop() 
-  
-  def get_rand_hash(self):
-    def indx(a, b):
-        index = a.index(b)
-        if index == 0:
-            return 2 
-        return index
-    ord_lst = [sum(ord(x)*indx(self.admin['Name'], x) for x in self.admin['Name'])]
-    rand = random.randint(0,1000)
-    return ord_lst.pop() + rand
-  
-  def get_incr_hash(self, val):
-    return val + 1
-  
-  def format_decimal(self, num):
-    return "{:.3f}".format(num)
+    # --------------------------------------------------
 
-  def __str__(self):
-    ret = ''
-    if LinkedList.COUNT == 0:
-      ##print('No teams in league')
-      return ret
-    else:
-      ret = "League\n"
-      traverser = self.head
-      while traverser is not None:
-        tmp = f'Team: {traverser.team.name}\n'
-        ret += tmp
-        tmp = ''
-        if traverser.next is not None:
-          traverser = traverser.next
-        else:
-          return ret
-      #ret += f'Team: {traverser.team.name}\n'
-      return ret
-  
-  def get_team_objs_barset(self):
-    '''
-    example temp: ('team1', 'Beef Sliders', [1,2,3,4,5])
-    '''
+    def get_hash(self):
+        def indx(a, b):
+            index = a.index(b)
+            if index == 0:
+                return 2
+            return index
+        ord_lst = [sum(ord(x) * indx(self.admin['Name'], x) for x in self.admin['Name'])]
+        return ord_lst.pop()
 
-    if self.COUNT == 0:
-      return False
-    
-    traverser = self.head
-    ret = []
-    c_ret = [] 
-    t_ret = []
-    stat_ret = []
+    def get_rand_hash(self):
+        def indx(a, b):
+            index = a.index(b)
+            if index == 0:
+                return 2
+            return index
+        ord_lst = [sum(ord(x) * indx(self.admin['Name'], x) for x in self.admin['Name'])]
+        rand = random.randint(0, 1000)
+        return ord_lst.pop() + rand
 
-    while traverser is not None:
-      indx = 1
-      count = "team" + str(indx)
-      team = traverser.team.name 
-      hits = int(traverser.team.get_team_hits())
-      so = int(traverser.team.get_team_so())
-      runs = int(traverser.team.get_team_runs())
-      era = float(traverser.team.get_team_era())
-      k = int(traverser.team.get_team_k())
-      avg = round(float(traverser.team.get_bat_avg()), 3)
-      #avg = "{:.3f}".format(float(traverser.team.get_bat_avg()))
-      stats = [hits, so, runs, era, k, avg]
+    def get_incr_hash(self, val):
+        return val + 1
 
-      if hits == 0:
-        #print('hits:', hits)
-        return False
+    def format_decimal(self, num):
+        return "{:.3f}".format(num)
 
-      c_ret.append(count)
-      t_ret.append(team)
-      stat_ret.append(stats)
+    def __str__(self):
+        if not self.teams:
+            return ''
+        ret = "League\n"
+        for team in self.teams:
+            ret += f'Team: {team.name}\n'
+        return ret
 
-      indx += 1
+    # --------------------------------------------------
 
-      if traverser.next is not None:
-        traverser = traverser.next
-      else:
+    def get_team_objs_barset(self):
+        '''
+        example temp: ('team1', 'Beef Sliders', [1,2,3,4,5])
+        '''
+        if not self.teams:
+            return False
+
+        ret = []
+        c_ret = []
+        t_ret = []
+        stat_ret = []
+
+        for indx, team in enumerate(self.teams, start=1):
+            count = "team" + str(indx)
+            team_name = team.name
+            hits = int(team.get_team_hits())
+            so = int(team.get_team_so())
+            runs = int(team.get_team_runs())
+            era = float(team.get_team_era())
+            k = int(team.get_team_k())
+            avg = round(float(team.get_bat_avg()), 3)
+            stats = [hits, so, runs, era, k, avg]
+
+            if hits == 0:
+                return False
+
+            c_ret.append(count)
+            t_ret.append(team_name)
+            stat_ret.append(stats)
+
         ret.append(t_ret)
         ret.append(stat_ret)
         return ret
-      
-    ret.append(t_ret) 
-    ret.append(stat_ret)
-    return ret
-  
-  def get_team_objs_barset_spec(self, lst):
-    traverser = self.head
-    ret = []
-    c_ret = [] 
-    t_ret = []
-    stat_ret = []
-    check_team = lst
 
-    while traverser is not None:
-      indx = 1
-      count = "team" + str(indx)
-      team = traverser.team.name 
+    # --------------------------------------------------
 
-      if team in check_team:
-        hits = int(traverser.team.get_team_hits())
-        so = int(traverser.team.get_team_so())
-        runs = int(traverser.team.get_team_runs())
-        era = float(traverser.team.get_team_era())
-        k = int(traverser.team.get_team_k())
-        avg = round(float(traverser.team.get_bat_avg()), 3)
-        stats = [hits, so, runs, era, k, avg]
+    def get_team_objs_barset_spec(self, lst):
+        ret = []
+        c_ret = []
+        t_ret = []
+        stat_ret = []
+        check_team = lst
 
-        if hits == 0:
-          ##print('hits:', hits)
-          return False
+        for indx, team in enumerate(self.teams, start=1):
+            if team.name in check_team:
+                count = "team" + str(indx)
+                team_name = team.name
+                hits = int(team.get_team_hits())
+                so = int(team.get_team_so())
+                runs = int(team.get_team_runs())
+                era = float(team.get_team_era())
+                k = int(team.get_team_k())
+                avg = round(float(team.get_bat_avg()), 3)
+                stats = [hits, so, runs, era, k, avg]
 
-        c_ret.append(count)
-        t_ret.append(team)
-        stat_ret.append(stats)
-        indx += 1
+                if hits == 0:
+                    return False
 
-        if traverser.next is not None:
-          traverser = traverser.next
+                c_ret.append(count)
+                t_ret.append(team_name)
+                stat_ret.append(stats)
 
-        else:
-          ret.append(t_ret)
-          ret.append(stat_ret)
-          return ret
-        
-      else:
-        if traverser.next is not None:
-          traverser = traverser.next
-          
-        else:
-          ret.append(t_ret)
-          ret.append(stat_ret)
-          return ret
-
-    ret.append(t_ret) 
-    ret.append(stat_ret)
-    return ret
-  
-
-  # deprecated
-  def get_team_objs_lineseries(self):
-    '''example temp: 
-      ('team1', 'Beef Sliders', 0.432)
-    '''
-    if self.COUNT == 0:
-      return None
-    traverser = self.head
-    ret = [(),(),()]
-    while traverser is not None:
-      indx = 1
-      count = "team" + str(indx)
-      team = traverser.team.name 
-      avg = traverser.team.get_bat_avg()
-      #temp = (count, team, avg)
-      ret[0].append(count)
-      ret[1].append(team)
-      ret[2].append(avg)
-      indx += 1
-      if traverser.next is not None:
-        traverser = traverser.next
-      else:
+        ret.append(t_ret)
+        ret.append(stat_ret)
         return ret
-    #ret += f'Team: {traverser.team.name}\n'
-    return ret
-    
-  def get_admin(self):
-    ret = 'League Admin\n'
-    ret += f" League Name: {self.admin['League Name']}\n"
-    ret += f" Commissioner: {self.admin['Commissioner']}\n"
-    ret += f" Historian: {self.admin['Historian']}\n"
-    ret += f" Treasurer: {self.admin['Treasurer']}\n"
-    ret += f" Recruitment: {self.admin['Recruitment']}\n"
-    ret += f" Communications: {self.admin['Communications']}\n"
-    ret += f" Season Start: {self.admin['Season Start']}\n"
-    ret += f" Season End: {self.admin['Season End']}"
-    return ret
-  
-  def return_dict(self, dict):
-        ret = "" 
-        ###print('return dict:', dict)
+
+    # --------------------------------------------------
+
+    # deprecated
+    def get_team_objs_lineseries(self):
+        '''example temp:
+          ('team1', 'Beef Sliders', 0.432)
+        '''
+        if not self.teams:
+            return None
+        ret = [[], [], []]
+        for indx, team in enumerate(self.teams, start=1):
+            count = "team" + str(indx)
+            team_name = team.name
+            avg = team.get_bat_avg()
+            ret[0].append(count)
+            ret[1].append(team_name)
+            ret[2].append(avg)
+        return ret
+
+    # --------------------------------------------------
+
+    def get_admin(self):
+        ret = 'League Admin\n'
+        ret += f" League Name: {self.admin['League Name']}\n"
+        ret += f" Commissioner: {self.admin['Commissioner']}\n"
+        ret += f" Historian: {self.admin['Historian']}\n"
+        ret += f" Treasurer: {self.admin['Treasurer']}\n"
+        ret += f" Recruitment: {self.admin['Recruitment']}\n"
+        ret += f" Communications: {self.admin['Communications']}\n"
+        ret += f" Season Start: {self.admin['Season Start']}\n"
+        ret += f" Season End: {self.admin['Season End']}"
+        return ret
+
+    def return_dict(self, dict):
+        ret = ""
         for el in dict:
-            ##print('return dict:', el)
             ret += f"{el}:{dict[el]}\n"
         return ret
-          
-  # team lineup 
-  # list of tuples
-  def format_dict(self, dict):
+
+    # team lineup
+    # list of tuples
+    def format_dict(self, dict):
         ret = []
         ret_dict = self.return_dict(dict).split("\n")
-        ###print(ret_dict)
         for el in ret_dict:
-            # not necessary
             indx = el.find(":")
             el = el.replace(":", " ")
             val = el[:indx].strip()
             name = el[indx::].strip()
             ret.append((val, name))
-            #temp = None
         ret.pop()
         return ret
-        
-  # team stats 
-  # list of all team stats plus lineup as tuples
-  def return_admin(self):
+
+    # team stats
+    # list of all team stats plus lineup as tuples
+    def return_admin(self):
         admin = self.format_dict(self.admin)
-        #admin.pop()
-        ##print('return stats:', admin)
         return admin
 
-  def ques_replace(self, attr, stat, parent):
-    ##print("admin:\n", attr, stat)
-    existing_val = getattr(self, attr)[stat]
-    if existing_val:
-      reply = QMessageBox.question(parent, "Input Error", f"Would you like to replace {existing_val} at {stat}?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-      return reply 
-    return None
-    
-    # --------------------------------------------------------------- # 
-  
+    def ques_replace(self, attr, stat, parent):
+        existing_val = getattr(self, attr)[stat]
+        if existing_val:
+            reply = QMessageBox.question(parent, "Input Error", f"Would you like to replace {existing_val} at {stat}?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            return reply
+        return None
 
-    # --------------------------------------------------------------- #
-  
-  def add_team(self, val):
-    """Append a Team node to the end of the league list and increment COUNT."""
-    new_node = Node(val)
-    if self.head == None:
-      self.head = new_node 
-      self.head.next = None
-      LinkedList.set_count()
-      return
-    curr = self.head
-    while curr.next != None:
-      curr = curr.next
-    curr.next = new_node
-    new_node.next = None
-    LinkedList.set_count()
-    return
-  
-  def remove_team(self, target): 
-      """Remove first Team node whose name matches target; update COUNT accordingly."""
-      if self.head.team.name == target and LinkedList.COUNT == 1:
-        self.head = None
-        LinkedList.COUNT -= 1
-        ###print(f'Removing {target}')
-        return
-      
-      elif self.head.team.name != target and LinkedList.COUNT == 1:
-        return
-      
-      if self.head.team.name == target and LinkedList.COUNT > 1:
-        curr = self.head
-        self.head = curr.next
-        curr = None
-        LinkedList.COUNT -= 1
-        ###print(f'Removing {target}')
-        return
-      traverser = self.head
-      prev = None
-      while traverser is not None:
-        if traverser.team.name == target:
-            if prev is not None:
-                prev.next = traverser.next
-            else:
-                self.head = traverser.next
-                traverser = None
-            LinkedList.COUNT -= 1
+    # --------------------------------------------------
+
+    def add_team(self, val):
+        """Append a Team to the end of the league list."""
+        self.teams.append(val)
+
+    # --------------------------------------------------
+
+    def remove_team(self, target):
+        """Remove first Team whose name matches target."""
+        for i, team in enumerate(self.teams):
+            if team.name == target:
+                self.teams.pop(i)
+                return
+
+    # --------------------------------------------------
+
+    def find_team(self, target):
+        """Return Team by case-insensitive name match, or None if not present."""
+        def _norm(s):
+            try:
+                return str(s).strip().lower()
+            except Exception:
+                return s
+        target_n = _norm(target)
+        for team in self.teams:
+            if _norm(team.name) == target_n:
+                return team
+        return None
+
+    # --------------------------------------------------
+
+    def find_teamID(self, target):
+        """Return Team by exact teamID match (int), or None if not present."""
+        for team in self.teams:
+            if team.teamID == target:
+                return team
+        return None
+
+    # --------------------------------------------------
+
+    def find_player(self, target):
+        """Find player by name across all teams."""
+        target_lower = target.lower()
+        for team in self.teams:
+            for player in team.players:
+                if player.name.lower() == target_lower:
+                    return player
+        return None
+
+    # --------------------------------------------------
+
+    def find_player_by_number(self, target: int) -> list:
+        """Find all players with matching number across all teams."""
+        ret = []
+        for team in self.teams:
+            for player in team.players:
+                if int(player.number) == target:
+                    ret.append(player)
+        return ret
+
+    # --------------------------------------------------
+
+    def view_all(self):
+        """Return string summary of teams and first-position players across league."""
+        if not self.teams:
+            return ''
+        ret = ''
+        for team in self.teams:
+            ret += f'\nTeam: {team.name}\nPlayers: {[{x.name: x.positions[0]} for x in team.players]}\n'
+        return ret
+
+    # --------------------------------------------------
+
+    def set_admin(self, attr, stat, val, parent):
+        if 'Season' in stat:
+            self.admin[stat] = val
             return
-        prev = traverser
-        traverser = traverser.next
-      return
-      ###print('end of list')
-  
-  def find_team(self, target):
-    """Return Team by case-insensitive name match, or None if not present."""
-    def _norm(s):
-      try:
-        return str(s).strip().lower()
-      except Exception:
-        return s
-    traverser = self.head
-    if traverser == None:
-      return None
-    target_n = _norm(target)
-    # check head
-    if _norm(traverser.team.name) == target_n:
-      return traverser.team
-    # traverse rest
-    while traverser.next != None:
-      if _norm(traverser.next.team.name) == target_n:
-        return traverser.next.team
-      traverser = traverser.next 
-    return None
-  
-  def find_teamID(self, target):
-    """Return Team by exact teamID match (int), or None if not present."""
-    traverser = self.head
-    if traverser == None:
-      ###print('No teams in league\n')
-      return None
-    if traverser.team.teamID == target:
-      return traverser.team
-    else:
-      while traverser.next != None:
-        if traverser.next.team.teamID == target:
-          return traverser.next.team
-        traverser = traverser.next 
-    ###print('Team not found')
-    return None
-  
-  def find_player(self, target):
-    traverser = self.head 
-    if traverser == None:
-      return None      
-    if len(traverser.team.players) == 0:
-      return None
-    while traverser != None:
-      for el in traverser.team.players:
-        #print("traverser players:", el.name)
-        if el.name.lower() == target.lower():
-          return el 
-      traverser = traverser.next
-    return None
 
-  def find_player_by_number(self, target: int) -> list:
-    ret = []
-    traverser = self.head 
-    if traverser == None:
-      return ret      
-    if len(traverser.team.players) == 0:
-      return ret
-    while traverser != None:
-      for el in traverser.team.players:
-        print("traverser player nums:", el.number, target, type(el.number), type(target))
-        if int(el.number) == target:
-          ret.append(el)
-      traverser = traverser.next
-    return ret
+        reply = self.ques_replace(attr, stat, parent)
+        if reply == QMessageBox.StandardButton.No:
+            return
 
-  def view_all(self):
-    """Return string summary of teams and first-position players across league."""
-    if LinkedList.COUNT == 0:
-      ##print('No teams in league')
-      return ''
-    else:
-      ret = ''
-      traverser = self.head 
-      while traverser != None:
-        ret += f'\nTeam: {traverser.team.name}\nPlayers: {[{x.name: x.positions[0]} for x in traverser.team.players]}'
-        traverser = traverser.next
-      return ret
-    
-    # --------------------------------------------------------------------- #
+        self.admin[stat] = val
 
-  def set_admin(self, attr, stat, val, parent):
-    ##print('attr:', attr)
-    ##print('stat:', stat)
-    ##print('val:', val)
-    if 'Season' in stat:
-      self.admin[stat] = val
-      return
-    
-    reply = self.ques_replace(attr, stat, parent)
-    if reply == QMessageBox.StandardButton.No: 
-      return
-    
-    self.admin[stat] = val
+    # --------------------------------------------------
 
-    #print("admin:\n", stat, val)
+    def isDefaultName(self):
+        return self.admin['Name'] == 'League'
 
-    # --------------------------------------------------------------------- #
-  def isDefaultName(self):
-    return self.admin['Name'] == 'League'  
-  
-  def get_all_players_num(self):
-    ret = []
-    if LinkedList.COUNT == 0:
-      ##print('No teams in league')
-      return ret
-    else:
-      traverser = self.head 
-      while traverser != None:
-        players = traverser.team.players
-        for el in players:
-          team_val = el.team.name if hasattr(el.team, 'name') else el.team
-          temp = (el.name, team_val, str(el.number))
-          ret.append(temp)
-          temp = None
-        traverser = traverser.next
-      return ret
-  
-  def get_all_players_avg(self):
-    ret = []
-    if LinkedList.COUNT == 0:
-      ##print('No teams in league')
-      return ret
-    else:
-      traverser = self.head 
-      while traverser != None:
-        players = traverser.team.players
-        for el in players:
-          temp = (el.name, el.team, el.AVG)
-          ret.append(temp)
-          temp = None
-        traverser = traverser.next
-      return ret
-  
-  def get_all_avg(self):
-    ret = []
-    if LinkedList.COUNT == 0:
-      ##print("no team sin league")
-      return ret 
-    traverser = self.head 
-    while traverser != None:
-      name = traverser.team.name 
-      roster = traverser.team.max_roster
-      avg = self.format_decimal(float(traverser.team.get_bat_avg()))
-      ret.append((name, roster, avg))
-      traverser = traverser.next 
-    return ret
+    # --------------------------------------------------
 
-  def get_all_wl(self):
-    ret = []
-    if LinkedList.COUNT == 0:
-      ##print("no team sin league")
-      return ret 
-    traverser = self.head 
-    while traverser != None:
-      name = traverser.team.name 
-      roster = traverser.team.max_roster
-      avg = self.format_decimal(float(traverser.team.get_wl_avg()))
-      ret.append((name, roster, avg))
-      traverser = traverser.next 
-    return ret
-  
-  def get_all_team_names(self):
-    ret = []
-    if LinkedList.COUNT == 0:
-      ##print("no team sin league")
-      return None
-    traverser = self.head
-    while traverser != None:
-      name = traverser.team.name 
-      ret.append(name)
-      traverser = traverser.next 
-    return ret
-  
-  def get_team_era(self):
-    '''
-    team = all players
-    players = [a,b,c,d,e,f,g]
-    a.positions = [a,b,c,d,pitcher,e,f,g]
-    if 'pitcher' in a.positions:
-      temp = a.era
-      total += temp 
-      temp = 0
-    '''
-    ret = []
-    total = 0 
-    if LinkedList.COUNT == 0:
-      ##print('No teams in league')
-      return self.format_decimal(ret)
-    else:
-      traverser = self.head 
-      while traverser != None:
-        players = traverser.team.players
-        for el in players:
-          pos = el.positions
-          if 'pitcher' in pos:
-            temp = float(el.era) 
-            total += temp
-            temp = 0
-        ret.append((traverser.team.name, str(total)))
-        total = 0
-        traverser = traverser.next
-      return ret
-    
-  def get_all_objs(self):
-    ret = []
-    if self.COUNT == 0:
-      return ret
-    traverser = self.head
-    while traverser is not None:
-      objTeam = traverser.team 
-      ret.append(objTeam)
-      traverser = traverser.next 
-    return ret
+    def get_all_players_num(self):
+        """Return list of (name, team, number) tuples for all players."""
+        ret = []
+        for team in self.teams:
+            for player in team.players:
+                team_val = player.team.name if hasattr(player.team, 'name') else player.team
+                ret.append((player.name, team_val, str(player.number)))
+        return ret
 
+    # --------------------------------------------------
 
+    def get_all_players_avg(self):
+        """Return list of (name, team, avg) tuples for all players."""
+        ret = []
+        for team in self.teams:
+            for player in team.players:
+                ret.append((player.name, player.team, player.AVG))
+        return ret
 
-  
+    # --------------------------------------------------
 
-  
+    def get_all_avg(self):
+        """Return list of (name, roster, avg) tuples for all teams."""
+        ret = []
+        for team in self.teams:
+            name = team.name
+            roster = team.max_roster
+            avg = self.format_decimal(float(team.get_bat_avg()))
+            ret.append((name, roster, avg))
+        return ret
 
+    # --------------------------------------------------
+
+    def get_all_wl(self):
+        """Return list of (name, roster, wl_avg) tuples for all teams."""
+        ret = []
+        for team in self.teams:
+            name = team.name
+            roster = team.max_roster
+            avg = self.format_decimal(float(team.get_wl_avg()))
+            ret.append((name, roster, avg))
+        return ret
+
+    # --------------------------------------------------
+
+    def get_all_team_names(self):
+        """Return list of all team names."""
+        if not self.teams:
+            return None
+        return [team.name for team in self.teams]
+
+    # --------------------------------------------------
+
+    def get_team_era(self):
+        '''
+        team = all players
+        players = [a,b,c,d,e,f,g]
+        a.positions = [a,b,c,d,pitcher,e,f,g]
+        if 'pitcher' in a.positions:
+          temp = a.era
+          total += temp
+          temp = 0
+        '''
+        ret = []
+        if not self.teams:
+            return self.format_decimal(ret)
+        for team in self.teams:
+            total = 0
+            for player in team.players:
+                if 'pitcher' in player.positions:
+                    total += float(player.era)
+            ret.append((team.name, str(total)))
+        return ret
+
+    # --------------------------------------------------
+
+    def get_all_objs(self):
+        """Return list of all Team objects."""
+        return self.teams.copy()
+
+    # --------------------------------------------------

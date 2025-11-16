@@ -67,7 +67,7 @@ class RemoveDialog(QDialog):
         """Remove the selected item from visible views only, keeping league data intact."""
         #print('current view') 
 
-        if LinkedList.COUNT == 0:
+        if not self.league.teams:
             #print('no teams in league')
             return 
         
@@ -96,7 +96,7 @@ class RemoveDialog(QDialog):
         """Remove the selected team or player from the league after confirmation."""
         #print('league before:', self.league)
 
-        if LinkedList.COUNT == 0:
+        if not self.league.teams:
             #print('no teams in league')
             return 
         
@@ -116,7 +116,7 @@ class RemoveDialog(QDialog):
             team, avg = self.selected
             print(f"\n=== REMOVE TEAM - DEBUG ===")
             print(f"Selected team name: '{team}'")
-            print(f"LinkedList.COUNT before removal: {LinkedList.COUNT}")
+            print(f"Team count before removal: {len(self.league.teams)}")
             print(f"All teams in league: {[t.name for t in self.league.get_all_objs()]}")
             
             find_team = self.league.find_team(team)
@@ -135,7 +135,7 @@ class RemoveDialog(QDialog):
                 
                 print(f"About to call self.league.remove_team('{team}')")
                 self.league.remove_team(team)
-                print(f"LinkedList.COUNT after removal: {LinkedList.COUNT}")
+                print(f"Team count after removal: {len(self.league.teams)}")
                 print(f"All teams remaining: {[t.name for t in self.league.get_all_objs()]}")
                 print("=== END DEBUG ===\n") 
 

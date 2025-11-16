@@ -386,7 +386,7 @@ class MainWindow(QWidget):
         #dialog = UpdateDialog(self.league, self.selected, self.leaderboard, self.league_view_teams, self.stack, self.undo, self.file_dir, self.styles, self.message, parent=self)
         #dialog.exec()
         print("search dialog!")
-        if self.league.COUNT == 0:
+        if not self.league.teams:
             self.message.show_message("There are no teams in league.", btns_flag=False, timeout_ms=2000)
             return
         dialog = SearchDialog(self.league, self.selected, self.stack, self.undo, self.message, parent=self)
@@ -422,15 +422,15 @@ class MainWindow(QWidget):
     def on_refresh_button_clicked(self):
         """Handler for when the user clicks the Refresh button"""
         print("Refresh button clicked by user")
-        print(f"LinkedList.COUNT (class var): {LinkedList.COUNT}")
-        if LinkedList.COUNT == 0:
+        print(f"Team count: {len(self.league.teams)}")
+        if not self.league.teams:
             self.message.show_message("No Data: There are no teams or players to refresh. Please load data first.", btns_flag=False, timeout_ms=2000)
             return
         self.refresh_view()
     
     def refresh_view(self):
         """Refresh the GUI views - can be called by button or programmatically"""
-        print(f"Refreshing views (LinkedList.COUNT: {LinkedList.COUNT})")
+        print(f"Refreshing views (Team count: {len(self.league.teams)})")
         self.refresh.restore_all()
         print("Refresh completed")
     
