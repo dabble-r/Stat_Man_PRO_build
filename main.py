@@ -18,7 +18,7 @@ from PySide6.QtWidgets import QApplication
 from src.utils.img_repo import CreateDir
 from src.ui.styles.stylesheets import StyleSheets
 from src.utils.path_resolver import get_database_path
-from src.utils.mouse_events import MyHoverWidget
+
 
 def clear_database_on_startup():
     """Clear all data from database on startup - database doesn't persist between sessions"""
@@ -57,8 +57,7 @@ if __name__ == "__main__":
     
     app = QApplication(sys.argv)
     styles = StyleSheets()
-    hover_widget = MyHoverWidget()
-    app.installEventFilter(hover_widget)
+    
     app.setStyleSheet(styles.get_monochrome_1_style())
 
     window = MainWindow(app)

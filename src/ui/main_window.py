@@ -1,3 +1,4 @@
+from readline import read_init_file
 import sys 
 import os
 from src.ui.views.league_view_players import LeagueViewPlayers
@@ -23,6 +24,7 @@ from src.ui.dialogs.message import Message
 from src.ui.dialogs.close import CloseDialog
 from src.utils.file_dialog import FileDialog
 from src.ui.dialogs.search_dialog import SearchDialog
+from src.utils.mouse_events import MyHoverWidget
 
 
 class MainWindow(QWidget):
@@ -34,6 +36,7 @@ class MainWindow(QWidget):
         self.styles = StyleSheets()
         self.stack = Stack()
         self.app = app
+        
         
         
         self.undo = Undo(self.stack, self.league)
@@ -65,7 +68,27 @@ class MainWindow(QWidget):
 
         self.tree_widgets = [self.league_view_players.tree1_top, self.league_view_players.tree2_top, self.league_view_teams.tree1_bottom, self.league_view_teams.tree2_bottom]
         self.event_filter = TreeEventFilter(self.tree_widgets, self)
+        # tree event filter to enforce single selection and clear selection on whitespace
         self.set_event_filter()
+
+        # Create stat snapshot dialog first
+        self.stat_widget_snapshot_ui = Ui_StatDialog(self.league, self.message, self.selected, parent=self, flag=False, resize=True) 
+        self.stat_widget_snapshot_ui.setWindowFlags(Qt.WindowType.Popup | Qt.WindowType.FramelessWindowHint | Qt.WindowType.NoDropShadowWindowHint)
+        # Enable hover tracking on the popup dialog
+        self.stat_widget_snapshot_ui.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
+        
+        # mouse hover widget to handle hover events on tree widgets and popup
+        self.hover_widget = MyHoverWidget(self.tree_widgets[0], self.tree_widgets[1], self.tree_widgets[2], self.tree_widgets[3], stat_popup=self.stat_widget_snapshot_ui, parent=self)
+        # Install event filter on tree viewports instead of application level (item 3)
+        for tree in self.tree_widgets:
+            tree.viewport().installEventFilter(self.hover_widget)
+            tree.installEventFilter(self.hover_widget)
+        # Also install on application for mouse clicks (to detect clicks outside popup)
+        self.app.installEventFilter(self.hover_widget)
+
+        # Connect signals to slots for stat snapshot handler
+        self.hover_widget.item_hovered.connect(self.stat_snapshot_handler)
+        self.hover_widget.hover_ended.connect(lambda: self.stat_snapshot_handler(instance=None))
 
                                                 # ------------------------------------------------------------------ # 
 
@@ -77,7 +100,7 @@ class MainWindow(QWidget):
         self.buttons_bottom = []
         self.v_layout_buttons_bottom = QVBoxLayout()
 
-         # ------------------------------------------------------------- #
+                                                # ------------------------------------------------------------------- #
 
         # Stat button to the right of second tree widget at the bottom
         self.btn_stat = QPushButton("Stat")
@@ -167,6 +190,22 @@ class MainWindow(QWidget):
         self.setWindowTitle(self.title)
 
         # ----------------------------------------------------------------------------- #
+    def stat_snapshot_handler(self, instance=None):
+        """Handle stat snapshot display based on hover state.
+        
+        Args:
+            instance: List of item data [name, team, avg] when hovering, None when leaving
+        """
+        if instance is not None:
+            # Hovering over an item - show stats
+            print(f"Hovering over item: {instance}")
+            self.selected = instance
+            self.stat_widget_snapshot_ui.get_stats(instance)
+            self.stat_widget_snapshot_ui.show()
+        else:
+            # Mouse left - hide stats
+            print("Hiding stat snapshot dialog")
+            self.stat_widget_snapshot_ui.hide()
 
     def closeEvent(self, event=QCloseEvent):
         reply = QMessageBox.question(

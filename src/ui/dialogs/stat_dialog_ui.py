@@ -32,7 +32,7 @@ import random
 import sys
 
 class Ui_StatDialog(QDialog):
-    def __init__(self, league, message, selected, parent=None):
+    def __init__(self, league, message, selected=None, parent=None, flag=True, resize=False):
         """Stats dialog showing charts and trees for a selected player/team context."""
         super().__init__(parent)
         self.league = league
@@ -53,7 +53,10 @@ class Ui_StatDialog(QDialog):
         self.sample_player = SamplePlayer('Sample Player', 1, 'Sample Team', 'Sample League', ['first', 'second', 'third'], message=self.message)
         
         self.setWindowTitle("Stats Viewer")
-        self.resize(800, 600)  # Resize the dialog itself
+        if not resize:
+            self.resize(800, 600)  # Resize the dialog itself
+        else:
+            self.resize(400, 300)
 
         self.layout_main = QVBoxLayout(self)
         self.layout_main.addWidget(self.label)
@@ -62,13 +65,7 @@ class Ui_StatDialog(QDialog):
         self.layout_main.setSpacing(10)  # Minimal spacing between widgets
 
        
-        # View Graph button
-        self.view_graph_btn = QPushButton("View\nGraph", self)
-        self.view_graph_btn.setFixedSize(150, 75)
-        self.view_graph_btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        #self.view_graph_btn.setStyleSheet("margin-bottom: 10px;")  # Optional: fine-tune padding
-        self.view_graph_btn.setCursor(Qt.PointingHandCursor)
-        self.view_graph_btn.clicked.connect(self.get_graph)
+        
 
         # Tree widget
         #self.tree_widget = QTreeWidget(self)
@@ -83,8 +80,16 @@ class Ui_StatDialog(QDialog):
         # Optional: Add vertical spacer to center content if needed
         self.layout_main.addSpacerItem(QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding))
 
-        # Center the button horizontally
-        self.layout_main.addWidget(self.view_graph_btn, alignment=Qt.AlignHCenter | Qt.AlignBottom)
+        # Center the button horizontally if flag is True
+        if flag:
+            # View Graph button
+            self.view_graph_btn = QPushButton("View\nGraph", self)
+            self.view_graph_btn.setFixedSize(150, 75)
+            self.view_graph_btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+            #self.view_graph_btn.setStyleSheet("margin-bottom: 10px;")  # Optional: fine-tune padding
+            self.view_graph_btn.setCursor(Qt.PointingHandCursor)
+            self.view_graph_btn.clicked.connect(self.get_graph)
+            self.layout_main.addWidget(self.view_graph_btn, alignment=Qt.AlignHCenter | Qt.AlignBottom)
 
                                 # ------------------------------------------------------------------------------ #
 
@@ -337,6 +342,16 @@ class Ui_StatDialog(QDialog):
         self.tree_widget.insertTopLevelItem(0, item)  
 
     def get_stats(self, selected):
+        # Clear the tree widget first to prevent accumulation
+        self.tree_widget.clear()
+        
+        # Update dialog's internal selected state
+        self.selected = selected
+        
+        # Update the label dynamically
+        label_text = self.get_label()
+        self.label.setText(label_text)
+        
         item = None 
         team = None 
         avg = None 
@@ -385,8 +400,8 @@ class Ui_StatDialog(QDialog):
                 item.setTextAlignment(1, Qt.AlignCenter)
                 self.tree_widget.addTopLevelItem(item)
 
-        elif len(self.selected) == 3:
-            player, team, avg = self.selected 
+        elif len(selected) == 3:
+            player, team, avg = selected 
             find_team = self.league.find_team(team)
             find_player = find_team.get_player(player)
             image_path = find_player.image
