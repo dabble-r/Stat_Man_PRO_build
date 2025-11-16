@@ -24,6 +24,7 @@ from src.ui.dialogs.close import CloseDialog
 from src.utils.file_dialog import FileDialog
 from src.ui.dialogs.search_dialog import SearchDialog
 
+
 class MainWindow(QWidget):
     def __init__(self, app):
         """Main application window wiring league, views, dialogs, and event filters."""

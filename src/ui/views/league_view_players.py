@@ -46,7 +46,6 @@ class LeagueViewPlayers(QWidget):
         self.setObjectName("league view players - top")
         self.selected = selected
         self.styles = styles
-        
         self.undo = undo
         self.file_dir = file_dir
         self.db_path = f"{self.file_dir}/DB"
@@ -73,7 +72,6 @@ class LeagueViewPlayers(QWidget):
 
         self.league_view_teams = league_view
 
-        
 
         self.tree1_top.setColumnCount(3)
         self.tree1_top.setHeaderLabels(["Player", "Team", "Number"])
@@ -82,7 +80,6 @@ class LeagueViewPlayers(QWidget):
         header1 = self.tree1_top.header()
         header1.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
 
-        
 
         # Top layout containing two tree widgets
         self.top_layout = QHBoxLayout()
@@ -126,8 +123,6 @@ class LeagueViewPlayers(QWidget):
         self.button_group.setLayout(self.button_layout_top)
 
         # use layouts from league view players individually to customize main view
-        
-        
         
     def open_new_player_dialog(self):
         self.new_player_widget = QDialog(self.parent)
