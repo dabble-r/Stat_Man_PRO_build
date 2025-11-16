@@ -120,7 +120,7 @@ class MyHoverWidget(QObject):
             self.hover_timer.stop()
         
         # Start timer for 1000ms before emitting signal
-        self.hover_timer.start(1000)
+        self.hover_timer.start(1500)
         print(f"Started hover timer (1000ms) for item: {instance}")
     
     # --------------------------------------------------
