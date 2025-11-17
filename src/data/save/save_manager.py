@@ -8,7 +8,7 @@ import glob
 from PySide6.QtWidgets import (
     QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QHBoxLayout
 )
-from datetime import datetime
+from src.utils.timestamp import get_timestamp, get_rand, isPathExist, avoid_dup_file_name, upd_file_path
 
 
 class Save():
@@ -966,17 +966,6 @@ class Save():
     except Exception as e:
       print(f"Error: Unable to connect to database '{db_path}': {e}")
       return
-
-    '''new_dir = os.path.join(csv_path, self.get_timestamp())
-    print('new dir:', new_dir)
-    
-    if not os.path.exists(new_dir):
-      os.mkdir(new_dir)
-      
-    elif os.path.exists(new_dir):
-      print(f"Dir: {new_dir} exists!")
-      new_dir = os.path.join(csv_path, self.get_timestamp(flag=True))
-      os.mkdir(new_dir)'''
     
     try: 
       cur.execute("SELECT name FROM sqlite_master WHERE type='table'")
@@ -1006,12 +995,12 @@ class Save():
 
           column_names = [description[0] for description in cur.description]
 
-          file_name = f"{table}{self.get_timestamp()}.csv"
+          file_name = f"{table}{get_timestamp()}.csv"
           file_path = os.path.join(csv_path, file_name)
           
-          if self.isPathExist(file_path):
-            file_name = self.avoid_dup_file_name(table, self.get_timestamp(flag=True))
-            file_path = self.upd_file_path(csv_path, file_name)
+          if isPathExist(file_path):
+            file_name = avoid_dup_file_name(table, get_timestamp(flag=True))
+            file_path = upd_file_path(csv_path, file_name)
 
           with open(file_path, "w", newline='', encoding='utf-8') as f:
               writer = csv.writer(f)
@@ -1026,7 +1015,7 @@ class Save():
     finally:
       con.close()
   
-  def isPathExist(self, file_path):
+  '''def isPathExist(self, file_path):
     if os.path.exists(file_path):
       return True 
     return False
@@ -1038,7 +1027,7 @@ class Save():
   def upd_file_path(self, output_path, file_name):
     file_path = os.path.join(output_path, file_name)
     return file_path
-
+'''
   # ------------------------------------------------------------------------------------------------- #
   # currently in use
   def save_master(self, db_path, csv_path):
@@ -1200,17 +1189,17 @@ class Save():
 
     return row
 
-  def get_rand(self):
+  '''def get_rand(self):
         rand = str(random.randint(1, 1000))
-        return rand
+        return rand'''
     
-  def get_timestamp(self, flag=False):
+  '''def get_timestamp(self, flag=False):
     now = datetime.now()
     date = now.strftime("_%m%d%Y")
     if flag: 
       date = now.strftime("_%m%d%Y_%S")
     #print(f"Formatted date: {date}")
-    return date
+    return date'''
 
                                               # ----------------------------------------------------------------------------------------- #
                                               # --------------------- outsie of class - helper init db functions -----------------------  #

@@ -3,7 +3,7 @@ import sys
 import sqlite3
 import csv
 from pathlib import Path
-from datetime import datetime
+from src.utils.timestamp import get_timestamp
 
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QPushButton,
@@ -116,10 +116,10 @@ class SaveCSVHandler:
                 final_folder = target_folder
             else:
                 # Create new -> add timestamp
-                ts = self.get_timestamp()
+                ts = get_timestamp()
                 final_folder = self.csv_path / f"_{chosen_name}{ts}"
                 if final_folder.exists():
-                  ts = self.get_timestamp(flag=True)
+                  ts = get_timestamp(flag=True)
                   final_folder = self.csv_path / f"_{chosen_name}{ts}"
         else:
             final_folder = target_folder
@@ -157,10 +157,10 @@ class SaveCSVHandler:
             if p.is_file() and p.suffix.lower() == ".csv":
                 p.unlink()
     
-    def get_timestamp(self, flag=False):
+    '''def get_timestamp(self, flag=False):
       now = datetime.now()
       date = now.strftime("_%m%d%Y")
       if flag: 
         date = now.strftime("_%m%d%Y_%S")
       #print(f"Formatted date: {date}")
-      return date
+      return date'''
