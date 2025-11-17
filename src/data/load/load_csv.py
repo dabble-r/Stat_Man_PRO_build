@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
     QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QScrollArea, QWidget, QHBoxLayout, QSizePolicy
 )
 from PySide6.QtCore import Qt
-from src.data.save.save import init_new_db
+from src.data.save.save_manager import init_new_db
 from src.core.stack import InstanceStack
 from src.core.game import Game 
 from src.core.linked_list import LinkedList 

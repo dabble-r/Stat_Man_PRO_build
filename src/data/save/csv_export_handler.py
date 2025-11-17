@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
     QMessageBox, QDialog, QLabel, QLineEdit, QHBoxLayout, QDialogButtonBox
 )
 from PySide6.QtCore import Qt
-from src.data.save.save import Save
+from src.data.save.save_manager import Save
 
 # --- Custom dialog to ask for folder name -----------------------------------
 class FolderNameDialog(QDialog):

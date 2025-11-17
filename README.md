@@ -88,9 +88,9 @@ stat_man_g/
 │   │   │   └── load.py               # Load utilities
 │   │   │
 │   │   ├── save/            # Database and CSV export
-│   │   │   ├── save.py               # Main save logic (DB + CSV)
-│   │   │   ├── save_exp.py           # CSV export utilities
-│   │   │   └── save_dialog_ui.py     # Save dialog UI
+│   │   │   ├── save_manager.py       # Main save logic (DB + CSV)
+│   │   │   ├── csv_export_handler.py # CSV export utilities
+│   │   │   └── save_dialog.py        # Save dialog UI
 │   │   │
 │   │   └── database/        # Database utilities
 │   │       └── ...          # DB initialization and schema
