@@ -24,10 +24,10 @@ stat_man_g/
 │
 ├── src/                     # Main source code
 │   ├── core/                # Core business logic
-│   │   ├── linked_list.py   # League data structure
+│   │   ├── linked_list.py   # League data structure (uses Python list internally)
 │   │   ├── team.py          # Team class with stat calculations
 │   │   ├── player.py        # Player and Pitcher classes with stat logic
-│   │   ├── node.py          # Linked list node implementation
+│   │   ├── node.py          # Stack node implementation (for undo functionality)
 │   │   ├── game.py          # Game object and logic
 │   │   └── stack.py         # Stack data structure for undo/redo
 │   │
@@ -202,7 +202,7 @@ STATMANG_DEBUG = 1 python3 main.py
 The project follows a modular architecture with clear separation of concerns:
 
 - **Core (`src/core/`)**: Core business logic independent of UI
-  - Data structures (LinkedList, Stack, Node)
+  - Data structures (League using Python list, Stack with Node, Team, Player, Pitcher, Game)
   - Domain models (Team, Player, Pitcher, Game)
   - Stat calculation logic
 

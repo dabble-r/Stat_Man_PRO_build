@@ -131,7 +131,16 @@ class MyHoverWidget(QObject):
         """Handle mouse entering a tree widget - start 1000ms timer to show popup."""
         for tree in self.tree_widgets:
             if obj == tree or obj == tree.viewport():
-                instance = self._get_item_instance(tree, event.pos())
+                # Map coordinates to viewport space if event came from tree widget
+                # itemAt() expects viewport coordinates (excludes header)
+                if obj == tree:
+                    # Map from tree coordinates to viewport coordinates
+                    pos = tree.viewport().mapFrom(tree, event.pos())
+                else:
+                    # Already in viewport coordinates
+                    pos = event.pos()
+                
+                instance = self._get_item_instance(tree, pos)
                 if instance:
                     self._start_hover_timer_for_item(tree, instance)
                 else:
@@ -182,8 +191,10 @@ class MyHoverWidget(QObject):
                 
                 if tree_rect.contains(cursor_pos):
                     # Still over the tree - check if over a valid item
+                    # Map from tree coordinates to viewport coordinates for itemAt()
                     tree_local_pos = tree.mapFromGlobal(cursor_pos)
-                    item = tree.itemAt(tree_local_pos)
+                    viewport_pos = tree.viewport().mapFrom(tree, tree_local_pos)
+                    item = tree.itemAt(viewport_pos)
                     if item:
                         # Still over a valid item - don't cancel timer (item 1: moving to another item)
                         print(f"Mouse still over item in tree - keeping timer: {tree.objectName()}")
@@ -258,15 +269,14 @@ class MyHoverWidget(QObject):
         # Check if it's one of our tree widgets
         for tree in self.tree_widgets:
             if obj == tree or obj == tree.viewport():
-                # Get the correct position - event.pos() is relative to the widget that received the event
-                # If obj is viewport, pos is relative to viewport; if obj is tree, pos is relative to tree
-                pos = event.pos()
-                
-                # If obj is viewport, we need to map to tree coordinates
-                if obj == tree.viewport():
-                    # Position is already relative to viewport, which is what itemAt expects
-                    pass
-                # If obj is tree itself, pos is already in tree coordinates
+                # Map coordinates to viewport space if event came from tree widget
+                # itemAt() expects viewport coordinates (excludes header)
+                if obj == tree:
+                    # Map from tree coordinates to viewport coordinates
+                    pos = tree.viewport().mapFrom(tree, event.pos())
+                else:
+                    # Already in viewport coordinates
+                    pos = event.pos()
                 
                 instance = self._get_item_instance(tree, pos)
                 
