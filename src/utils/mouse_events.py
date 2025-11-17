@@ -143,6 +143,7 @@ class MyHoverWidget(QObject):
                 instance = self._get_item_instance(tree, pos)
                 if instance:
                     self._start_hover_timer_for_item(tree, instance)
+                    
                 else:
                     # Moved to empty space within tree - hide stats
                     # Cancel any pending hover timer

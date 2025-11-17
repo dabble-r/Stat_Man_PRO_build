@@ -1,15 +1,6 @@
-import os
 import sys
 
 # --------------------------------------------------
-
-# Silence all print statements unless STATMANG_DEBUG=1 is set
-try:
-    if os.environ.get("STATMANG_DEBUG", "0") != "1":
-        import builtins
-        builtins.print = lambda *args, **kwargs: None
-except Exception:
-    pass
 
 # --------------------------------------------------
 
@@ -17,10 +8,14 @@ from src.ui.main_window import MainWindow
 from PySide6.QtWidgets import QApplication
 from src.ui.styles.stylesheets import StyleSheets
 from src.utils.clear_db_startup import clear_database_on_startup
+from src.utils.print_filter import mute_print
 
 # --------------------------------------------------
 
 if __name__ == "__main__":
+    # mute print statements unless STATMANG_DEBUG=1 is set
+    mute_print() 
+
     # Clear database before starting application
     clear_database_on_startup()
     
