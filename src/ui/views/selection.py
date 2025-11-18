@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QWidget, QTreeWidget, QTreeWidgetItem
+from PySide6.QtWidgets import QWidget
 
 class Selection(QWidget):
     def __init__(self, widget):

@@ -152,10 +152,14 @@ class UpdateDialog(QDialog):
             try:
                 icon, file_path = self.upload_dialog()
                 find_team = self.league.find_team(team)
-                set_team_logo(find_team, file_path)
-                self.message.show_message("Team logo successfully updated!", btns_flag=False, timeout_ms=2000)
+                if set_team_logo(find_team, file_path):
+                    self.message.show_message("Team logo successfully updated!", btns_flag=False, timeout_ms=2000)
+                else:
+                    self.message.show_message(f"Error uploading logo!", btns_flag=False, timeout_ms=2000)
+                   
             except Exception as e:
                 self.message.show_message(f"Error uploading logo!", btns_flag=False, timeout_ms=2000)
+                print("Error uploading playerlogo", e)
 
         elif len(self.selected) == 3: 
             player, team, avg = self.selected
@@ -164,8 +168,11 @@ class UpdateDialog(QDialog):
                 icon, file_path = self.upload_dialog()
                 find_team = self.league.find_team(team)
                 find_player = find_team.get_player(player)
-                set_player_image(find_player, file_path)
-                self.message.show_message("Player image successfully updated!", btns_flag=False, timeout_ms=2000)
+                if set_player_image(find_player, file_path):
+                    self.message.show_message("Player image successfully updated!", btns_flag=False, timeout_ms=2000)
+                else:
+                    self.message.show_message(f"Error uploading image!", btns_flag=False, timeout_ms=2000)
+                    
             except Exception as e:
                 self.message.show_message(f"Error uploading image!", btns_flag=False, timeout_ms=2000)
         

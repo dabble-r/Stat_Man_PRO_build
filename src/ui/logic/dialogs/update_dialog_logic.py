@@ -11,11 +11,19 @@ def player_has_pitching(positions: Iterable[str]) -> bool:
 
 def set_team_logo(team_obj, file_path: str) -> None:
     """Assign logo file path to team object; no validation here."""
-    team_obj.logo = file_path
+    if file_path:
+        team_obj.logo = file_path
+        return True
+    else:
+        return False
 
 
 def set_player_image(player_obj, file_path: str) -> None:
     """Assign image file path to player object; no validation here."""
-    player_obj.image = file_path
+    if file_path:
+        player_obj.image = file_path
+        return True
+    else:
+        return False
 
 
