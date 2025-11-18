@@ -31,7 +31,7 @@ class LeagueViewTeams(QWidget):
         self.selected_WL = None # only teams from WL tree widget, for stat dialog
         self.selected_AVG = None # only teams from AVG tree widget, for stat dialog
         self.league = league
-        self.styles = styles
+        # self.styles = styles
         self.stack = stack
         self.file_dir = file_dir
         self.message = message
@@ -80,7 +80,7 @@ class LeagueViewTeams(QWidget):
         #self.bottom_layout.addWidget(self.tree2_bottom)
 
         # new team UI
-        self.new_team_ui = Ui_NewTeam(self.tree1_bottom, self.tree2_bottom, self.league, self.file_dir, self.styles, self.message, self)
+        self.new_team_ui = Ui_NewTeam(self.tree1_bottom, self.tree2_bottom, self.league, self.file_dir, None, self.message, self)  # self.styles
         self.new_team_widget = QDialog(self)
         #self.new_team_widget.setStyleSheet(self.styles.main_styles)
 

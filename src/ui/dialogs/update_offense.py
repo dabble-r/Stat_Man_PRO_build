@@ -29,7 +29,7 @@ class UpdateOffenseDialog(QDialog):
         self.leaderboard_AVG = []
         self.stack = stack
         self.undo = undo
-        self.styles = styles
+        # self.styles = styles
         self.message = message
         #print('update msg isnt', self.message)
         self.setWindowTitle("Update Offense")

@@ -27,7 +27,7 @@ class UpdateDialog(QDialog):
         self.stack = stack
         self.undo = undo
         self.file_dir = file_dir
-        self.styles = styles
+        # self.styles = styles
         self.message = message
         self.parent = parent
         self.setObjectName("Update Dialog")
@@ -104,7 +104,7 @@ class UpdateDialog(QDialog):
 
     def update_offense_handler(self):
         """Open the offense update dialog for the selected player."""
-        dialog = UpdateOffenseDialog(self.league, self.selected, self.leaderboard, self.lv_teams, self.stack, self.undo, self.styles, self.message, parent=self)
+        dialog = UpdateOffenseDialog(self.league, self.selected, self.leaderboard, self.lv_teams, self.stack, self.undo, None, self.message, parent=self)  # self.styles
         dialog.setStyleSheet("QDialog { border: 2px solid black; }")
         dialog.exec()
     
@@ -126,7 +126,7 @@ class UpdateDialog(QDialog):
 
     def update_team_stats_handler(self):
         """Open team stats dialog for computed/display team statistics."""
-        dialog = UpdateTeamStatsDialog(self.league, self.selected, self.leaderboard, self.lv_teams, self.stack, self.undo, self.message, self.styles, parent=self)
+        dialog = UpdateTeamStatsDialog(self.league, self.selected, self.leaderboard, self.lv_teams, self.stack, self.undo, self.message, None, parent=self)  # self.styles
         dialog.exec()
     
     def upload_dialog(self):

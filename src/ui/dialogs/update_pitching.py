@@ -25,7 +25,7 @@ class UpdatePitchingDialog(QDialog):
         self.message = message
         self.setWindowTitle("Update Pitching")
         self.resize(400, 300)
-        self.styles = StyleSheets()
+        # self.styles = StyleSheets()
         #self.setStyleSheet(self.styles.modern_styles)
         
         # Widgets

@@ -10,8 +10,8 @@ class BarGraphDialog(QDialog):
         super().__init__(parent)
         self.league = league
         self.selected = selected
-        self.styles = styles
-        #self.setStyleSheet(self.styles.get_monochrome_style())
+        # self.styles = styles
+        # self.setStyleSheet(self.styles.get_monochrome_style())
         self.teams_selected = teams
         self.parent = parent
         self.message = message

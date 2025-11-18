@@ -31,13 +31,13 @@ class MainWindow(QWidget):
         super().__init__()
         self.selected = None
         self.league = LinkedList()
-        self.styles = StyleSheets()
+        # self.styles = StyleSheets()
         self.stack = Stack()
         self.app = app
         self.undo = Undo(self.stack, self.league)
-        #self.file_dir = None
+        # self.file_dir = None
         self.message = Message(parent=self)
-        self.setStyleSheet(self.styles.light_styles)
+        # self.setStyleSheet(self.styles.light_styles)
         self.theme = None
         self.title = "Welcome to the league"
         self.setWindowTitle(self.title)
@@ -54,8 +54,8 @@ class MainWindow(QWidget):
         # Initialization: View Components
         # --------------------------------------------------
         
-        self.league_view_teams = LeagueViewTeams(self.league, self.styles, self.stack, self.file_dir, self.message, parent=self)
-        self.league_view_players = LeagueViewPlayers(self.league_view_teams, self.selected, self.league, self.styles, self.undo, self.file_dir, self.message, parent=self)
+        self.league_view_teams = LeagueViewTeams(self.league, None, self.stack, self.file_dir, self.message, parent=self)  # self.styles
+        self.league_view_players = LeagueViewPlayers(self.league_view_teams, self.selected, self.league, None, self.undo, self.file_dir, self.message, parent=self)  # self.styles
 
         self.leaderboard = self.league_view_players.leaderboard
 
@@ -189,7 +189,7 @@ class MainWindow(QWidget):
         # setup league basics on program start
         self.showMaximized()
         
-        self.league_dialog = UpdateLeagueDialog(self.league, self.selected, self.message, self.leaderboard, self.league_view_teams, self.stack, self.undo, self.styles, parent=self)
+        self.league_dialog = UpdateLeagueDialog(self.league, self.selected, self.message, self.leaderboard, self.league_view_teams, self.stack, self.undo, None, parent=self)  # self.styles
         self.pos_center(self.league_dialog)
         #self.app.processEvents()
 
@@ -370,7 +370,7 @@ class MainWindow(QWidget):
     
     def setup_update_ui(self):
         #print("view update")
-        dialog = UpdateDialog(self.league, self.selected, self.leaderboard, self.league_view_teams, self.stack, self.undo, self.file_dir, self.styles, self.message, parent=self)
+        dialog = UpdateDialog(self.league, self.selected, self.leaderboard, self.league_view_teams, self.stack, self.undo, self.file_dir, None, self.message, parent=self)  # self.styles
         dialog.exec()
     
     # --------------------------------------------------

@@ -26,7 +26,7 @@ class UpdateAdminDialog(QDialog):
         self.message = message
         self.setWindowTitle("Update Management")
         self.resize(400, 300)
-        self.styles = StyleSheets()
+        # self.styles = StyleSheets()
         #self.setStyleSheet(self.styles.main_styles)
         
         # Widgets

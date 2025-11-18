@@ -22,7 +22,7 @@ class UpdateTeamStatsDialog(QDialog):
         self.stack = stack
         self.undo = undo
         self.message = message
-        self.styles = styles
+        # self.styles = styles
         self.parent = parent
         self.setWindowTitle("Update Management")
         self.resize(500, 300)

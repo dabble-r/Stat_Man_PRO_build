@@ -15,7 +15,7 @@ class UpdateLeagueDialog(QDialog):
         self.leaderboard_AVG = []
         self.stack = stack
         self.undo = undo
-        self.styles = styles
+        # self.styles = styles
         self.parent = parent
         self.new_season = None
         self.new_date = None
@@ -218,7 +218,7 @@ class UpdateLeagueDialog(QDialog):
         self.date_combo.setEnabled(True)
     
     def set_theme(self):
-        dialog = UpdateTheme(self.styles, self.message, parent=self)
+        dialog = UpdateTheme(None, self.message, parent=self)  # self.styles
         dialog.exec()
         self.user_input.setEnabled(True)
         self.date_combo.setEnabled(True)

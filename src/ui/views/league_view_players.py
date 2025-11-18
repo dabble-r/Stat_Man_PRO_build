@@ -37,7 +37,7 @@ class LeagueViewPlayers(QWidget):
         super().__init__()
         self.setObjectName("league view players - top")
         self.selected = selected
-        self.styles = styles
+        # self.styles = styles
         self.undo = undo
         self.file_dir = file_dir
         self.db_path = f"{self.file_dir}/DB"
@@ -135,7 +135,7 @@ class LeagueViewPlayers(QWidget):
     
     def new_team_handler(self):
         ##print("new team handler")
-        self.new_team_ui = Ui_NewTeam(self.league_view_teams.tree1_bottom, self.league_view_teams.tree2_bottom, self.league, self.file_dir, self.styles, self.message, parent=self.parent)
+        self.new_team_ui = Ui_NewTeam(self.league_view_teams.tree1_bottom, self.league_view_teams.tree2_bottom, self.league, self.file_dir, None, self.message, parent=self.parent)  # self.styles
         self.new_team_widget = QDialog(self.parent)
         #self.new_team_widget.setStyleSheet(self.styles.modern_styles)
         

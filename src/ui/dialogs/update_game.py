@@ -17,7 +17,7 @@ class UpdateGameDialog(QDialog):
         
         self.setWindowTitle("New Game")
         self.resize(400, 300)
-        self.styles = StyleSheets()
+        # self.styles = StyleSheets()
         #self.setStyleSheet(self.styles.main_styles)
 
         

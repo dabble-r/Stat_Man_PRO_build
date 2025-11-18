@@ -25,7 +25,7 @@ class Ui_NewTeam(QWidget, object):
         self.logo = None
         self.file_path = None
         self.file_dir = file_dir
-        self.styles = styles
+        # self.styles = styles
         self.message = message
         self.parent = parent
         

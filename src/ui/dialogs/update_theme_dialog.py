@@ -7,7 +7,7 @@ class UpdateTheme(QDialog):
     def __init__(self, styles, message, parent=None):
         """Dialog to switch application theme by selecting a stylesheet variant."""
         super().__init__(parent)
-        self.styles = styles
+        # self.styles = styles
         self.message = message
         self.parent = parent
         self.setObjectName("Update Theme")
@@ -64,8 +64,8 @@ class UpdateTheme(QDialog):
     
     def radio_btns_setup(self):
       """Populate radio group with available theme names derived from styles object."""
-      options = ["default"]
-      options = [self.format_theme(style) for style in dir(self.styles) if "styles" in style]
+      # options = [self.format_theme(style) for style in dir(self.styles) if "styles" in style]
+      options = ["default"]  # Commented out: was using self.styles
 
       for i in range(len(options)):
           radio = QRadioButton(f"{options[i]}")
@@ -95,7 +95,7 @@ class UpdateTheme(QDialog):
       
       mainWindow = self.get_ancestor("Main Window")
       #print(mainWindow)
-      mainWindow.setStyleSheet(getattr(self.styles, selectionFormat))
+      # mainWindow.setStyleSheet(getattr(self.styles, selectionFormat))
       ## debug
       self.parent.user_input.setEnabled(True)
       self.parent.date_combo.setEnabled(True)
