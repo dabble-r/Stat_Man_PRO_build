@@ -3,7 +3,7 @@ import random
 
 # --------------------------------------------------
 
-class LinkedList:
+class League:
     def __init__(self, message=None, name=None, head=None):
         self.admin = {
             "Name": 'League',

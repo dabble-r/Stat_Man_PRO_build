@@ -3,7 +3,7 @@ import os
 import sqlite3 
 import json
 from pathlib import Path
-from src.core.linked_list import LinkedList 
+from src.core.league import League 
 from src.core.team import Team 
 from src.core.player import Player, Pitcher
 from typing import Dict, Any, Optional
@@ -777,9 +777,9 @@ class Load():
 
                     # -------------------------------------------------------------------------------- #
 
-def load_all_from_db(db_path: str, parent) -> Optional[LinkedList]:
+def load_all_from_db(db_path: str, parent) -> Optional[League]:
   """
-  Build a full LinkedList league from an existing SQLite DB and update the GUI.
+  Build a full League league from an existing SQLite DB and update the GUI.
   - Reads league, teams, players, pitchers
   - Reconstructs Team and Player/Pitcher objects and relationships
   - Assigns the league to parent and refreshes views
@@ -803,21 +803,21 @@ def load_all_from_db(db_path: str, parent) -> Optional[LinkedList]:
   con.row_factory = _row_factory
   cur = con.cursor()
 
-  league = LinkedList()
+  league = League()
 
   # Load league (first row)
   try:
     cur.execute("SELECT * FROM league LIMIT 1")
     row_league = cur.fetchone()
     if row_league:
-      # Map DB -> LinkedList admin
+      # Map DB -> League admin
       league.admin['Name'] = row_league.get('name')
       league.admin['Commissioner'] = row_league.get('commissioner')
       league.admin['Treasurer'] = row_league.get('treasurer')
       league.admin['Communications'] = row_league.get('communications')
       league.admin['Historian'] = row_league.get('historian')
       league.admin['Recruitment'] = row_league.get('recruitment')
-      # LinkedList uses 'Start'/'Stop'
+      # League uses 'Start'/'Stop'
       league.admin['Start'] = row_league.get('start')
       league.admin['Stop'] = row_league.get('stop')
       # Align IDs if present
@@ -1163,7 +1163,7 @@ def load_all_from_db(db_path: str, parent) -> Optional[LinkedList]:
 
   # create league, team, player/pitcher instance of csv data
   def upsert_league_instance_from_csv(self, obj):
-    league = LinkedList()
+    league = League()
     self.league = league
 
   def upsert_team_instance_from_csv(self, obj):

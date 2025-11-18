@@ -3,7 +3,7 @@
 from typing import Optional, Tuple, Callable
 from src.core.team import Team
 from src.core.player import Player
-from src.core.linked_list import LinkedList
+from src.core.league import League
 from src.core.stack import Stack
 from PySide6.QtWidgets import QLineEdit, QWidget 
 from src.ui.dialogs.message import Message
@@ -36,7 +36,7 @@ def set_positions_team(pos: str, player: Player, team: Team, self: QWidget):
 # --------------------------------------------------
 
 def update_stats(selected: Tuple[str, int], pos: str, player_input: str,
-                 stack: Stack, message_instance: Message, league_instance: LinkedList, 
+                 stack: Stack, message_instance: Message, league_instance: League, 
                  self: QWidget) -> None:
         """Validate inputs, push to undo stack, and update team position assignment."""
         player = player_input

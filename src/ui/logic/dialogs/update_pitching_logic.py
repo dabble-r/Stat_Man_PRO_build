@@ -1,7 +1,7 @@
 """Logic functions for pitching stat update dialog."""
 from typing import Iterable, Dict, Callable, Any, Tuple
 from src.core.stack import Stack
-from src.core.linked_list import LinkedList
+from src.core.league import League
 from src.core.player import Player
 from src.core.team import Team
 from src.ui.dialogs.message import Message
@@ -144,7 +144,7 @@ def refresh_pitcher_derived_stats(player, team) -> None:
     team.set_team_era()
 
 def update_stats(selected: Tuple[str, str, int], stat: str, val: str, stack: Stack, message_instance: Message, 
-                 league_instance: LinkedList, enable_buttons: Callable) -> None:
+                 league_instance: League, enable_buttons: Callable) -> None:
         """Validate selection and value, update pitcher stats, and push to the undo stack."""
         try:
             stat = stat
@@ -187,7 +187,7 @@ def update_stats(selected: Tuple[str, str, int], stat: str, val: str, stack: Sta
             message_instance.show_message(f"Error updating pitching {stat}.", btns_flag=False, timeout_ms=2000)
            
        
-def undo_stat(selected: Tuple[str, str, float], undo: Undo, league_instance: LinkedList, message_instance: Message) -> None:
+def undo_stat(selected: Tuple[str, str, float], undo: Undo, league_instance: League, message_instance: Message) -> None:
     player, team, avg = selected
 
     find_team = league_instance.find_team(team)
@@ -201,7 +201,7 @@ def undo_stat(selected: Tuple[str, str, float], undo: Undo, league_instance: Lin
     else:
         message_instance.show_message("Team not found.", btns_flag=False, timeout_ms=2000)
 
-def view_player_stats(selected: Tuple[str, str, float], league_instance: LinkedList, message_instance: Message, self) -> None:
+def view_player_stats(selected: Tuple[str, str, float], league_instance: League, message_instance: Message, self) -> None:
     stat_widget = QDialog(self)
     stat_widget.setWindowTitle("Stats")
     stat_widget.setModal(True)

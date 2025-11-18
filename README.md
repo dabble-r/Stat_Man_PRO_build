@@ -24,7 +24,7 @@ stat_man_g/
 │
 ├── src/                     # Main source code
 │   ├── core/                # Core business logic
-│   │   ├── linked_list.py   # League data structure (uses Python list internally)
+│   │   ├── league.py   # League data structure (uses Python list internally)
 │   │   ├── team.py          # Team class with stat calculations
 │   │   ├── player.py        # Player and Pitcher classes with stat logic
 │   │   ├── node.py          # Stack node implementation (for undo functionality)

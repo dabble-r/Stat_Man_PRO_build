@@ -245,8 +245,14 @@ class Ui_NewPlayer(QWidget, object):
     def clear_all(self):
         self.name.clear()
         self.number.clear()
-        #self.team.clear()
-        #self.positions.clear()
+        self.clear_checks()
+    
+    def clear_checks(self): 
+        for el in self.check_box_pos: 
+            el.setChecked(False)
+        
+        for el in self.check_boxes_team: 
+            el.setChecked(False)
     
     def new_player_text(self):
         name = self.name.text()

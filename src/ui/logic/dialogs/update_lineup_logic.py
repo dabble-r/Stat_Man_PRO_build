@@ -5,7 +5,7 @@ from src.core.team import Team
 from PySide6.QtWidgets import QLineEdit 
 from src.ui.dialogs.message import Message
 from src.core.stack import Stack
-from src.core.linked_list import LinkedList
+from src.core.league import League
 
 # --------------------------------------------------
 
@@ -55,7 +55,7 @@ def apply_lineup_assignment(team: Team, slot: str, player_name: str, parent) -> 
 # --------------------------------------------------
 
 def update_stats(order_label: Optional[str], player: str, stack: Stack, message_instance: Message,     
-                custom_order_input: QLineEdit, league_instance: LinkedList, selected: Tuple[str, int], 
+                custom_order_input: QLineEdit, league_instance: League, selected: Tuple[str, int], 
                 _apply_lineup_ui_delegate: Callable) -> None:
         """Validate inputs, push undo action, and update team lineup accordingly."""
         team, avg = selected

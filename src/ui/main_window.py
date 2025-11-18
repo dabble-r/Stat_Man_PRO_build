@@ -12,7 +12,7 @@ from PySide6.QtGui import QCloseEvent
 from src.ui.dialogs.stat_dialog_ui import Ui_StatDialog
 from src.ui.dialogs.update_dialog_ui import UpdateDialog
 from src.ui.dialogs.update_league import UpdateLeagueDialog
-from src.core.linked_list import LinkedList
+from src.core.league import League
 from src.ui.dialogs.remove import RemoveDialog
 from src.utils.refresh import Refresh
 from src.ui.styles.stylesheets import StyleSheets
@@ -30,7 +30,7 @@ class MainWindow(QWidget):
         """Main application window wiring league, views, dialogs, and event filters."""
         super().__init__()
         self.selected = None
-        self.league = LinkedList()
+        self.league = League()
         # self.styles = StyleSheets()
         self.stack = Stack()
         self.app = app

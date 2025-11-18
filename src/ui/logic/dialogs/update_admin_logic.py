@@ -2,7 +2,7 @@
 from typing import Tuple, Callable
 from src.core.team import Team
 from src.ui.dialogs.message import Message
-from src.core.linked_list import LinkedList
+from src.core.league import League
 from src.core.stack import Stack
 from PySide6.QtWidgets import QLineEdit, QWidget
 from src.ui.views.leaderboard_ui import Leaderboard
@@ -51,7 +51,7 @@ def update_positions_handler(league_instance, selected, leaderboard_instance, lv
 # --------------------------------------------------
 
 def update_stats(selected: Tuple[str, int], get_team_stat: Callable, update_lineup_handler: Callable, 
-                update_positions_handler: Callable, input: QLineEdit, message_instance: Message, league_instance: LinkedList, 
+                update_positions_handler: Callable, input: QLineEdit, message_instance: Message, league_instance: League, 
                 stack_instance: Stack, undo_instance: Undo, leaderboard_instance: Leaderboard, lv_teams_instance: LeagueViewTeams, set_new_stat_team: Callable, normalize_stat_name_for_stack: Callable, parent: QWidget) -> None:
 
         """Validate selection/value and update the chosen admin stat or open sub-dialogs."""

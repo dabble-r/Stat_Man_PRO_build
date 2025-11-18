@@ -12,7 +12,7 @@ from PySide6.QtCore import Qt
 from src.data.save.save_manager import init_new_db
 from src.core.stack import InstanceStack
 from src.core.game import Game 
-from src.core.linked_list import LinkedList 
+from src.core.league import League 
 from src.core.player import Player, Pitcher 
 from src.core.team import Team
 
@@ -356,7 +356,7 @@ def group_csv_by_session(csv_files: list) -> dict:
     return sessions
 
 
-def insert_csv_to_table(table: str, csv_path: str, conn: sqlite3.Connection, mode: str, summary: dict, stack: InstanceStack, parent, league: LinkedList):
+def insert_csv_to_table(table: str, csv_path: str, conn: sqlite3.Connection, mode: str, summary: dict, stack: InstanceStack, parent, league: League):
     """Insert/update table from a CSV file using mode (overwrite/skip/merge); collect instances."""
     """Insert CSV into SQLite table according to mode: overwrite/skip/merge.
 
@@ -1142,7 +1142,7 @@ def load_pitcher_gui(attr, val, pitcher):
     setattr(pitcher, attr, val)
 
 # ----------------------- Persistence Helpers -----------------------
-def persist_derived_stats_to_db(db_path: str, league: LinkedList):
+def persist_derived_stats_to_db(db_path: str, league: League):
     """Write recalculated player/pitcher derived stats back to DB to keep storage consistent."""
     """Write recalculated derived stats back to the database for consistency."""
     try:
