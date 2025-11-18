@@ -8,19 +8,11 @@
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
 
-from PySide6.QtCore import (QCoreApplication, QDate, QDateTime, QLocale,
-    QMetaObject, QObject, QPoint, QRect,
-    QSize, QTime, QUrl, Qt)
-from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
-    QFont, QFontDatabase, QGradient, QIcon,
-    QImage, QKeySequence, QLinearGradient, QPainter,
-    QPalette, QPixmap, QRadialGradient, QTransform)
-from PySide6.QtWidgets import (QApplication, QHBoxLayout, QVBoxLayout, QLabel, QListWidget,
-    QListWidgetItem, QSizePolicy, QWidget, QTreeWidget, QPushButton, QDialog, QHeaderView, QTreeWidgetItem)
+from PySide6.QtCore import Qt, QSize
+from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget, QTreeWidget, QPushButton, QDialog, QHeaderView, QTreeWidgetItem, QLabel
 from src.ui.dialogs.new_team_w_ui import Ui_NewTeam
 from src.ui.dialogs.stat_dialog_ui import Ui_StatDialog
 from src.utils.image import Icon
-import random
 
 # New: logic helpers for view text and logo path
 from src.ui.logic.views.league_view_teams_logic import (

@@ -6,7 +6,7 @@ from src.core.player import Player
 from src.core.team import Team
 from src.ui.dialogs.message import Message
 from src.utils.undo import Undo
-from PySide6.QtWidgets import QDialog, QVBoxLayout
+from PySide6.QtWidgets import QDialog
 from src.ui.dialogs.stat_dialog_ui import Ui_StatDialog
 
 # --------------------------------------------------

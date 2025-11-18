@@ -1,10 +1,6 @@
-from PySide6.QtWidgets import QMessageBox, QDialog
-from PySide6.QtCore import QTimer, Qt
-from PySide6.QtGui import QFontMetrics
-
 from PySide6.QtWidgets import QDialog, QVBoxLayout, QLabel, QDialogButtonBox
 from PySide6.QtGui import QFontMetrics
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 
 
 class Message(QDialog):

@@ -1,21 +1,14 @@
-from PySide6.QtWidgets import QWidget, QDialog, QLabel, QLineEdit, QPushButton, QMessageBox, QVBoxLayout, QRadioButton, QButtonGroup, QHBoxLayout, QSizePolicy, QTreeWidgetItem
+from PySide6.QtWidgets import QWidget, QDialog, QLabel, QLineEdit, QPushButton, QVBoxLayout, QRadioButton, QButtonGroup, QHBoxLayout, QSizePolicy
 from PySide6.QtGui import QIntValidator
-from PySide6.QtCore import QCoreApplication, Qt, QTimer
-from src.ui.views.league_view_teams import LeagueViewTeams
+from PySide6.QtCore import Qt
 from src.ui.styles.stylesheets import StyleSheets
-from src.ui.dialogs.update_lineup import UpdateLineupDialog
-from src.ui.dialogs.update_positions import UpdatePositionsDialog
 from src.ui.logic.dialogs.update_admin_logic import (
-    validate_roster_value,
     normalize_stat_name_for_stack,
     set_new_stat_team,
     update_stats,
     update_lineup_handler as update_lineup_handler_logic,
     update_positions_handler as update_positions_handler_logic,
 )
-import src.core.team as Team
-import src.ui.dialogs.message as Message
-import random
 
 # --------------------------------------------------
 

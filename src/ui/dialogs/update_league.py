@@ -1,11 +1,7 @@
-from PySide6.QtWidgets import QWidget, QDialog, QLabel, QLineEdit, QDateEdit, QComboBox, QPushButton, QMessageBox, QVBoxLayout, QRadioButton, QButtonGroup, QHBoxLayout, QSizePolicy, QTreeWidgetItem
-from PySide6.QtGui import QIntValidator, QCloseEvent
-from PySide6.QtCore import QCoreApplication, Qt, QTimer, QRect, QPoint, QDate
-from src.ui.views.league_view_teams import LeagueViewTeams
-
-from src.ui.styles.stylesheets import StyleSheets
+from PySide6.QtWidgets import QWidget, QDialog, QLabel, QLineEdit, QDateEdit, QComboBox, QPushButton, QMessageBox, QVBoxLayout, QRadioButton, QButtonGroup, QHBoxLayout, QSizePolicy
+from PySide6.QtGui import QCloseEvent
+from PySide6.QtCore import Qt, QDate
 from src.ui.dialogs.update_theme_dialog import UpdateTheme
-import random
 
 class UpdateLeagueDialog(QDialog):
     def __init__(self, league, selected, message, leaderboard, lv_teams, stack, undo, styles, parent=None):

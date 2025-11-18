@@ -1,19 +1,14 @@
-from readline import read_init_file
-import sys 
-import os
+
+
 
 # --------------------------------------------------
 
 from src.ui.views.league_view_players import LeagueViewPlayers
 from src.ui.views.league_view_teams import LeagueViewTeams
-from src.ui.dialogs.add_save_ui import Ui_Add_Save
-from src.ui.views.selection import Selection
 from src.utils.tree_event_filter import TreeEventFilter
-from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QTreeWidget, QPushButton, QDialog, QGroupBox, QButtonGroup, QMessageBox, QMainWindow, QSizeGrip
-from PySide6.QtCore import (QCoreApplication, QDate, QDateTime, QLocale,
-    QMetaObject, QObject, QPoint, QRect,
-    QSize, QTime, QTimer, QUrl, Qt)
-from PySide6.QtGui import QIntValidator, QCloseEvent
+from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QTreeWidget, QPushButton, QDialog, QGroupBox, QMessageBox
+from PySide6.QtCore import (Qt)
+from PySide6.QtGui import QCloseEvent
 from src.ui.dialogs.stat_dialog_ui import Ui_StatDialog
 from src.ui.dialogs.update_dialog_ui import UpdateDialog
 from src.ui.dialogs.update_league import UpdateLeagueDialog
@@ -24,7 +19,6 @@ from src.ui.styles.stylesheets import StyleSheets
 from src.core.stack import Stack
 from src.utils.undo import Undo
 from src.ui.dialogs.message import Message
-from src.ui.dialogs.close import CloseDialog
 from src.utils.file_dialog import FileDialog
 from src.ui.dialogs.search_dialog import SearchDialog
 from src.utils.mouse_events import MyHoverWidget

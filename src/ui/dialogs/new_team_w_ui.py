@@ -8,20 +8,12 @@
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
 
-from PySide6.QtCore import (QCoreApplication, QDate, QDateTime, QLocale,
-    QMetaObject, QObject, QPoint, QRect,
-    QSize, QTime, QUrl, Qt)
-from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
-    QFont, QFontDatabase, QGradient, QIcon, QIntValidator,
-    QImage, QKeySequence, QLinearGradient, QPainter,
-    QPalette, QPixmap, QRadialGradient, QTransform)
-from PySide6.QtWidgets import (QApplication, QHBoxLayout, QLabel, QLineEdit, QSpacerItem,
-    QPushButton, QSizePolicy, QVBoxLayout, QWidget, QTreeWidget, QTreeWidgetItem, QMessageBox)
+from PySide6.QtCore import QCoreApplication, QMetaObject, QRect, Qt
+from PySide6.QtGui import QIntValidator
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QLineEdit, QPushButton, QVBoxLayout, QWidget, QTreeWidgetItem
 from src.core.team import Team
 from src.utils.image import Icon
 from src.utils.file_dialog import FileDialog
-
-import random
 
 class Ui_NewTeam(QWidget, object):
     def __init__(self, league_view_WL, league_view_AVG, league, file_dir, styles, message, parent=None):

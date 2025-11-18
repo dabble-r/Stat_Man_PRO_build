@@ -4,7 +4,7 @@ from pathlib import Path
 from src.utils.timestamp import Timestamp
 
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, 
+    QWidget, QVBoxLayout,
     QMessageBox, QDialog, QLabel, QLineEdit, QHBoxLayout, QDialogButtonBox
 )
 from PySide6.QtCore import Qt

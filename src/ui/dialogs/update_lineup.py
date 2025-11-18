@@ -1,13 +1,7 @@
-from PySide6.QtWidgets import QWidget, QDialog, QLabel, QLineEdit, QPushButton, QMessageBox, QVBoxLayout, QRadioButton, QButtonGroup, QHBoxLayout, QSizePolicy, QTreeWidgetItem
-from PySide6.QtGui import QIntValidator
-from PySide6.QtCore import QCoreApplication, Qt, QTimer
-from src.ui.views.league_view_teams import LeagueViewTeams
-from src.ui.styles.stylesheets import StyleSheets
-import random
+from PySide6.QtWidgets import QWidget, QDialog, QLabel, QLineEdit, QPushButton, QVBoxLayout, QRadioButton, QButtonGroup, QHBoxLayout, QSizePolicy
+from PySide6.QtCore import Qt
 from src.ui.logic.dialogs.update_lineup_logic import (
   order_to_slot,
-  validate_custom_slot,
-  build_undo_payload_for_lineup,
   apply_lineup_assignment,
   update_stats
 )

@@ -460,10 +460,6 @@ class Save():
             team_name = objsTeam[i].name
             team = objsTeam[i]
 
-            '''if self.scan_ret(ret, team.teamID):
-              #print('teamID already exists!')
-              continue'''
-            
             dir_list = keep_attrs(team) 
             #print(dir_list)
             cols = []

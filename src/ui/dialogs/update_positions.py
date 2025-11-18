@@ -1,10 +1,6 @@
-from PySide6.QtWidgets import QWidget, QDialog, QLabel, QLineEdit, QPushButton, QMessageBox, QVBoxLayout, QRadioButton, QButtonGroup, QHBoxLayout, QSizePolicy, QTreeWidgetItem
-from PySide6.QtGui import QIntValidator
-from PySide6.QtCore import QCoreApplication, Qt, QTimer
-from src.ui.views.league_view_teams import LeagueViewTeams
-from src.ui.logic.dialogs.update_positions_logic import set_positions_team, update_stats
-from src.ui.styles.stylesheets import StyleSheets
-import random
+from PySide6.QtWidgets import QWidget, QDialog, QLabel, QLineEdit, QPushButton, QVBoxLayout, QRadioButton, QButtonGroup, QHBoxLayout, QSizePolicy
+from PySide6.QtCore import Qt
+from src.ui.logic.dialogs.update_positions_logic import update_stats
 
 # --------------------------------------------------
 

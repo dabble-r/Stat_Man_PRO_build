@@ -1,4 +1,3 @@
-from email import message
 from typing import Iterable, Callable, Optional, List, Tuple, Any, Union
 import random
 from PySide6.QtWidgets import QTreeWidgetItem

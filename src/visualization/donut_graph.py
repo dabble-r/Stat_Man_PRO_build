@@ -5,11 +5,9 @@ import random
 
 """PySide6 port of the Donut Chart Breakdown example from Qt v5.x"""
 
-import sys
 from PySide6.QtCore import Qt, Slot
-from PySide6.QtGui import QColor, QFont, QPainter
-from PySide6.QtWidgets import QApplication, QMainWindow
-from PySide6.QtCharts import QChart, QChartView, QPieSeries, QPieSlice
+from PySide6.QtGui import QColor, QFont
+from PySide6.QtCharts import QChart, QPieSeries, QPieSlice
 
 class MainSlice(QPieSlice):
     def __init__(self, breakdown_series, parent=None):

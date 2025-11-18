@@ -1,6 +1,5 @@
-from PySide6.QtWidgets import QDialog, QFileDialog, QApplication, QWidget
-import os 
-import sys
+from PySide6.QtWidgets import QFileDialog, QWidget
+import os
 import platform
 from src.utils.path_resolver import get_app_base_path, get_data_path
 

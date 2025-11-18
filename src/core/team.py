@@ -1,4 +1,4 @@
-from src.core.player import Player
+
 from PySide6.QtWidgets import QMessageBox
 import math
 

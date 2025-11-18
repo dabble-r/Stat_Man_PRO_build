@@ -1,8 +1,6 @@
-from PySide6.QtWidgets import QDialog, QFileDialog, QApplication
+from PySide6.QtWidgets import QFileDialog
 from PySide6.QtCore import QDir
-import os 
-import sys
-import platform
+import os
 
 
 class CreateDir():

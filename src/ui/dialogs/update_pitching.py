@@ -1,19 +1,13 @@
-from PySide6.QtWidgets import QWidget, QDialog, QLabel, QLineEdit, QPushButton, QMessageBox, QVBoxLayout, QRadioButton, QButtonGroup, QHBoxLayout, QSizePolicy, QTreeWidgetItem
+from PySide6.QtWidgets import QWidget, QDialog, QLabel, QLineEdit, QPushButton, QVBoxLayout, QRadioButton, QButtonGroup, QHBoxLayout, QSizePolicy
 from PySide6.QtGui import QIntValidator
-from PySide6.QtCore import QCoreApplication, Qt, QTimer
-from src.ui.views.league_view_teams import LeagueViewTeams
+from PySide6.QtCore import Qt
 from src.ui.styles.stylesheets import StyleSheets
-from src.ui.dialogs.stat_dialog_ui import Ui_StatDialog
 from src.ui.logic.dialogs.update_pitching_logic import (
     check_games_played_for_enablement,
-    normalize_pitcher_numeric_fields,
-    build_pitching_undo_payload,
-    refresh_pitcher_derived_stats,
     update_stats,
     undo_stat,
     view_player_stats
 )
-import random
 
 # --------------------------------------------------
 

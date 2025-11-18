@@ -8,16 +8,8 @@
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
 
-from PySide6.QtCore import (QCoreApplication, QDate, QDateTime, QLocale,
-    QMetaObject, QObject, QPoint, QRect,
-    QSize, QTime, QUrl, Qt)
-from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
-    QFont, QFontDatabase, QGradient, QIcon,
-    QImage, QKeySequence, QLinearGradient, QPainter,
-    QPalette, QPixmap, QRadialGradient, QTransform)
-from PySide6.QtWidgets import (QApplication, QLabel, QListWidget, QListWidgetItem,
-    QSizePolicy, QWidget, QTreeWidget, QTreeWidgetItem, QHeaderView)
-from bisect import insort_left, bisect_left
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QWidget, QTreeWidget, QTreeWidgetItem, QHeaderView
 
 class Leaderboard(QWidget, object):
     def __init__(self, tree_widget, league, parent=None):

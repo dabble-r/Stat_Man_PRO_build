@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QMessageBox, QDialog
+from PySide6.QtWidgets import QMessageBox
 import random
 
 # --------------------------------------------------

@@ -1,11 +1,7 @@
-from PySide6.QtWidgets import QWidget, QDialog, QLabel, QLineEdit, QPushButton, QMessageBox, QVBoxLayout, QRadioButton, QButtonGroup, QHBoxLayout, QSizePolicy, QTreeWidgetItem
+from PySide6.QtWidgets import QWidget, QDialog, QLabel, QLineEdit, QPushButton, QVBoxLayout, QRadioButton, QButtonGroup, QHBoxLayout, QSizePolicy
 from PySide6.QtGui import QIntValidator
-from PySide6.QtCore import QCoreApplication, Qt, QTimer
-from src.ui.views.league_view_teams import LeagueViewTeams
-from src.ui.styles.stylesheets import StyleSheets
-from src.core.node import NodeStack
+from PySide6.QtCore import Qt
 from src.ui.dialogs.stat_dialog_ui import Ui_StatDialog
-import random
 from src.ui.logic.dialogs.update_offense_logic import (
     coerce_at_bat,
     should_enable_buttons,

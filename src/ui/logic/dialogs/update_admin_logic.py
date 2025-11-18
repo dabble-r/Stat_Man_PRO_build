@@ -4,10 +4,9 @@ from src.core.team import Team
 from src.ui.dialogs.message import Message
 from src.core.linked_list import LinkedList
 from src.core.stack import Stack
-from PySide6.QtWidgets import QLineEdit
+from PySide6.QtWidgets import QLineEdit, QWidget
 from src.ui.views.leaderboard_ui import Leaderboard
-from src.ui.views.league_view_teams import LeagueViewTeams  
-from PySide6.QtWidgets import QWidget
+from src.ui.views.league_view_teams import LeagueViewTeams
 from src.utils.undo import Undo
 from src.ui.dialogs.update_lineup import UpdateLineupDialog
 from src.ui.dialogs.update_positions import UpdatePositionsDialog

@@ -3,12 +3,10 @@ import os
 import sqlite3 
 import json
 from pathlib import Path
-from src.utils.file_dialog import FileDialog
-from PySide6.QtWidgets import QMessageBox
 from src.core.linked_list import LinkedList 
 from src.core.team import Team 
 from src.core.player import Player, Pitcher
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional
 
 
 # get csv name 

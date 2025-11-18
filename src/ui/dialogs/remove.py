@@ -1,10 +1,5 @@
-from PySide6.QtWidgets import QWidget, QDialog, QLabel, QLineEdit, QPushButton, QMessageBox, QVBoxLayout, QRadioButton, QButtonGroup, QHBoxLayout, QSizePolicy, QTreeWidgetItem
-from PySide6.QtGui import QIntValidator
-from PySide6.QtCore import QCoreApplication, Qt, QTimer
-from src.ui.views.league_view_teams import LeagueViewTeams
-from src.core.linked_list import LinkedList
-
-import random
+from PySide6.QtWidgets import QWidget, QDialog, QPushButton, QMessageBox, QVBoxLayout, QRadioButton, QButtonGroup, QHBoxLayout
+from PySide6.QtCore import Qt
 
 class RemoveDialog(QDialog):
     def __init__(self, league, selected, leaderboard, lv_teams, lv_players, parent=None):

@@ -1,16 +1,12 @@
-from PySide6.QtWidgets import QWidget, QDialog, QLabel, QLineEdit, QPushButton, QMessageBox, QVBoxLayout, QRadioButton, QButtonGroup, QHBoxLayout, QSizePolicy, QTreeWidgetItem
+from PySide6.QtWidgets import QWidget, QDialog, QLabel, QLineEdit, QPushButton, QVBoxLayout, QRadioButton, QButtonGroup, QHBoxLayout, QSizePolicy
 from PySide6.QtGui import QIntValidator
-from PySide6.QtCore import QCoreApplication, Qt, QTimer
-from src.ui.views.league_view_teams import LeagueViewTeams
-from src.ui.styles.stylesheets import StyleSheets
+from PySide6.QtCore import Qt
 from src.ui.dialogs.stat_dialog_ui import Ui_StatDialog
-from src.ui.dialogs.update_game import UpdateGameDialog
 from src.ui.views.tab_widget import TabWidget
 from src.ui.logic.dialogs.update_team_stats_logic import (
     refresh_team_derived_stats,
     update_leaderboard_wl_item,
 )
-import random
 
 # --------------------------------------------------
 

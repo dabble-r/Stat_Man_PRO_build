@@ -1,6 +1,6 @@
-from PySide6.QtWidgets import QDialog, QLabel, QPushButton, QVBoxLayout, QApplication, QMessageBox
+from PySide6.QtWidgets import QDialog, QMessageBox
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QIntValidator, QCloseEvent
+from PySide6.QtGui import QCloseEvent
 import sys
 
 class CloseDialog(QDialog):

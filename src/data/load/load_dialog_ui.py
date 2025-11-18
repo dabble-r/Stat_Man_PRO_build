@@ -1,10 +1,8 @@
 from PySide6.QtWidgets import QDialog, QPushButton, QLabel, QVBoxLayout, QHBoxLayout
 from PySide6.QtCore import QMetaObject
-from src.data.load.load import load_all_from_db
 from src.data.load.load_csv import load_all_csv_to_db
 from src.utils.path_resolver import get_database_path
-import math 
-import random
+
 
 class Ui_LoadDialog:
     def __init__(self, league, message, file_dir, csv_path, parent: QDialog):

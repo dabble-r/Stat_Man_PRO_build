@@ -1,15 +1,12 @@
-from PySide6.QtWidgets import QWidget, QDialog, QLabel, QLineEdit, QPushButton, QMessageBox, QVBoxLayout, QRadioButton, QButtonGroup, QHBoxLayout, QSizePolicy, QTreeWidgetItem
+from PySide6.QtWidgets import QWidget, QDialog, QLabel, QLineEdit, QPushButton, QVBoxLayout, QSizePolicy
 from PySide6.QtGui import QIntValidator
-from PySide6.QtCore import QCoreApplication, Qt, QTimer, QRect
-from src.ui.views.league_view_teams import LeagueViewTeams
-
+from PySide6.QtCore import Qt
 from src.ui.dialogs.update_offense import UpdateOffenseDialog
 from src.ui.dialogs.update_pitching import UpdatePitchingDialog
 from src.ui.dialogs.update_admin import UpdateAdminDialog
 from src.ui.dialogs.update_team_stats import UpdateTeamStatsDialog
 from src.utils.file_dialog import FileDialog
 from src.utils.image import Icon
-import random
 
 # New: logic helpers
 from src.ui.logic.dialogs.update_dialog_logic import (

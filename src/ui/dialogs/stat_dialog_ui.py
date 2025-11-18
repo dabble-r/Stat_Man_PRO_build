@@ -8,28 +8,18 @@
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
 
-from PySide6.QtCore import (QCoreApplication, QDate, QDateTime, QLocale, 
-    QMetaObject, QObject, QPoint, QRect, 
-    QSize, QTime, QUrl, Qt, Slot)
-from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
-    QFont, QFontDatabase, QGradient, QIcon,
-    QImage, QKeySequence, QLinearGradient, QPainter, QStandardItemModel,
-    QPalette, QPixmap, QRadialGradient, QTransform)
-from PySide6.QtWidgets import (QMainWindow, QApplication, QLabel, QDialog, QListView, QSizePolicy, QSpacerItem, QTreeView,
-    QWidget, QTreeWidget, QTreeWidgetItem, QHeaderView, QPushButton, QVBoxLayout, QHBoxLayout)
-#from stat_mg_py6.demo.demo_donut_graph import MainSlice, DonutBreakdownChart
-from PySide6.QtCharts import QChart, QChartView, QPieSeries, QPieSlice
-from src.ui.styles.stylesheets import StyleSheets
-from src.visualization.donut_graph import MainSlice, DonutBreakdownChart
+from PySide6.QtCore import Qt, QSize
+from PySide6.QtGui import QPainter
+from PySide6.QtWidgets import QLabel, QDialog, QSizePolicy, QSpacerItem, QTreeWidget, QTreeWidgetItem, QHeaderView, QPushButton, QVBoxLayout
+from PySide6.QtCharts import QChart, QChartView
+from src.visualization.donut_graph import DonutBreakdownChart
 from src.visualization.bar_graph import BarGraph
-from src.core.player import Player, SamplePlayer
-from src.core.team import Team
+from src.core.player import SamplePlayer
 from src.ui.dialogs.bar_graph_dialog import BarGraphDialog
 from src.visualization.graph_window import GraphWindow
 from decimal import getcontext, Decimal
 from src.utils.image import Icon
 import random
-import sys
 
 class Ui_StatDialog(QDialog):
     def __init__(self, league, message, selected=None, parent=None, flag=True, resize=False):

@@ -1,6 +1,6 @@
 from datetime import datetime
-from random import random
-import os 
+from random import randint
+import os
 from pathlib import Path
 
 class Timestamp():
@@ -18,7 +18,7 @@ class Timestamp():
 
     @staticmethod
     def get_rand():
-          rand = str(random.randint(1, 1000))
+          rand = str(randint(1, 1000))
           return rand
 
     @staticmethod

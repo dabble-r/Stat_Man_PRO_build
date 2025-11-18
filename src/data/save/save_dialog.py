@@ -1,9 +1,7 @@
 from PySide6.QtWidgets import QDialog, QPushButton, QCheckBox, QLabel, QVBoxLayout, QHBoxLayout
-from PySide6.QtCore import QMetaObject
-from src.data.save.save_manager import Save 
-import math 
+from src.data.save.save_manager import Save
 import random
-import os
+
 
 
 class SaveDialog(QDialog):

@@ -1,6 +1,5 @@
-from PySide6.QtWidgets import (QMainWindow, QApplication, QLabel, QDialog, QListView, QSizePolicy, QSpacerItem, QTreeView,
-    QWidget, QTreeWidget, QTreeWidgetItem, QHeaderView, QPushButton, QVBoxLayout, QHBoxLayout)
-from PySide6.QtCore import (Qt)
+from PySide6.QtWidgets import QMainWindow
+from PySide6.QtCore import Qt
 
 class GraphWindow(QMainWindow):
   def __init__(self, parent, title):

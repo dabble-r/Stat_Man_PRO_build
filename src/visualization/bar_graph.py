@@ -5,22 +5,14 @@ from __future__ import annotations
 """PySide6 port of the line/bar example from Qt v5.x"""
 
 import sys
-import math
-from PySide6.QtCore import QPoint, Qt
-from PySide6.QtGui import QPainter, QPen, QColor, QFont
-from PySide6.QtWidgets import QMainWindow, QApplication
-from PySide6.QtCharts import (QBarCategoryAxis, QCategoryAxis, QBarSeries, QBarSet, QChart,
-                              QChartView, QLineSeries, QValueAxis)
-
+from PySide6.QtCore import Qt, QPointF
+from PySide6.QtGui import QPainter, QPen, QColor, QFont, QBrush
 from PySide6.QtWidgets import QMainWindow, QApplication
 from PySide6.QtCharts import (
     QChart, QChartView, QBarSeries, QBarSet,
-    QBarCategoryAxis, QValueAxis, QLineSeries
+    QBarCategoryAxis, QCategoryAxis, QValueAxis, QLineSeries
 )
-from PySide6.QtGui import QPainter, QBrush
-from PySide6.QtCore import Qt, QPointF
-from decimal import *
-import sys
+from decimal import Decimal, getcontext
 
 class BarGraphWithDualAxes(QMainWindow):
     def __init__(self, data_bar=None, data_line=None):

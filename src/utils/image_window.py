@@ -1,8 +1,6 @@
-from PySide6.QtWidgets import QApplication, QMainWindow, QLabel, QVBoxLayout, QHBoxLayout, QWidget
+from PySide6.QtWidgets import QApplication, QMainWindow, QLabel, QVBoxLayout, QWidget
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap, QIcon
-from file_dialog import FileDialog, OpenFile 
-from image import Image, Icon, PixMap
 import sys
 
 

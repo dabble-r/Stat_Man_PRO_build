@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QApplication, QTabWidget, QWidget, QLabel, QVBoxLayout, QDialog
+from PySide6.QtWidgets import QTabWidget, QWidget, QLabel, QVBoxLayout
 
 class TabWidget(QTabWidget):
     def __init__(self, title):
