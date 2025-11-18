@@ -3,12 +3,7 @@ import os
 import sqlite3 
 import json
 from pathlib import Path
-import random
-import glob
-from PySide6.QtWidgets import (
-    QApplication, QDialog, QVBoxLayout, QLabel, QPushButton, QHBoxLayout
-)
-from src.utils.timestamp import get_timestamp, get_rand, isPathExist, avoid_dup_file_name, upd_file_path
+from src.utils.timestamp import Timestamp
 
 
 class Save():
@@ -28,9 +23,6 @@ class Save():
     
     self.file_dir = file_dir 
     self.folder = folder
-    #self.openDB = self.open_db()
-    #self.con = self.get_con()
-    #self.cur = self.get_cur()
     self.league = league
     self.message = message
     self.NULL_TOKEN = "__SQL_NULL__"
@@ -995,12 +987,12 @@ class Save():
 
           column_names = [description[0] for description in cur.description]
 
-          file_name = f"{table}{get_timestamp()}.csv"
+          file_name = f"{table}{Timestamp.get_timestamp()}.csv"
           file_path = os.path.join(csv_path, file_name)
           
-          if isPathExist(file_path):
-            file_name = avoid_dup_file_name(table, get_timestamp(flag=True))
-            file_path = upd_file_path(csv_path, file_name)
+          if Timestamp.isPathExist(file_path):
+            file_name = Timestamp.avoid_dup_file_name(table, Timestamp.get_timestamp(flag=True))
+            file_path = Timestamp.upd_file_path(csv_path, file_name)
 
           with open(file_path, "w", newline='', encoding='utf-8') as f:
               writer = csv.writer(f)
@@ -1015,19 +1007,6 @@ class Save():
     finally:
       con.close()
   
-  '''def isPathExist(self, file_path):
-    if os.path.exists(file_path):
-      return True 
-    return False
-  
-  def avoid_dup_file_name(self, table, timestamp):
-    file_name = f"{table}{timestamp}.csv"
-    return file_name 
-  
-  def upd_file_path(self, output_path, file_name):
-    file_path = os.path.join(output_path, file_name)
-    return file_path
-'''
   # ------------------------------------------------------------------------------------------------- #
   # currently in use
   def save_master(self, db_path, csv_path):
@@ -1189,20 +1168,9 @@ class Save():
 
     return row
 
-  '''def get_rand(self):
-        rand = str(random.randint(1, 1000))
-        return rand'''
-    
-  '''def get_timestamp(self, flag=False):
-    now = datetime.now()
-    date = now.strftime("_%m%d%Y")
-    if flag: 
-      date = now.strftime("_%m%d%Y_%S")
-    #print(f"Formatted date: {date}")
-    return date'''
 
-                                              # ----------------------------------------------------------------------------------------- #
-                                              # --------------------- outsie of class - helper init db functions -----------------------  #
+                                            # ----------------------------------------------------------------------------------------- #
+                                            # --------------------- outsie of class - helper init db functions -----------------------  #
 
 
 

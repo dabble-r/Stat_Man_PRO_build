@@ -1,12 +1,10 @@
 # save_csv_app.py
-import sys
-import sqlite3
-import csv
+
 from pathlib import Path
-from src.utils.timestamp import get_timestamp
+from src.utils.timestamp import Timestamp
 
 from PySide6.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QVBoxLayout, QPushButton,
+    QWidget, QVBoxLayout, 
     QMessageBox, QDialog, QLabel, QLineEdit, QHBoxLayout, QDialogButtonBox
 )
 from PySide6.QtCore import Qt
@@ -79,6 +77,7 @@ class SaveCSVHandler:
             # Ensure base directory exists
             # base dir: data/exports
             self.csv_path.mkdir(parents=True, exist_ok=True)
+            print(f"timestamp static test: {Timestamp.get_timestamp(flag=True)}")
         except Exception as e:
             QMessageBox.critical(self.parent, "Filesystem error",
                                  f"Could not create base data/exports directory:\n{e}")
@@ -116,10 +115,10 @@ class SaveCSVHandler:
                 final_folder = target_folder
             else:
                 # Create new -> add timestamp
-                ts = get_timestamp()
+                ts = Timestamp.get_timestamp()
                 final_folder = self.csv_path / f"_{chosen_name}{ts}"
                 if final_folder.exists():
-                  ts = get_timestamp(flag=True)
+                  ts = Timestamp.get_new_ts(ts, self.csv_path, chosen_name)
                   final_folder = self.csv_path / f"_{chosen_name}{ts}"
         else:
             final_folder = target_folder
@@ -157,10 +156,4 @@ class SaveCSVHandler:
             if p.is_file() and p.suffix.lower() == ".csv":
                 p.unlink()
     
-    '''def get_timestamp(self, flag=False):
-      now = datetime.now()
-      date = now.strftime("_%m%d%Y")
-      if flag: 
-        date = now.strftime("_%m%d%Y_%S")
-      #print(f"Formatted date: {date}")
-      return date'''
+    
