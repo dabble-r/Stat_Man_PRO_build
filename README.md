@@ -1,5 +1,5 @@
 # Stat Manager
-- v1.0.0 BETA
+- v1.1.0 BETA
 
 A comprehensive baseball/softball league management application built with Python and PySide6.
 
@@ -34,25 +34,31 @@ stat_man_g/
 │   ├── ui/                  # User interface components
 │   │   ├── main_window.py   # Main application window
 │   │   │
-│   │   ├── dialogs/         # Dialog windows (UI layer only)
-│   │   │   ├── update_offense.py          # Offense stat update dialog
-│   │   │   ├── update_pitching.py         # Pitching stat update dialog
-│   │   │   ├── update_admin.py            # Team admin/management dialog
-│   │   │   ├── update_team_stats.py       # Team stats update dialog
-│   │   │   ├── update_lineup.py           # Lineup management dialog
-│   │   │   ├── update_positions.py        # Player positions dialog
-│   │   │   ├── update_game.py             # Game update dialog
-│   │   │   ├── update_league.py           # League admin dialog
-│   │   │   ├── update_dialog_ui.py        # Main update dialog hub
-│   │   │   ├── new_player_ui.py           # Add new player dialog
-│   │   │   ├── new_team_w_ui.py           # Add new team dialog
-│   │   │   ├── add_save_ui.py             # Save/export dialog
-│   │   │   ├── remove.py                  # Remove entity dialog
-│   │   │   ├── close.py                   # Application close confirmation
-│   │   │   ├── message.py                 # Custom message dialogs
-│   │   │   ├── stat_dialog_ui.py          # Player/team stat display
-│   │   │   ├── bar_graph_dialog.py        # Bar graph selection dialog
-│   │   │   └── update_theme_dialog.py     # Theme selection dialog
+│   │   ├── dialogs/         # Dialog windows (modular BaseDialog system)
+│   │   │   ├── base_dialog.py             # Base dialog class (all modular dialogs extend this)
+│   │   │   ├── dialog_templates.py        # Template classes for dialog configurations
+│   │   │   ├── template_configs.py        # Factory functions for dialog templates
+│   │   │   ├── dialog_handlers.py         # Business logic handlers for dialogs
+│   │   │   │
+│   │   │   ├── update_offense.py          # Offense stat update dialog (BaseDialog)
+│   │   │   ├── update_pitching.py         # Pitching stat update dialog (BaseDialog)
+│   │   │   ├── update_admin.py            # Team admin/management dialog (BaseDialog)
+│   │   │   ├── update_team_stats.py       # Team stats update dialog (BaseDialog)
+│   │   │   ├── update_lineup.py           # Lineup management dialog (BaseDialog)
+│   │   │   ├── update_positions.py        # Player positions dialog (BaseDialog)
+│   │   │   ├── update_league.py           # League admin dialog (BaseDialog)
+│   │   │   ├── remove.py                  # Remove entity dialog (BaseDialog)
+│   │   │   ├── search_dialog.py           # Search dialog (BaseDialog)
+│   │   │   ├── bar_graph_dialog.py        # Bar graph selection dialog (BaseDialog)
+│   │   │   ├── close.py                   # Application close confirmation (BaseDialog)
+│   │   │   ├── update_theme_dialog.py     # Theme selection dialog (BaseDialog)
+│   │   │   │
+│   │   │   ├── update_dialog_ui.py        # Main update dialog hub (special case)
+│   │   │   ├── new_player_ui.py           # Add new player dialog (special case)
+│   │   │   ├── new_team_w_ui.py           # Add new team dialog (special case)
+│   │   │   ├── add_save_ui.py             # Save/export dialog (special case)
+│   │   │   ├── message.py                 # Custom message dialogs (utility)
+│   │   │   └── stat_dialog_ui.py          # Player/team stat display (special case)
 │   │   │
 │   │   ├── views/           # Main view components (UI layer only)
 │   │   │   ├── league_view_players.py     # Players and leaderboard view
@@ -249,6 +255,103 @@ This separation allows:
 - **Testability**: Logic can be tested independently of UI
 - **Reusability**: Logic functions can be reused across different UI contexts
 - **Maintainability**: Changes to UI or logic don't affect each other
+
+### Modular Dialog System
+
+The application uses a **modular BaseDialog architecture** for consistent dialog creation and management:
+
+#### Core Components
+
+1. **`base_dialog.py`**: Base class that provides common dialog functionality
+   - Handles layout management (standard, vertical, custom)
+   - Manages input fields, radio buttons, checkboxes, and custom widgets
+   - Provides validation and error handling
+   - Supports custom widgets (date pickers, combo boxes, tree widgets)
+
+2. **`dialog_templates.py`**: Template classes that define dialog structure
+   - `StatUpdateTemplate`: For stat update dialogs (offense, pitching, team stats)
+   - `AdminUpdateTemplate`: For admin/management dialogs
+   - `SelectionTemplate`: For selection-based dialogs (lineup, positions)
+   - `ConfirmationTemplate`: For confirmation dialogs
+   - `SearchTemplate`: For search dialogs with tree results
+   - `CheckboxSelectionTemplate`: For multi-select dialogs
+
+3. **`template_configs.py`**: Factory functions that create configured templates
+   - Pre-configured templates for each dialog type
+   - Handles option lists, validators, and default values
+   - Connects templates to appropriate handlers
+
+4. **`dialog_handlers.py`**: Business logic handlers for dialog actions
+   - Update handlers: Process form submissions
+   - Undo handlers: Handle undo operations
+   - View handlers: Display stats or additional information
+   - Validation and enablement logic
+
+#### Architecture Flow
+
+```
+Application Code
+    ↓
+Individual Dialog Classes (update_offense.py, etc.)
+    ↓
+BaseDialog (base_dialog.py) - UI structure and widget management
+    ↓
+Template Config (template_configs.py) - Pre-configured templates
+    ↓
+Template Classes (dialog_templates.py) - Template definitions
+    ↓
+Handlers (dialog_handlers.py) - Business logic
+```
+
+#### Benefits
+
+- **Consistency**: All dialogs follow the same structure and behavior
+- **Maintainability**: Changes to BaseDialog affect all dialogs automatically
+- **Extensibility**: New dialogs can be created by configuring templates
+- **Reduced Code Duplication**: Common functionality is centralized
+- **Type Safety**: Template system ensures correct configuration
+
+#### Example: Creating a New Dialog
+
+```python
+# 1. Create template configuration in template_configs.py
+def create_my_dialog_template(update_handler, undo_handler):
+    return StatUpdateTemplate.create_template(
+        title="My Dialog",
+        stat_options=["option1", "option2"],
+        default_stat="option1",
+        update_handler=update_handler,
+        undo_handler=undo_handler
+    )
+
+# 2. Create handler in dialog_handlers.py
+def my_dialog_update_handler(dialog):
+    stat = dialog.get_selected_option('stat_selection')
+    value = dialog.get_input_value('input')
+    # Process update...
+
+# 3. Create dialog class
+class MyDialog(BaseDialog):
+    def __init__(self, league, selected, message, parent=None):
+        template = create_my_dialog_template(
+            update_handler=my_dialog_update_handler,
+            undo_handler=my_dialog_undo_handler
+        )
+        context = {
+            'league': league,
+            'selected': selected,
+            'message': message
+        }
+        super().__init__(template, context, parent=parent)
+```
+
+#### Special Case Dialogs
+
+Some dialogs don't use BaseDialog due to unique requirements:
+- `message.py`: Utility dialog for notifications
+- `stat_dialog_ui.py`: Complex display dialog with charts
+- `update_dialog_ui.py`: Hub dialog that opens other dialogs
+- `new_player_ui.py` / `new_team_w_ui.py`: Complex form dialogs
 
 ### Import Convention
 
