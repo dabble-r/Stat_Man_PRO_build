@@ -7,7 +7,6 @@ from src.core.team import Team
 from src.ui.dialogs.message import Message
 from src.utils.undo import Undo
 from PySide6.QtWidgets import QDialog
-from src.ui.dialogs.stat_dialog_ui import Ui_StatDialog
 
 # --------------------------------------------------
 
@@ -202,6 +201,9 @@ def undo_stat(selected: Tuple[str, str, float], undo: Undo, league_instance: Lea
         message_instance.show_message("Team not found.", btns_flag=False, timeout_ms=2000)
 
 def view_player_stats(selected: Tuple[str, str, float], league_instance: League, message_instance: Message, self) -> None:
+    # Lazy import to avoid circular dependency
+    from src.ui.dialogs.stat_dialog_ui import Ui_StatDialog
+    
     stat_widget = QDialog(self)
     stat_widget.setWindowTitle("Stats")
     stat_widget.setModal(True)
