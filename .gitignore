@@ -21,6 +21,7 @@ PATH_UPDATES.md
 PATH_UPDATE_SUMMARY.md
 ICON_FIX.md
 fix-type-handling-bug.plan.md
+DIALOG_ARCHITECTURE.md
 
 #test 
 tests/*
