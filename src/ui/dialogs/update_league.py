@@ -1,363 +1,182 @@
-from PySide6.QtWidgets import QWidget, QDialog, QLabel, QLineEdit, QDateEdit, QComboBox, QPushButton, QMessageBox, QVBoxLayout, QRadioButton, QButtonGroup, QHBoxLayout, QSizePolicy
-from PySide6.QtGui import QCloseEvent
-from PySide6.QtCore import Qt, QDate
+"""
+League update dialog using modular BaseDialog system.
+"""
+from src.ui.dialogs.base_dialog import BaseDialog
+from src.ui.dialogs.template_configs import create_league_update_template
+from src.ui.dialogs.dialog_handlers import (
+    league_update_handler,
+    league_launch_handler,
+    league_close_handler
+)
+from PySide6.QtWidgets import QMessageBox
+from PySide6.QtCore import QDate
 from src.ui.dialogs.update_theme_dialog import UpdateTheme
 
-class UpdateLeagueDialog(QDialog):
+
+class UpdateLeagueDialog(BaseDialog):
+    """Dialog to update league admin fields, season dates, and theme."""
+    
     def __init__(self, league, selected, message, leaderboard, lv_teams, stack, undo, styles, parent=None):
-        """Dialog to update league admin fields, season dates, and theme; includes launcher."""
-        super().__init__(parent)
-        self.league = league
-        self.selected = selected
-        self.message = message
-        self.leaderboard = leaderboard
-        self.lv_teams = lv_teams
-        self.leaderboard_AVG = []
-        self.stack = stack
-        self.undo = undo
-        # self.styles = styles
-        self.parent = parent
+        # Create template
+        template = create_league_update_template(
+            update_handler=league_update_handler,
+            launch_handler=league_launch_handler,
+            close_handler=league_close_handler
+        )
+        
+        # Create context
+        context = {
+            'league': league,
+            'selected': selected,
+            'leaderboard': leaderboard,
+            'lv_teams': lv_teams,
+            'stack': stack,
+            'undo': undo,
+            'message': message
+        }
+        
+        # Initialize base dialog
+        super().__init__(template, context, parent=parent)
+        
+        # Store league-specific state
+        self.league_name = self.league.isDefaultName()
         self.new_season = None
         self.new_date = None
         self.theme = None
-        self.league_name = self.league.isDefaultName() 
-        self.setObjectName("Update League")
-
+        
+        # Set window title
         default = "League"
         self.setWindowTitle(f"Welcome to the {self.league_name if self.league_name else default}!")
+        self.setObjectName("Update League")
         
-        #self.styles = StyleSheets()
-        #self.setStyleSheet(self.styles.modern_styles)
-        #self.setGeometry(100, 100, 400, 300) # Initial position and size
-        #self.move(200, 200) # Move to new position
+        # Setup date picker handlers and layout
+        date_edit = self.get_custom_widget('date_edit')
+        date_combo = self.get_custom_widget('date_combo')
         
-        # Widgets
-        # player input - lineup
-        self.player_label = QLabel("Enter Admin:")
-        self.player_label.setAlignment(Qt.AlignCenter)
-        self.user_input = QLineEdit()
-        self.user_input.setAlignment(Qt.AlignCenter)
-
-        # ----- Submit Button ----- #
-        self.submit_button = QPushButton("Submit")
-        self.submit_button.setFixedWidth(150)
-        self.submit_button.clicked.connect(self.update_stats)
-
-        # ----- Launch Button ----- #
-        self.launch_button = QPushButton("Launch")
-        self.launch_button.setFixedWidth(150)
-        self.launch_button.clicked.connect(self.launch_league)
-
-        # ----- Undo Button ------
-        #self.undo_button = QPushButton("Undo")
-        #self.undo_button.setFixedWidth(100)
-        #self.undo_button.clicked.connect(self.undo_stat)
-
-        self.button_layout = QHBoxLayout()
-
-        self.button_layout.addWidget(self.submit_button, alignment=Qt.AlignCenter)
-        self.button_layout.addWidget(self.launch_button, alignment=Qt.AlignCenter)
-
-        form_layout = QVBoxLayout()
-        form_layout.addWidget(self.player_label)
-        form_layout.addWidget(self.user_input)
-
-        form_widget = QWidget()
-        form_widget.setLayout(form_layout)
-        form_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-
-                            # -----------------------------------------------------------------------------------------------------# 
-        
-        self.date_layout = QVBoxLayout()
-        self.date_edit = QDateEdit(self)
-
-        self.date_combo = QComboBox(self)
-        self.date_combo.setEnabled(False)
-        self.date_combo.addItems(['Select...', 'Season Start', 'Season End'])
-
-        self.date_layout.addWidget(self.date_combo)
-        self.date_layout.addWidget(self.date_edit)
-
-        curr = QDate.currentDate()
-
-        d = curr.day()
-        m = curr.month()
-        y = curr.year() - 1
-
-        max_date = curr.addDays(365)
-
-        self.date_edit.setDate(curr) # Set initial date to current date
-        self.date_edit.setMinimumDate(QDate(y, m, d)) # Set minimum selectable date
-        self.date_edit.setMaximumDate(max_date) # Set maximum selectable date
-        self.date_edit.setCalendarPopup(True) # Enable calendar popup
-
-        self.date_edit.dateChanged.connect(self.on_change_date)
-
-        self.date_combo.activated.connect(self.on_activate_combo)
-        self.date_combo.currentTextChanged.connect(self.on_text_changed)
-
-                                    # ---------------------------------------------------------------------------------------- #
-
-        # Right side: Radio Buttons in a group
-        self.radio_group = QButtonGroup(self)
-        self.radio_buttons = []
-        self.selected = None
-
-        options = ["default"]
-
-        options = ["Name", "Commissioner", "Historian", "Treasurer", "Recruitment", "Communications", "Theme"]
-
-        radio_buttons_layout = QVBoxLayout()
-        radio_buttons_layout.setAlignment(Qt.AlignTop)
-
-        for i in range(len(options)):
-            radio = QRadioButton(f"{options[i]}")
-
-            # league name is default 'League'
-            if self.league_name is True:
-                print("league name - 1: ", self.league_name)
-                if options[i] == "Name":
-                    #radio.setEnabled(True) 
-                    radio.setChecked(True)
-                else:
-                    if options[i] == 'Theme':
-                        radio.toggled.connect(self.on_toggle_theme)
-                    radio.setEnabled(False)
-                    
-            # league name has been updated
-            elif self.league_name is False:
-                print("league name - 2: ", self.league_name)
-                radio.setEnabled(True)
-                self.date_combo.setEnabled(True)
-                if options[i] == 'Theme':
-                        radio.toggled.connect(self.on_toggle_theme)
-                
-                
-            #radio.toggled.connect(self.on_toggle_all) 
-           
-            self.radio_group.addButton(radio, i)
-            self.radio_buttons.append(radio)
-            radio_buttons_layout.addWidget(radio)
-
-        # Container widget for the radio buttons (optional)
-        self.user_input.setFocus()
-        self.date_combo.setEnabled(False)
-        self.date_edit.setEnabled(False)
-        radio_buttons_widget = QWidget()
-        radio_buttons_widget.setLayout(radio_buttons_layout)
-
-                                # ---------------------------------------------------------------------------------------------------------------------#
-
-        # Horizontal layout: form on the left, radios on the right
-        content_layout = QHBoxLayout()
-        content_layout.addStretch()
-        content_layout.addWidget(form_widget)
-        content_layout.addSpacing(40)  # spacing between form and radios
-        content_layout.addWidget(radio_buttons_widget)
-        content_layout.addLayout(self.date_layout)
-        content_layout.addStretch()
-
-         # ----- Main Layout ----- #
-        main_layout = QVBoxLayout()
-        main_layout.addStretch()
-        main_layout.addLayout(content_layout)
-        main_layout.addSpacing(20)
-        main_layout.addLayout(self.button_layout)
-        main_layout.addStretch()
-
-        self.setLayout(main_layout)
-
-    def closeEvent(self, event: QCloseEvent): 
-        if self.league_name is False:
-            event.accept()
-
-        else:
-            reply = QMessageBox.question(
-                self,
-                "Confirm Close",
-                "Would you like to continue without customizing league?",
-                QMessageBox.Ok | QMessageBox.Cancel
-            )
-
-            if reply == QMessageBox.Ok:
-                event.accept()
-
-            elif reply == QMessageBox.Cancel:
-                event.ignore()
+        # Create vertical layout for date widgets
+        if date_combo and date_edit:
+            from PySide6.QtWidgets import QVBoxLayout
+            date_layout = QVBoxLayout()
+            date_layout.addWidget(date_combo)
+            date_layout.addWidget(date_edit)
             
-    def launch_league(self):
+            # Add date layout to content layout
+            if hasattr(self, 'content_layout'):
+                self.content_layout.addLayout(date_layout)
+        
+        if date_edit:
+            date_edit.dateChanged.connect(self._on_change_date)
+            date_edit.setEnabled(False)
+        
+        if date_combo:
+            date_combo.activated.connect(self._on_activate_combo)
+            date_combo.currentTextChanged.connect(self._on_text_changed)
+        
+        # Setup radio button toggle handlers
+        if 'admin' in self.radio_buttons:
+            for radio in self.radio_buttons['admin']:
+                if radio.text() == 'Theme':
+                    radio.toggled.connect(self._on_toggle_theme)
+        
+        # Set initial state based on league name
         if self.league_name is True:
-            reply = QMessageBox.question(
-                    self,
-                    "Confirm Close",
-                    "Would you like to continue without customizing league?",
-                    QMessageBox.Ok | QMessageBox.Cancel
-                )
-
-            if reply == QMessageBox.Ok:
-                self.destroy()
-
-            elif reply == QMessageBox.Cancel:
-                return
-            
+            # Only Name option enabled
+            if 'admin' in self.radio_buttons:
+                for radio in self.radio_buttons['admin']:
+                    if radio.text() != "Name":
+                        radio.setEnabled(False)
+            if date_combo:
+                date_combo.setEnabled(False)
+            if date_edit:
+                date_edit.setEnabled(False)
         else:
-            self.destroy()
-    
-    def on_toggle_all(self):
-        self.user_input.setEnabled(True)
-        self.date_combo.setEnabled(False)
-    
-    def on_toggle_theme(self, checked):
-        if checked:
-            self.user_input.setEnabled(False)
-            self.date_combo.setEnabled(False)
-            self.set_theme()
+            # All options enabled
+            if date_combo:
+                date_combo.setEnabled(True)
         
-    def on_toggle_date(self):
-        self.user_input.setEnabled(False)
-        self.date_combo.setEnabled(True)
+        # Set focus
+        if 'input' in self.input_fields:
+            self.input_fields['input'].setFocus()
     
-    def set_theme(self):
-        dialog = UpdateTheme(None, self.message, parent=self)  # self.styles
-        dialog.exec()
-        self.user_input.setEnabled(True)
-        self.date_combo.setEnabled(True)
-        self.date_combo.setCurrentIndex(0)
-        
-    def set_checked_btn(self, str):
-        for el in self.radio_buttons:
-            if el.text() == str:
-                el.setChecked(True)
-    
-    def set_uncheck_btn(self, str):
-        for el in self.radio_buttons:
-            if el.text() == str:
-                el.setChecked(False)
-                
-    def get_checked_str(self, str):
-        for el in self.radio_buttons:
-            if el.text() == str:
-                return el.isChecked() 
-        return False
-
-    def get_checked_btn(self):
-        for el in self.radio_buttons:
-            if el.isChecked() == True: 
-                return el
-        return None
-    
-    
-    def on_submit(self):
-        self.date_combo.setEnabled(True)
-        self.date_combo.setCurrentIndex(0)
-        for el in self.radio_buttons:
-            el.setEnabled(True)
-        self.league_name = self.league.admin['Name']
-        self.setWindowTitle(f"Welcome to the {self.league_name}!")
-        print("league name - submit:", self.league_name)
-        
-       
-        #self.date_edit.setEnabled(True)
-    
-    def on_change_date(self, new_date: QDate):
-        ##print('new date:', new_date)
+    def _on_change_date(self, new_date: QDate):
+        """Handle date change."""
         day = new_date.day()
         week = new_date.dayOfWeek()
         month = new_date.month()
         year = new_date.year()
         self.new_date = (day, week, month, year)
     
-    def on_change_combo(self):
-        self.date_combo.close()
+    def _on_activate_combo(self):
+        """Handle combo box activation."""
+        self._clear_all()
+        if 'input' in self.input_fields:
+            self.input_fields['input'].setEnabled(False)
+        date_edit = self.get_custom_widget('date_edit')
+        if date_edit:
+            date_edit.setEnabled(True)
     
-    def on_activate_combo(self):
-        self.clear_all()
-        self.user_input.setEnabled(False)
-        self.date_edit.setEnabled(True)
+    def _on_text_changed(self, text):
+        """Handle combo box text change."""
+        self.new_season = text
+    
+    def _on_toggle_theme(self, checked):
+        """Handle theme radio toggle."""
+        if checked:
+            if 'input' in self.input_fields:
+                self.input_fields['input'].setEnabled(False)
+            date_combo = self.get_custom_widget('date_combo')
+            if date_combo:
+                date_combo.setEnabled(False)
+            self._set_theme()
+    
+    def _set_theme(self):
+        """Open theme selection dialog."""
+        dialog = UpdateTheme(None, self.message, parent=self)
+        dialog.exec()
+        if 'input' in self.input_fields:
+            self.input_fields['input'].setEnabled(True)
+        date_combo = self.get_custom_widget('date_combo')
+        if date_combo:
+            date_combo.setEnabled(True)
+            date_combo.setCurrentIndex(0)
+    
+    def _clear_all(self):
+        """Clear all inputs."""
+        if 'input' in self.input_fields:
+            self.input_fields['input'].clear()
+        if 'admin' in self.radio_buttons:
+            for radio in self.radio_buttons['admin']:
+                radio.setEnabled(True)
+    
+    def _get_league_admin(self):
+        """Get selected league admin option."""
+        date_combo = self.get_custom_widget('date_combo')
+        radio = self.get_selected_option('admin')
         
-    def on_text_changed(self, text):
-        season = text 
-        ##print(season)
-        self.new_season = season
-        
-    def clear_all(self):
-        self.user_input.clear()
-        for el in self.radio_buttons:
-            el.setEnabled(True)
-
-    def get_league_admin(self):
-        # radio button selection 
-        radio = self.radio_group.checkedButton().text()
-        combo = self.date_combo.currentIndex()
-        ##print(radio)
-        ##print(combo)
-
-        if combo == 0:
-            return radio 
-        elif combo != 0:
-            return self.date_combo.currentText()
+        if date_combo and date_combo.currentIndex() != 0:
+            return date_combo.currentText()
         else:
-            return None
-            
-    def set_admin_league(self, stat, val):
-        '''"League Name", Commissioner", "Historian", "Treasurer", "Recruitment", "Communications'''
-        match stat:
-            case "Name":
-                print('Name:', stat, val)
-                self.league.set_admin('admin', stat, val, self)
-            case 'Commissioner':
-                self.league.set_admin('admin', stat, val, self)
-            case 'Historian':
-                self.league.set_admin('admin', stat, val, self)
-            case 'Treasurer':
-                self.league.set_admin('admin', stat, val, self)
-            case 'Recruitment':
-                self.league.set_admin('admin', stat, val, self)
-            case 'Communications':
-                self.league.set_admin('admin', stat, val, self)
-            case "Season Start":
-                ##print('season')
-                ##print(self.new_date)
-                day, week, month, year = self.new_date
-                ##print(stat)
-                self.league.set_admin('admin', stat, f"{month}--{day}--{year}", self)
-            case "Season End":
-                ##print('season')
-                ##print(self.new_date)
-                day, week, month, year = self.new_date
-                ##print(stat)
-                self.league.set_admin('admin', stat, f"{month}--{day}--{year}", self)
-            
-    def update_stats(self):
-        stat = self.get_league_admin()
-        #print('update stat:', stat)
-        val = self.user_input.text()
-
-        if 'Season' not in stat:
-            if not stat or not val:
-                QMessageBox.warning(self, "Input Error", "Enter player name and select admin position.")
-                return 
-            
-        elif 'Season' in stat:
-            if self.new_date is None:
-                QMessageBox.warning(self, "Input Error", "Please select date and submit.")
-                return 
-        ##print('league before:', self.league.get_admin())
-
-        # stack add node 
-        # new_node = NodeStack(obj, team, stat, prev, func, flag, player=None)
-        # self.stack.add_node(self.league, None, 'admin', (stat, self.league.admin[stat]), self.set_admin_league, 'league')
-
-        self.set_admin_league(stat, val)
-
-        self.on_submit()
-
-        self.clear_all()
-
-        ##print('league after:', self.league.get_admin())
+            return radio
     
-    def undo_stat(self):
-        self.undo.undo_exp()
-          
-            
-            
+    def _set_admin_league(self, stat, val):
+        """Set league admin field."""
+        if 'Season' in stat:
+            if self.new_date:
+                day, week, month, year = self.new_date
+                self.league.set_admin('admin', stat, f"{month}--{day}--{year}", self)
+        else:
+            self.league.set_admin('admin', stat, val, self)
+    
+    def _on_submit(self):
+        """Handle submit - enable all options after name is set."""
+        date_combo = self.get_custom_widget('date_combo')
+        if date_combo:
+            date_combo.setEnabled(True)
+            date_combo.setCurrentIndex(0)
+        
+        if 'admin' in self.radio_buttons:
+            for radio in self.radio_buttons['admin']:
+                radio.setEnabled(True)
+        
+        self.league_name = self.league.admin['Name']
+        self.setWindowTitle(f"Welcome to the {self.league_name}!")

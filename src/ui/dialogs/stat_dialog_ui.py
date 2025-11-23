@@ -15,7 +15,6 @@ from PySide6.QtCharts import QChart, QChartView
 from src.visualization.donut_graph import DonutBreakdownChart
 from src.visualization.bar_graph import BarGraph
 from src.core.player import SamplePlayer
-from src.ui.dialogs.bar_graph_dialog import BarGraphDialog
 from src.visualization.graph_window import GraphWindow
 from decimal import getcontext, Decimal
 from src.utils.image import Icon
@@ -257,6 +256,9 @@ class Ui_StatDialog(QDialog):
         self.graph_window.show()
     
     def get_curr_league(self):
+        # Lazy import to avoid circular dependency
+        from src.ui.dialogs.bar_graph_dialog import BarGraphDialog
+        
         stats = ['hits', 'so', 'runs', 'era', 'k', 'avg']
         
         self.graph_dialog = BarGraphDialog(self.league, self.selected, self.message, self.teams_selected, self)
