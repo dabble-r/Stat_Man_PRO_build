@@ -5,21 +5,45 @@ This creates a standalone .exe that includes Python interpreter and all dependen
 """
 
 import sys
+import os
 from pathlib import Path
 
 block_cipher = None
 
-# Base directory for resolving paths
-base_dir = Path('.')
+# Base directory for resolving paths - use spec file's directory
+# This ensures paths work regardless of where PyInstaller is run from
+spec_file_dir = Path(__file__).parent if '__file__' in globals() else Path(os.getcwd())
+base_dir = spec_file_dir
 
 # Application icon configuration
 icon_path = base_dir / 'assets' / 'icons' / 'pbl_logo_ICO.ico'
-if icon_path.exists():
-    app_icon = str(icon_path)
-    print(f"Using application icon: {app_icon}")
+icon_path_abs = icon_path.resolve()
+
+if icon_path.exists() or icon_path_abs.exists():
+    # Use the absolute path that exists
+    final_icon_path = icon_path_abs if icon_path_abs.exists() else icon_path
+    app_icon = str(final_icon_path)
+    
+    # Verify icon can be processed (if Pillow is available)
+    try:
+        from PIL import Image
+        test_img = Image.open(str(final_icon_path))
+        print(f"✓ Using application icon: {app_icon}")
+        print(f"  Icon format: {test_img.format}, Size: {test_img.size}")
+    except ImportError:
+        print(f"⚠ Using application icon: {app_icon}")
+        print("  Warning: Pillow not available, cannot validate icon format")
+    except Exception as e:
+        print(f"⚠ Using application icon: {app_icon}")
+        print(f"  Warning: Could not validate icon: {e}")
 else:
     app_icon = None
-    print(f"WARNING: Icon file not found at {icon_path}. Building without icon.")
+    print(f"✗ WARNING: Icon file not found")
+    print(f"  Tried: {icon_path}")
+    print(f"  Tried: {icon_path_abs}")
+    print(f"  Current working directory: {os.getcwd()}")
+    print(f"  Spec file directory: {spec_file_dir}")
+    print("  Building without icon.")
 
 # Collect PySide6 binaries and plugins
 from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs
