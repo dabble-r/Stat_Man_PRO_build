@@ -12,8 +12,14 @@ block_cipher = None
 # Base directory for resolving paths
 base_dir = Path('.')
 
-# No icon - removed to avoid build issues
-app_icon = None
+# Application icon configuration
+icon_path = base_dir / 'assets' / 'icons' / 'pbl_logo_ICO.ico'
+if icon_path.exists():
+    app_icon = str(icon_path)
+    print(f"Using application icon: {app_icon}")
+else:
+    app_icon = None
+    print(f"WARNING: Icon file not found at {icon_path}. Building without icon.")
 
 # Collect PySide6 binaries and plugins
 from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs
@@ -33,7 +39,7 @@ a = Analysis(
     pathex=[],
     binaries=pyside6_binaries,
     datas=pyside6_datas + [
-        # No other assets bundled - icons folder excluded to avoid icon processing errors
+        # Icon file is handled separately via app_icon parameter
     ],
     hiddenimports=[
         'PySide6',
@@ -65,7 +71,7 @@ a = Analysis(
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
-# Build EXE without icon (no favicon)
+# Build EXE with icon (if available)
 exe = EXE(
     pyz,
     a.scripts,
@@ -86,5 +92,6 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon=app_icon,  # Application icon (None if file not found)
 )
 

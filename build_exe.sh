@@ -15,7 +15,39 @@ if ! python -c "import PyInstaller" 2>/dev/null; then
     fi
 fi
 
+# Check if Pillow is installed (required for icon processing)
+echo "Checking for Pillow..."
+if ! python -c "import PIL" 2>/dev/null; then
+    echo "Pillow not found. Installing..."
+    pip install pillow>=10.0.0
+    if [ $? -ne 0 ]; then
+        echo "ERROR: Failed to install Pillow. Please install manually: pip install pillow>=10.0.0"
+        exit 1
+    fi
+    echo "Pillow installed successfully"
+else
+    echo "Pillow found - OK"
+fi
+
+# Verify icon file exists
+echo ""
+echo "Checking for icon file..."
+if [ -f "assets/icons/pbl_logo_ICO.ico" ]; then
+    echo "Icon file found: assets/icons/pbl_logo_ICO.ico"
+    # Validate icon can be loaded by Pillow
+    if python -c "from PIL import Image; img = Image.open('assets/icons/pbl_logo_ICO.ico'); print('Icon file is valid')" 2>/dev/null; then
+        echo "Icon file validation passed"
+    else
+        echo "WARNING: Icon file exists but may be corrupted or invalid format."
+        echo "Build will continue, but icon may not work correctly."
+    fi
+else
+    echo "WARNING: Icon file not found at assets/icons/pbl_logo_ICO.ico"
+    echo "Build will continue without icon."
+fi
+
 # Run PyInstaller
+echo ""
 echo "Running PyInstaller..."
 pyinstaller stat_man_g.spec
 

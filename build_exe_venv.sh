@@ -154,7 +154,42 @@ else
     exit 1
 fi
 
-# Step 5: Clean previous build
+# Verify Pillow is installed (required for icon processing)
+if python -c "import PIL" 2>/dev/null; then
+    echo "✓ Pillow found"
+else
+    echo "Pillow not found. Installing..."
+    python -m pip install pillow>=10.0.0
+    if [ $? -ne 0 ]; then
+        echo "ERROR: Failed to install Pillow. Please install manually: pip install pillow>=10.0.0"
+        exit 1
+    fi
+    echo "✓ Pillow installed"
+fi
+
+# Step 5: Verify icon file
+echo ""
+echo "=== Step 5: Verifying icon file ==="
+ICON_FILE="assets/icons/pbl_logo_ICO.ico"
+ICON_STATUS=""
+if [ -f "$ICON_FILE" ]; then
+    echo "Icon file found: $ICON_FILE"
+    # Validate icon can be loaded by Pillow
+    if python -c "from PIL import Image; img = Image.open('$ICON_FILE'); print('Icon file is valid')" 2>/dev/null; then
+        echo "✓ Icon file validation passed"
+        ICON_STATUS="Icon file valid"
+    else
+        echo "⚠ WARNING: Icon file exists but may be corrupted or invalid format."
+        echo "Build will continue, but icon may not work correctly."
+        ICON_STATUS="Icon file invalid (build continues)"
+    fi
+else
+    echo "⚠ WARNING: Icon file not found at $ICON_FILE"
+    echo "Build will continue without icon."
+    ICON_STATUS="Icon file not found (build continues)"
+fi
+
+# Step 6: Clean previous build
 echo ""
 echo "=== Step 5: Cleaning previous build ==="
 if [ -d "build" ]; then
@@ -173,9 +208,9 @@ if [ "$CLEANED_BUILD" = false ]; then
     echo "No previous build artifacts to clean"
 fi
 
-# Step 6: Run PyInstaller
+# Step 7: Run PyInstaller
 echo ""
-echo "=== Step 6: Running PyInstaller ==="
+echo "=== Step 7: Running PyInstaller ==="
 python -m PyInstaller --clean stat_man_g.spec
 
 if [ $? -ne 0 ]; then
@@ -186,13 +221,14 @@ else
     BUILD_RESULT="SUCCESS"
 fi
 
-# Step 7: Summary
+# Step 8: Summary
 echo ""
 echo "========================================="
 echo "           BUILD SUMMARY"
 echo "========================================="
 echo "Virtual Environment: $VENV_ACTION"
 echo "Dependencies: $DEPS_INSTALLED"
+echo "Icon Status: $ICON_STATUS"
 if [ "$CLEANED_BUILD" = true ]; then
     echo "Build Cleanup: Removed previous build artifacts"
 else

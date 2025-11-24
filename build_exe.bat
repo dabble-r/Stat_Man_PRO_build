@@ -54,13 +54,44 @@ if errorlevel 1 (
 )
 echo PySide6 found - OK
 
-REM Verify Pillow is installed (optional for icon processing, but we skip icons now)
-python -c "import PIL" 2>nul
+REM Verify Pillow is installed (required for icon processing)
+echo Checking for Pillow...
+python -c "import PIL; print('Pillow version:', PIL.__version__)" 2>nul
 if errorlevel 1 (
-    echo WARNING: Pillow not found (not required since we're not using icons)
+    echo ERROR: Pillow not found. Pillow is required for icon processing.
+    echo Installing Pillow...
+    python -m pip install pillow>=10.0.0
+    if errorlevel 1 (
+        echo ERROR: Failed to install Pillow. Please install manually:
+        echo   pip install pillow>=10.0.0
+        pause
+        exit /b 1
+    )
+    echo Pillow installed successfully
+) else (
+    echo Pillow found - OK
 )
 
-REM Clean previous build to avoid cached icon issues
+REM Verify icon file exists
+echo.
+echo Checking for icon file...
+if exist "assets\icons\pbl_logo_ICO.ico" (
+    echo Icon file found: assets\icons\pbl_logo_ICO.ico
+    REM Validate icon can be loaded by Pillow
+    python -c "from PIL import Image; img = Image.open('assets/icons/pbl_logo_ICO.ico'); print('Icon file is valid')" 2>nul
+    if errorlevel 1 (
+        echo WARNING: Icon file exists but may be corrupted or invalid format.
+        echo Build will continue, but icon may not work correctly.
+    ) else (
+        echo Icon file validation passed
+    )
+) else (
+    echo WARNING: Icon file not found at assets\icons\pbl_logo_ICO.ico
+    echo Build will continue without icon.
+)
+
+REM Clean previous build
+echo.
 echo Cleaning previous build...
 if exist build rmdir /s /q build
 if exist dist rmdir /s /q dist

@@ -8,7 +8,9 @@ from src.ui.views.league_view_teams import LeagueViewTeams
 from src.utils.tree_event_filter import TreeEventFilter
 from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QTreeWidget, QPushButton, QDialog, QGroupBox, QMessageBox
 from PySide6.QtCore import (Qt)
-from PySide6.QtGui import QCloseEvent
+from PySide6.QtGui import QCloseEvent, QIcon
+from pathlib import Path
+from src.utils.path_resolver import get_app_base_path
 from src.ui.dialogs.stat_dialog_ui import Ui_StatDialog
 from src.ui.dialogs.update_dialog_ui import UpdateDialog
 from src.ui.dialogs.update_league import UpdateLeagueDialog
@@ -41,7 +43,13 @@ class MainWindow(QWidget):
         self.theme = None
         self.title = "Welcome to the league"
         self.setWindowTitle(self.title)
-        self.setObjectName("Main Window") 
+        self.setObjectName("Main Window")
+        
+        # Set window icon (works in both development and packaged modes)
+        icon_path = Path(get_app_base_path()) / 'assets' / 'icons' / 'pbl_logo_ICO.ico'
+        if icon_path.exists():
+            self.setWindowIcon(QIcon(str(icon_path)))
+        # If icon not found, continue without icon (no error) 
         
         # --------------------------------------------------
         # Initialization: File Dialog and Directory Setup
