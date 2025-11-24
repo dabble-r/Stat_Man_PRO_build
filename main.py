@@ -12,7 +12,7 @@ from PySide6.QtGui import QIcon
 from src.ui.styles.stylesheets import StyleSheets
 from src.utils.clear_db_startup import clear_database_on_startup
 from src.utils.print_filter import mute_print
-from src.utils.path_resolver import get_app_base_path
+from src.utils.path_resolver import get_resource_path
 
 # --------------------------------------------------
 
@@ -29,7 +29,9 @@ if __name__ == "__main__":
     app.setStyleSheet(styles.get_monochrome_1_style())
 
     # Set application icon (works in both development and packaged modes)
-    icon_path = Path(get_app_base_path()) / 'assets' / 'icons' / 'pbl_logo_ICO.ico'
+    # Use get_resource_path to handle PyInstaller's _MEIPASS extraction
+    icon_path_str = get_resource_path('assets/icons/pbl_logo_ICO.ico')
+    icon_path = Path(icon_path_str)
     if icon_path.exists():
         app.setWindowIcon(QIcon(str(icon_path)))
     # If icon not found, continue without icon (no error)

@@ -10,7 +10,7 @@ from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, Q
 from PySide6.QtCore import (Qt)
 from PySide6.QtGui import QCloseEvent, QIcon
 from pathlib import Path
-from src.utils.path_resolver import get_app_base_path
+from src.utils.path_resolver import get_resource_path
 from src.ui.dialogs.stat_dialog_ui import Ui_StatDialog
 from src.ui.dialogs.update_dialog_ui import UpdateDialog
 from src.ui.dialogs.update_league import UpdateLeagueDialog
@@ -46,7 +46,9 @@ class MainWindow(QWidget):
         self.setObjectName("Main Window")
         
         # Set window icon (works in both development and packaged modes)
-        icon_path = Path(get_app_base_path()) / 'assets' / 'icons' / 'pbl_logo_ICO.ico'
+        # Use get_resource_path to handle PyInstaller's _MEIPASS extraction
+        icon_path_str = get_resource_path('assets/icons/pbl_logo_ICO.ico')
+        icon_path = Path(icon_path_str)
         if icon_path.exists():
             self.setWindowIcon(QIcon(str(icon_path)))
         # If icon not found, continue without icon (no error) 

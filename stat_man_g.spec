@@ -58,13 +58,21 @@ except ImportError:
     pyside6_datas = []
     pyside6_binaries = []
 
+# Bundle assets folder so icon and other assets are available at runtime
+assets_path = base_dir / 'assets'
+assets_data = []
+if assets_path.exists():
+    # Bundle entire assets folder, preserving directory structure
+    assets_data = [(str(assets_path), 'assets')]
+    print(f"✓ Bundling assets folder: {assets_path}")
+else:
+    print(f"⚠ WARNING: Assets folder not found at {assets_path}")
+
 a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=pyside6_binaries,
-    datas=pyside6_datas + [
-        # Icon file is handled separately via app_icon parameter
-    ],
+    datas=pyside6_datas + assets_data,
     hiddenimports=[
         'PySide6',
         'PySide6.QtCore',
