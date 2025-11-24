@@ -168,7 +168,7 @@ def create_theme_update_template(
     submit_handler: Callable
 ) -> Dict[str, Any]:
     """Create template for theme update dialog."""
-    options = ["default"]  # Can be expanded when styles are available
+    options = ["Light", "Dark"]  # Available theme options
     
     template = CustomTemplate.create_template(
         title="Update Theme",
@@ -178,7 +178,8 @@ def create_theme_update_template(
             'type': 'radio',
             'group_key': 'selection',
             'options': options,
-            'default': options[0] if options else None
+            'default': options[0] if options else None,
+            'enablement_logic': True  # All theme options should be enabled from the start
         },
         buttons={
             'submit': {

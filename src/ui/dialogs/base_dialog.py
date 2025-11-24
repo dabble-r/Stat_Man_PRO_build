@@ -764,8 +764,12 @@ class BaseDialog(QDialog):
                 widget.setVisible(visible)
                 widget.setEditTriggers(widget.EditTrigger.NoEditTriggers)
                 widget.setSelectionMode(widget.SelectionMode.SingleSelection)
+                widget.setSelectionBehavior(widget.SelectionBehavior.SelectRows)  # Select entire row
                 widget.header().setDefaultAlignment(Qt.AlignCenter)
                 widget.header().setSectionResizeMode(widget.header().ResizeMode.Stretch)
+                
+                # Ensure items are selectable when added
+                # This will be handled when items are added to the tree
                 
                 self.custom_widgets[widget_key] = widget
                 

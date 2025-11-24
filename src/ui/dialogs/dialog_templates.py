@@ -427,7 +427,8 @@ class SearchTemplate(DialogTemplate):
                 'type': 'radio',
                 'group_key': 'search_type',
                 'options': search_options,
-                'default': search_options[0] if search_options else None
+                'default': search_options[0] if search_options else None,
+                'enablement_logic': True  # All search options should be enabled from the start
             },
             'custom_widgets': {
                 'search_tree': {

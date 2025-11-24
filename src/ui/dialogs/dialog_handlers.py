@@ -481,21 +481,53 @@ def positions_undo_handler(dialog):
 
 def theme_submit_handler(dialog):
     """Handle theme selection submission."""
-    from src.ui.dialogs.update_theme_dialog import UpdateTheme
+    from PySide6.QtWidgets import QApplication
     
     selection = dialog.get_selected_option('selection')
     if not selection:
         return
     
-    # Format theme name
-    def no_format_theme(theme_str):
-        theme_str = theme_str.lower()
-        theme_str = theme_str.replace(" ", "_") + "_styles"
-        return theme_str
+    # Map theme selection to style method
+    theme_map = {
+        "Light": "light_styles",
+        "Dark": "dark_styles",
+        "default": "light_styles"  # Fallback
+    }
     
-    selection_format = no_format_theme(selection)
+    # Get styles from dialog (stored as self.styles in UpdateTheme)
+    if not hasattr(dialog, 'styles') or dialog.styles is None:
+        # If no styles object, try to get from QApplication
+        app = QApplication.instance()
+        if app:
+            # Create new styles instance
+            from src.ui.styles.stylesheets import StyleSheets
+            styles = StyleSheets()
+        else:
+            dialog.close()
+            return
+    else:
+        styles = dialog.styles
     
-    # Get ancestor main window if needed
+    # Get the style method name
+    style_method = theme_map.get(selection, "light_styles")
+    
+    # Get the style string
+    if hasattr(styles, style_method):
+        style_func = getattr(styles, style_method)
+        if callable(style_func):
+            style_sheet = style_func()
+        else:
+            style_sheet = style_func
+    else:
+        # Fallback to light styles
+        style_sheet = styles.get_monochrome_1_style()
+    
+    # Apply theme to QApplication (affects all widgets)
+    app = QApplication.instance()
+    if app:
+        app.setStyleSheet(style_sheet)
+    
+    # Also apply to main window if found
     def get_ancestor(widget, obj_name):
         current = widget
         while current is not None:
@@ -506,9 +538,7 @@ def theme_submit_handler(dialog):
     
     main_window = get_ancestor(dialog, "Main Window")
     if main_window:
-        # Apply theme if styles available
-        # main_window.setStyleSheet(getattr(dialog.styles, selection_format))
-        pass
+        main_window.setStyleSheet(style_sheet)
     
     # Enable parent controls if parent exists
     if hasattr(dialog, 'parent') and dialog.parent:
@@ -561,19 +591,46 @@ def search_view_handler(dialog):
     
     tree_widget = dialog.get_custom_widget('search_tree')
     if not tree_widget:
+        dialog.show_validation_error("Search tree not available.")
         return
     
+    # Try to get current item (selected item)
     current_item = tree_widget.currentItem()
+    
+    # If no current item, try to get selected items
     if not current_item:
-        dialog.show_validation_error("Please select a team or player.")
+        selected_items = tree_widget.selectedItems()
+        if selected_items:
+            current_item = selected_items[0]
+    
+    # If still no item, check if there's only one item and select it
+    if not current_item and tree_widget.topLevelItemCount() == 1:
+        current_item = tree_widget.topLevelItem(0)
+        tree_widget.setCurrentItem(current_item)
+    
+    if not current_item:
+        dialog.show_validation_error("Please select a team or player from the search results.")
         return
     
     # Build selected tuple based on type
     search_type = getattr(dialog, 'type', None)
     if search_type == "player" or search_type == "number":
-        dialog.selected = [current_item.text(0), current_item.text(1), current_item.text(2)]
+        # Player/Number search has 3 columns: Name, Team, Average
+        if current_item.columnCount() >= 3:
+            dialog.selected = [current_item.text(0), current_item.text(1), current_item.text(2)]
+        else:
+            dialog.show_validation_error("Invalid player data in search results.")
+            return
     elif search_type == "team":
-        dialog.selected = [current_item.text(0), current_item.text(1)]
+        # Team search has 2 columns: Team, Average
+        if current_item.columnCount() >= 2:
+            dialog.selected = [current_item.text(0), current_item.text(1)]
+        else:
+            dialog.show_validation_error("Invalid team data in search results.")
+            return
+    else:
+        dialog.show_validation_error("Unknown search type.")
+        return
     
     stat_widget = QDialog(dialog)
     stat_widget.setWindowTitle("Stats")

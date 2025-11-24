@@ -165,6 +165,8 @@ class SearchDialog(BaseDialog):
         item.setTextAlignment(0, Qt.AlignCenter)
         item.setTextAlignment(1, Qt.AlignCenter)
         item.setTextAlignment(2, Qt.AlignCenter)
+        # Ensure item is selectable and enabled
+        item.setFlags(item.flags() | Qt.ItemIsSelectable | Qt.ItemIsEnabled)
         tree_widget.addTopLevelItem(item)
     
     def _add_item_team(self, team: Team):
@@ -182,6 +184,8 @@ class SearchDialog(BaseDialog):
         item = QTreeWidgetItem([name, str(avg)])
         item.setTextAlignment(0, Qt.AlignCenter)
         item.setTextAlignment(1, Qt.AlignCenter)
+        # Ensure item is selectable and enabled
+        item.setFlags(item.flags() | Qt.ItemIsSelectable | Qt.ItemIsEnabled)
         tree_widget.addTopLevelItem(item)
     
     def _add_item_number(self, player_list: list):
@@ -202,4 +206,6 @@ class SearchDialog(BaseDialog):
             item.setTextAlignment(0, Qt.AlignCenter)
             item.setTextAlignment(1, Qt.AlignCenter)
             item.setTextAlignment(2, Qt.AlignCenter)
+            # Ensure item is selectable and enabled
+            item.setFlags(item.flags() | Qt.ItemIsSelectable | Qt.ItemIsEnabled)
             tree_widget.addTopLevelItem(item)
