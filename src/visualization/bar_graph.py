@@ -215,12 +215,23 @@ class BarGraph(QMainWindow):
       return val
 
   def _setup_axes(self):
+    # Create font for all text elements (12px)
+    axis_font = QFont()
+    axis_font.setPointSize(12)
+    label_font = QFont()
+    label_font.setPointSize(12)
+    title_font = QFont()
+    title_font.setPointSize(12)
+    title_font.setBold(True)
+    
     # X-axis with team names
     x_axis = QCategoryAxis()
     for i, team in enumerate(self.team_names):
         x_axis.append(team, i)
     x_axis.setLabelsPosition(QCategoryAxis.AxisLabelsPositionOnValue)
     x_axis.setTitleText("Teams")
+    x_axis.setTitleFont(title_font)
+    x_axis.setLabelsFont(label_font)
     self.chart.addAxis(x_axis, Qt.AlignBottom)
     for series in self.series_list:
         series.attachAxis(x_axis)
@@ -235,8 +246,9 @@ class BarGraph(QMainWindow):
     y_axis_left = QValueAxis()
     y_axis_left.setRange(0, max_range)
     y_axis_left.setLabelFormat("%.0f")
-    
     y_axis_left.setTitleText("Stat Values")
+    y_axis_left.setTitleFont(title_font)
+    y_axis_left.setLabelsFont(label_font)
     self.chart.addAxis(y_axis_left, Qt.AlignLeft)
     for series in self.series_list[:5]:
         series.attachAxis(y_axis_left)
@@ -246,6 +258,8 @@ class BarGraph(QMainWindow):
     self.y_axis_right.setRange(0, 1.0)
     self.y_axis_right.setTickInterval(0.100)
     self.y_axis_right.setTitleText("AVG")
+    self.y_axis_right.setTitleFont(title_font)
+    self.y_axis_right.setLabelsFont(label_font)
     self.y_axis_right.setLabelFormat("%.3f")
     self.chart.addAxis(self.y_axis_right, Qt.AlignRight)
     self.series_list[5].attachAxis(self.y_axis_right)
@@ -253,7 +267,18 @@ class BarGraph(QMainWindow):
   def _finalize_chart(self):
       self.chart.addSeries(self.series)
       self.chart.setTitle("Team Performance Overview")
+      
+      # Set title font (12px, bold)
+      title_font = QFont()
+      title_font.setPointSize(12)
+      title_font.setBold(True)
+      self.chart.setTitleFont(title_font)
+      
+      # Set legend font (12px)
+      legend_font = QFont()
+      legend_font.setPointSize(12)
       self.chart.legend().setVisible(True)
+      self.chart.legend().setFont(legend_font)
       self.chart.legend().setAlignment(Qt.AlignBottom)
 
       chart_view = QChartView(self.chart)

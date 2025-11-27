@@ -325,9 +325,13 @@ class MainWindow(QWidget):
             #print('func:', func.__name__)
             func_name = func.__name__
             
-            if func_name == 'setup_update_ui' or func_name == 'setup_stat_ui':
+            if func_name == 'setup_update_ui':
                 # When nothing is selected, Update button shows league settings
                 self.setup_league_ui()
+            
+            elif func_name == 'setup_stat_ui':
+                # When nothing is selected, Stat button shows league stats with graph option
+                func()
             
             elif func_name == 'setup_search_ui':
                 self.setup_search_ui()
