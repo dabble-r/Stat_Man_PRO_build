@@ -8,7 +8,7 @@ from src.ui.dialogs.template_configs import create_bar_graph_template
 class BarGraphDialog(BaseDialog):
     """Dialog for selecting teams to display in bar graph."""
     
-    def __init__(self, league, selected, message, styles, teams, parent):
+    def __init__(self, league, selected, message, teams, parent):
         # Lazy import to avoid circular dependency
         from src.ui.dialogs.dialog_handlers import bar_graph_submit_handler
         
@@ -41,7 +41,7 @@ class BarGraphDialog(BaseDialog):
         # Store parent and teams list for checkbox handler
         self.parent_widget = parent
         self.teams_selected = teams
-        self.max_check = 5
+        self.max_check = 6
         
         # Setup checkbox change handler
         if 'selection' in self.checkboxes:
@@ -57,7 +57,7 @@ class BarGraphDialog(BaseDialog):
                     if len(self.teams_selected) < self.max_check:
                         self.teams_selected.append(team)
                     else:
-                        self.show_validation_error("Limit five teams per graph.")
+                        self.show_validation_error("Limit six teams per graph.")
                         checkbox.setChecked(False)
                 if team not in self.parent_widget.teams_selected:
                     if len(self.parent_widget.teams_selected) < self.max_check:

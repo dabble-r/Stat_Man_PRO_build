@@ -142,7 +142,7 @@ class BarGraph(QMainWindow):
       self.setWindowTitle("Team Stats Bar Graph")
       self.resize(1000, 600)
 
-      assert len(team_names) <= 5
+      assert len(team_names) <= 6
       #assert len(stat_names) == 6
       assert all(len(stats) == 6 for stats in data_points)
 

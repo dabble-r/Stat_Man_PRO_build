@@ -367,10 +367,7 @@ class MainWindow(QWidget):
     def setup_stat_ui(self):
         #print("Stat button clicked")
         #print(f"Selected item: {self.selected}")
-        if not self.selected or len(self.selected) == 0:
-            self.message.show_message("No Selection: Please select a team or player to view stats.", btns_flag=False, timeout_ms=2000)
-            return
-        
+        # Allow stat dialog to open even with no selection (for team comparison)
         self.stat_ui = Ui_StatDialog(self.league, self.message, self.selected, parent=self.stat_widget)
         self.stat_ui.get_stats(self.selected)
         self.stat_ui.exec()

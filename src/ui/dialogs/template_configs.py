@@ -221,7 +221,7 @@ def create_bar_graph_template(
         title="Select Teams for Graph",
         checkbox_options=[],  # Will be populated in custom_setup
         submit_handler=submit_handler,
-        max_selections=5
+        max_selections=6
     )
 
 
