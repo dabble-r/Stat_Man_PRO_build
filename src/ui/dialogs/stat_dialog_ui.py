@@ -147,6 +147,9 @@ class Ui_StatDialog(QDialog):
             case 'sample league':
                 self.message.show_message("No teams in league.\nSample league bar graph.", btns_flag=False, timeout_ms=2000)
                 self.get_sample_league()
+            case 'sample league - no stats':
+                self.message.show_message("No team stats found.\nSample league bar graph.", btns_flag=False, timeout_ms=2000)
+                self.get_sample_league()
             case 'league':
                 self.get_curr_league()
             case 'sample team':
@@ -202,10 +205,10 @@ class Ui_StatDialog(QDialog):
     def check_league(self):
         flag = self.get_graph_data()
         if self.selected is None:
-            if not self.league.teams:
+            if len(self.league.teams) == 0:
                 return 'sample league' 
             elif len(self.league.teams) >= 1 and flag == False:
-                return 'sample league' 
+                return 'sample league - no stats' 
             elif len(self.league.teams) >= 1 and flag:
                 return 'league'
         elif self.selected is not None:
