@@ -1,5 +1,5 @@
 # Stat Manager
-- v1.1.1 BETA
+- v1.1.2 BETA
 
 A comprehensive baseball/softball league management application built with Python and PySide6.
 
