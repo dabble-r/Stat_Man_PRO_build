@@ -22,11 +22,11 @@ class BarGraphWithDualAxes(QMainWindow):
         self.data_bar = data_bar 
         self.data_line = data_line 
 
-        # 🟦 Bar Series with 5 values per bar
+        #Bar Series with 5 values per bar
         self._bar_series = QBarSeries()
         self.categories = ["Hits", "SO", "Runs", "ERA", "K"]
         
-        # 📈 Line Series for Batting AVG (0–1.000 range)
+        # Line Series for Batting AVG (0–1.000 range)
         self._line_series = QLineSeries()
         self._line_series.setName("AVG")
         
@@ -34,20 +34,20 @@ class BarGraphWithDualAxes(QMainWindow):
         pen.setWidth(3)  # Optional: make the line thicker
         self._line_series.setPen(pen)
 
-        # 📊 Chart Setup
+        # Chart Setup
         self.chart = QChart()
         self.chart.setTitle("Team Performance")
         self.chart.addSeries(self._bar_series)
         self.chart.addSeries(self._line_series)
 
-        # 🧭 X Axis
+        # X Axis
         self._axis_x = QBarCategoryAxis()
         self._axis_x.append(self.categories)
         self.chart.addAxis(self._axis_x, Qt.AlignBottom)
         self._bar_series.attachAxis(self._axis_x)
         self._line_series.attachAxis(self._axis_x)
 
-        # 🧮 Left Y Axis (Bar values)
+        # Left Y Axis (Bar values)
         self._axis_y1 = QValueAxis()
         self._axis_y1.setTitleText("Team Stats")
         self._axis_y1.setRange(0, 100)
@@ -61,12 +61,12 @@ class BarGraphWithDualAxes(QMainWindow):
         self.chart.addAxis(self._axis_y2, Qt.AlignRight)
         self._line_series.attachAxis(self._axis_y2)
 
-        # 🖼️ Chart View
+        # Chart View
         self._chart_view = QChartView(self.chart)
         self._chart_view.setRenderHint(QPainter.Antialiasing)
         self.setCentralWidget(self._chart_view)
 
-        # 🏷️ Legend
+        # Legend
         self.chart.legend().setVisible(True)
         font = QFont()
         font.setFamily("Arial")
@@ -143,7 +143,6 @@ class BarGraph(QMainWindow):
       self.resize(1000, 600)
 
       assert len(team_names) <= 6
-      #assert len(stat_names) == 6
       assert all(len(stats) == 6 for stats in data_points)
 
       self.team_names = team_names
@@ -240,9 +239,6 @@ class BarGraph(QMainWindow):
     max_stat_value = max(value for team in self.data_points for value in team[:5])
 
     max_range = self.get_max_range(max_stat_value)
-    #if len(str(max_range)) >= 2:
-      #max_range = round(max_range, -1)
-    #max_range = round(max_range)
     y_axis_left = QValueAxis()
     y_axis_left.setRange(0, max_range)
     y_axis_left.setLabelFormat("%.0f")
