@@ -3,6 +3,7 @@ import os
 import sqlite3 
 import json
 from pathlib import Path
+from typing import Any
 from src.utils.timestamp import Timestamp
 
 
@@ -51,15 +52,12 @@ class Save():
         print(f"Creating missing directory: {db_dir}")
         db_dir.mkdir(parents=True, exist_ok=True)
         
-
     # Create new database
     print(f"Creating new database at: {self.db}")
     con = sqlite3.connect(self.db)
     cur = con.cursor()
     return con, cur
 
-  
-  
   def get_con(self):
     try: 
       if self.db:
@@ -67,7 +65,7 @@ class Save():
         return con
 
     except:
-      #print("Error connecting to db!")
+      print("Error connecting to db!")
       return None 
   
   def get_cur(self):
@@ -76,11 +74,10 @@ class Save():
         cur = self.con.cursor()
         return cur 
     except:
-      #print('Error getting cursor!')
+      print('Error getting cursor!')
       return None
     
   def table_exists(self, con, cur, table_name):
-    #con, cur = self.open_db()
     cur.execute("""
         SELECT name FROM sqlite_master 
         WHERE type='table' AND name=?;
@@ -97,7 +94,6 @@ class Save():
   def scan_ret(self, lst, target):
     for i in range(len(lst)):
       temp = lst[i][0]
-      ##print(temp[0] == target)
       if target == temp:
         return True
     return False
@@ -160,7 +156,6 @@ class Save():
       # commit created tables and close
       con.commit()
       con.close()
-    # call init league
     
   def init_team(self):
       con, cur = self.open_db()
@@ -195,7 +190,6 @@ class Save():
 
       con.commit()
       con.close()
-    # call init team
     
   def init_player(self):
       con, cur = self.open_db()
@@ -291,22 +285,22 @@ class Save():
       con.close()
   
   def update_league(self, cur, con, league_ID, obj, dir_list):
-    ##print(dir_list)
+    #print(dir_list)
     cols = []
     vals = []
-    ##print(exclude_attrs(team))
+    #print(exclude_attrs(team))
 
     for el in dir_list:
       val = getattr(obj, el)
 
       if isinstance(val, (dict)):
-        print('league val:', val)
-        keys = list(val.keys())
-        values = list(val.values())
-        print(keys)
-        print(values)
+        # print('league val:', val)
+        keys = list[Any](val.keys())
+        values = list[Any](val.values())
+        # print(keys)
+        #print(values)
 
-        for indx, el in enumerate(keys):
+        for indx, el in enumerate[Any](keys):
           if values[indx] is None:
             cols.append(el.lower())
             vals.append(self.NULL_TOKEN)
@@ -317,9 +311,6 @@ class Save():
       else:
         cols.append(el)
         vals.append(val)
-
-    #placeholders = ", ".join(["?"] * len(vals))
-    #column_str = ", ".join(cols)
 
     set_clause = ", ".join([f"{col} = ?" for col in cols])
     sql = f"UPDATE league SET {set_clause} WHERE leagueID = ?"
@@ -1165,10 +1156,8 @@ class Save():
     return row
 
 
-                                            # ----------------------------------------------------------------------------------------- #
-                                            # --------------------- outsie of class - helper init db functions -----------------------  #
-
-
+                                # ----------------------------------------------------------------------------------------- #
+                                # --------------------- outsie of class - helper init db functions -----------------------  #
 
 def db_exists(db_path):
     """Return (con, cur) if SQLite DB exists at path; otherwise return None."""
