@@ -75,7 +75,29 @@ class StyleSheets():
         }
 
         QCheckBox::indicator:unchecked {
-            background-color: darlgray;
+            background-color: darkgray;
+            border: 2px solid white;
+        }
+
+        QRadioButton {
+            font-size: 18px;
+        }
+
+        QRadioButton::indicator {
+            width: 16px;
+            height: 16px;
+            border: 2px solid white;
+            border-radius: 8px;
+            background-color: black;
+        }
+
+        QRadioButton::indicator:checked {
+            background-color: white;
+            border: 2px solid black;
+        }
+
+        QRadioButton::indicator:unchecked {
+            background-color: darkgray;
             border: 2px solid white;
         }
 
@@ -165,6 +187,28 @@ class StyleSheets():
         }
 
         QCheckBox::indicator:unchecked {
+            background-color: darkgray;
+            border: 2px solid black;
+        }
+
+        QRadioButton {
+            font-size: 18px;
+        }
+
+        QRadioButton::indicator {
+            width: 16px;
+            height: 16px;
+            border: 2px solid black;
+            border-radius: 8px;
+            background-color: white;
+        }
+
+        QRadioButton::indicator:checked {
+            background-color: black;
+            border: 2px solid white;
+        }
+
+        QRadioButton::indicator:unchecked {
             background-color: darkgray;
             border: 2px solid black;
         }
