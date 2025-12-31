@@ -57,8 +57,33 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+# Ensure executable permissions are set (important for Linux)
+if [ -f "dist/stat_man_g" ]; then
+    chmod +x dist/stat_man_g
+    echo "Executable permissions set on dist/stat_man_g"
+    
+    # Verify file type
+    file_type=$(file -b dist/stat_man_g)
+    echo "File type: $file_type"
+    
+    # Verify it's executable
+    if [ -x "dist/stat_man_g" ]; then
+        echo "✓ File is executable"
+    else
+        echo "⚠ WARNING: File permissions may be incorrect"
+    fi
+else
+    echo "⚠ WARNING: Expected executable not found at dist/stat_man_g"
+fi
+
 echo ""
 echo "Build successful!"
-echo "Executable created at: dist/stat_man_g.exe"
+echo "Executable created at: dist/stat_man_g"
+echo ""
+echo "NOTE: When copying this file to another location, use:"
+echo "  cp -p dist/stat_man_g /destination/path/"
+echo "  or"
+echo "  cp --preserve=all dist/stat_man_g /destination/path/"
+echo "This preserves executable permissions."
 echo ""
 
