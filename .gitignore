@@ -76,3 +76,7 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+
+#.sh files 
+copy_executable.sh
+
