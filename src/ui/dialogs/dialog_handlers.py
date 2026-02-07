@@ -558,7 +558,17 @@ def theme_submit_handler(dialog):
 def search_submit_handler(dialog):
     """Handle search submission."""
     selection = dialog.get_selected_option('search_type')
-    search_text = dialog.get_input_value('input')
+    
+    # Get search text - handle both QLineEdit and QTextEdit
+    if 'input' in dialog.input_fields:
+        input_widget = dialog.input_fields['input']
+        from PySide6.QtWidgets import QTextEdit
+        if isinstance(input_widget, QTextEdit):
+            search_text = input_widget.toPlainText()
+        else:
+            search_text = input_widget.text()
+    else:
+        search_text = dialog.get_input_value('input')
     
     if not selection:
         dialog.show_validation_error("Please select a search type.")
@@ -577,6 +587,10 @@ def search_submit_handler(dialog):
         elif selection == "team":
             tree_widget.setHeaderLabels(["Team", "Average"])
             tree_widget.setColumnCount(2)
+        elif selection == "nl_query":
+            # Dynamic headers will be set based on query results
+            tree_widget.setHeaderLabels(["Result"])
+            tree_widget.setColumnCount(1)
     
     # Populate search results
     if hasattr(dialog, '_populate_search'):
@@ -628,6 +642,13 @@ def search_view_handler(dialog):
         else:
             dialog.show_validation_error("Invalid team data in search results.")
             return
+    elif search_type == "nl_query":
+        # NL query results are generic SQL results - view action not applicable
+        dialog.show_validation_error(
+            "View action is not available for natural language query results. "
+            "Results are displayed in the search tree."
+        )
+        return
     else:
         dialog.show_validation_error("Unknown search type.")
         return

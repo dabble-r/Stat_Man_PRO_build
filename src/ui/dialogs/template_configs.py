@@ -200,7 +200,7 @@ def create_search_template(
     clear_handler: Callable
 ) -> Dict[str, Any]:
     """Create template for search dialog."""
-    options = ["player", "team", "number"]
+    options = ["player", "team", "number", "nl_query"]
     
     return SearchTemplate.create_template(
         title="Search Team or Player",
