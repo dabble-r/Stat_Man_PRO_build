@@ -5,5 +5,12 @@ PySide6>=6.5.0
 pyinstaller>=6.0.0
 pillow>=10.0.0  # Required for icon processing in PyInstaller
 
-# Add other dependencies as needed
+# API/Server dependencies
+fastapi>=0.104.0
+requests>=2.31.0
+pydantic>=2.0.0
+
+# LLM providers (optional - install as needed)
+openai>=1.0.0  # For OpenAI integration
+anthropic>=0.18.0  # For Anthropic Claude integration
 

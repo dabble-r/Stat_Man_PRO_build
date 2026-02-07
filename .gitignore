@@ -26,6 +26,9 @@ DIALOG_ARCHITECTURE.md
 #test 
 tests/*
 
+# demo
+demo/
+
 # Virtual Environment
 myenv/
 venv/
