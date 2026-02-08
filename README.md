@@ -1,7 +1,7 @@
 # Stat Manager
-- v1.2.0 BETA
+- v1.3.0 BETA
 
-A comprehensive baseball/softball league management application built with Python and PySide6.
+A comprehensive baseball/softball league management application built with Python and PySide6, featuring AI-powered natural language database queries.
 
 ## Features
 
@@ -10,6 +10,12 @@ A comprehensive baseball/softball league management application built with Pytho
 - **Data Persistence**: SQLite database with CSV export/import
 - **Visualization**: Interactive charts and graphs
 - **Modern UI**: Clean, responsive interface with custom themes
+- **Natural Language to SQL (NL-to-SQL)**: Query your database using natural language
+  - Enter questions in plain English (e.g., "Show me all players with batting average above 0.300")
+  - AI-powered SQL generation using OpenAI
+  - Review and edit generated SQL before execution
+  - Execute queries and view results in an interactive table
+  - Requires OpenAI API key
 
 ## Project Structure
 
@@ -21,6 +27,13 @@ stat_man_g/
 ├── build_exe.bat            # Build project in Windows (venv build)
 ├── build_exe_.sh            # Build project in Linux (no venv build)
 ├── build_exe_venv.sh        # Build project in Linux (venv build)
+│
+├── nl_sql/                  # NL-to-SQL server infrastructure
+│   ├── __init__.py          # Package marker
+│   ├── api_call.py          # FastAPI server (port 8000) - NL-to-SQL conversion
+│   ├── mcp_server.py        # MCP server (port 8001) - Database operations
+│   ├── start_server.py      # FastAPI server startup script
+│   └── start_mcp_server.py  # MCP server startup script
 │
 ├── src/                     # Main source code
 │   ├── core/                # Core business logic
@@ -39,6 +52,7 @@ stat_man_g/
 │   │   │   ├── dialog_templates.py        # Template classes for dialog configurations
 │   │   │   ├── template_configs.py        # Factory functions for dialog templates
 │   │   │   ├── dialog_handlers.py         # Business logic handlers for dialogs
+│   │   │   ├── nl_query_dialog.py        # NL-to-SQL query dialog (special case)
 │   │   │   │
 │   │   │   ├── update_offense.py          # Offense stat update dialog (BaseDialog)
 │   │   │   ├── update_pitching.py         # Pitching stat update dialog (BaseDialog)
@@ -48,7 +62,7 @@ stat_man_g/
 │   │   │   ├── update_positions.py        # Player positions dialog (BaseDialog)
 │   │   │   ├── update_league.py           # League admin dialog (BaseDialog)
 │   │   │   ├── remove.py                  # Remove entity dialog (BaseDialog)
-│   │   │   ├── search_dialog.py           # Search dialog (BaseDialog)
+│   │   │   ├── search_dialog.py           # Search dialog (BaseDialog) - includes NL query option
 │   │   │   ├── bar_graph_dialog.py        # Bar graph selection dialog (BaseDialog)
 │   │   │   ├── close.py                   # Application close confirmation (BaseDialog)
 │   │   │   ├── update_theme_dialog.py     # Theme selection dialog (BaseDialog)
@@ -112,6 +126,8 @@ stat_man_g/
 │   │   ├── refresh.py       # View refresh utilities
 │   │   ├── undo.py          # Undo functionality
 │   │   ├── tree_event_filter.py  # Tree widget event filtering
+│   │   ├── nl_sql_server.py # NL-to-SQL server manager (starts/stops FastAPI and MCP servers)
+│   │   ├── path_resolver.py # Path resolution for dev and bundled modes
 │   │   └── ...              # Other utility modules
 │   │
 │   └── config/              # Configuration
@@ -127,11 +143,13 @@ stat_man_g/
 ├── assets/                  # Static assets
 │   └── icons/               # Application icons
 │
-├── tests/                   # Unit tests
-│   └── ...                  # Test files
+├── tests/                   # Unit tests and documentation
+│   ├── server_test.py       # NL-to-SQL server test script
+│   └── *.md                 # Test documentation and analysis files
 │
 ├── Documentation/           # Additional documentation
 ├── archive/                 # Archived/deprecated code
+├── GITHUB_AUTH_GUIDE.md     # GitHub authentication guide
 └── myenv/                   # Virtual environment (git-ignored)
 ```
 
@@ -141,6 +159,7 @@ stat_man_g/
 
 - Python 3.8 or higher
 - pip package manager
+- OpenAI API key (required for NL-to-SQL feature, optional for other features)
 
 ### Setup
 
@@ -162,6 +181,15 @@ stat_man_g/
    ```bash
    pip install -r requirements.txt
    ```
+   
+   **Note**: The NL-to-SQL feature requires additional dependencies:
+   - `fastapi>=0.104.0` - Web framework for API server
+   - `uvicorn` - ASGI server (install separately: `pip install uvicorn`)
+   - `openai>=1.0.0` - OpenAI API client
+   - `sqlglot>=23.0.0` - SQL parsing and validation
+   - `requests>=2.31.0` - HTTP client
+   
+   These are included in `requirements.txt` but may need to be installed separately if using a minimal setup.
 
 ## Usage
 
@@ -200,6 +228,25 @@ STATMANG_DEBUG = 1 python3 main.py
 - Interactive leaderboards
 - ![Alt text](/assets/screenshots/teamGraph1.jpg?raw=true "Team Graph")
 - ![Alt text](/assets/screenshots/playerGraph1.jpg?raw=true "Player Graph")
+
+#### Natural Language to SQL Queries
+- **Access**: Click "Search" button → Select "nl_query" radio option
+- **Setup**: 
+  1. Enter your OpenAI API key (required for SQL generation)
+  2. Servers will start automatically (FastAPI on port 8000, MCP on port 8001)
+  3. Wait for "Servers Ready" confirmation
+- **Usage**:
+  1. Enter a natural language query (e.g., "Show me all teams with wins greater than 5")
+  2. Click "Submit NL Query" - SQL will be generated and displayed
+  3. Review the generated SQL query (you can edit it if needed)
+  4. Click "Execute SQL Query" to run the query on the database
+  5. View results in the bottom-right panel
+- **Features**:
+  - AI-powered SQL generation using OpenAI GPT models
+  - SQL validation and safety checks (SELECT only, LIMIT required)
+  - Automatic schema detection from database
+  - Results displayed in interactive tree widget
+  - Dialog stays on top for easy access
 
 ## Development
 
@@ -371,6 +418,24 @@ The application uses SQLite with four main tables:
 - `player`: Player offensive statistics
 - `pitcher`: Pitcher-specific statistics
 
+### NL-to-SQL Architecture
+
+The NL-to-SQL feature uses a two-server architecture:
+
+1. **FastAPI Server (Port 8000)**: 
+   - Converts natural language to SQL using OpenAI
+   - Validates generated SQL queries
+   - Endpoints: `/nl_to_sql` (SQL generation only), `/mcp/ask` (SQL + execution)
+   - Requires OpenAI API key
+
+2. **MCP Server (Port 8001)**:
+   - Provides database schema information
+   - Executes read-only SQL queries
+   - Endpoints: `/health`, `/schema`, `/execute`
+   - No API key required
+
+Both servers are managed by `NLServerManager` and start automatically when you submit an API key in the NL query dialog. They stop automatically when the dialog is closed.
+
 ### Contributing
 
 1. Create a new branch for your feature
@@ -410,6 +475,55 @@ If packages aren't found, ensure your virtual environment is activated:
 source myenv/bin/activate  # Linux/Mac
 ```
 
+## NL-to-SQL Feature Details
+
+### How It Works
+
+1. **User Input**: Enter a natural language question in the NL query dialog
+2. **SQL Generation**: FastAPI server sends query to OpenAI with database schema
+3. **SQL Validation**: Generated SQL is validated for safety (SELECT only, LIMIT required)
+4. **User Review**: SQL is displayed for review and optional editing
+5. **Execution**: User clicks "Execute SQL Query" to run on database
+6. **Results**: Query results displayed in interactive tree widget
+
+### Security Features
+
+- Only SELECT queries allowed (no INSERT, UPDATE, DELETE, DROP, etc.)
+- Automatic LIMIT clause addition (default 100 rows)
+- SQL syntax validation using `sqlglot`
+- Database path resolution with fallback to project root
+- Table name verification before execution
+
+### Requirements
+
+- **OpenAI API Key**: Required for SQL generation
+  - Get one at: https://platform.openai.com/api-keys
+  - Token must have access to GPT models (gpt-4o-mini is default)
+- **Internet Connection**: Required for OpenAI API calls
+- **Database**: League.db must exist with proper schema
+
+### Troubleshooting NL-to-SQL
+
+**Servers won't start:**
+- Check that ports 8000 and 8001 are available
+- Verify OpenAI API key is valid
+- Check console for error messages
+
+**SQL generation fails:**
+- Verify API key has sufficient credits
+- Check internet connection
+- Ensure database schema is accessible
+
+**"No such table" errors:**
+- Verify database exists at `data/database/League.db`
+- Check that tables are initialized (create a league first)
+- Review database path resolution in server logs
+
+**Query returns no results:**
+- Verify database has data
+- Check that SQL query is correct
+- Review table names (use singular: `team`, `player`, not `teams`, `players`)
+
 ## Future Enhancements
 
 - User authentication system
@@ -417,6 +531,7 @@ source myenv/bin/activate  # Linux/Mac
 - Advanced statistical analysis
 - Web-based interface
 - Mobile companion app
+- Enhanced NL-to-SQL with query history and saved queries
 
 ---
 
