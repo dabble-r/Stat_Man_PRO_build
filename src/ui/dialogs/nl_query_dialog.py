@@ -190,7 +190,7 @@ class NLQueryDialog(QDialog):
         # SQL Display Section (top)
         sql_label = QLabel("Generated SQL Query:")
         self.sql_display = QTextEdit()
-        self.sql_display.setReadOnly(True)
+        self.sql_display.setReadOnly(False)
         self.sql_display.setPlaceholderText("SQL query will appear here after submitting NL query...")
         self.sql_display.setMinimumHeight(200)
         
