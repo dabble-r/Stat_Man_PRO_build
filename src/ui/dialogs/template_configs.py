@@ -200,9 +200,11 @@ def create_search_template(
     clear_handler: Callable
 ) -> Dict[str, Any]:
     """Create template for search dialog."""
+    from src.ui.dialogs.dialog_handlers import search_toggle_handler
+    
     options = ["player", "team", "number", "nl_query"]
     
-    return SearchTemplate.create_template(
+    template = SearchTemplate.create_template(
         title="Search Team or Player",
         search_options=options,
         search_handler=search_handler,
@@ -210,6 +212,11 @@ def create_search_template(
         clear_handler=clear_handler,
         input_label="Enter value:"
     )
+    
+    # Add toggle handler for nl_query
+    template['selection']['toggle_handler'] = search_toggle_handler
+    
+    return template
 
 
 def create_bar_graph_template(

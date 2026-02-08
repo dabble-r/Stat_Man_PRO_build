@@ -555,20 +555,49 @@ def theme_submit_handler(dialog):
 # Search Dialog Handlers
 # ============================================================================
 
+def search_toggle_handler(option: str, checked: bool, dialog):
+    """Handle search type radio button toggle."""
+    from src.ui.dialogs.nl_query_dialog import NLQueryDialog
+    
+    if checked and option == "nl_query":
+        # Show NL-to-SQL dialog
+        if not hasattr(dialog, '_nl_dialog') or not dialog._nl_dialog:
+            dialog._nl_dialog = NLQueryDialog(parent=dialog)
+        
+        dialog._nl_dialog.show()  # Non-modal - doesn't block search dialog
+        dialog._nl_dialog.raise_()
+        dialog._nl_dialog.activateWindow()
+    
+    elif not checked and option == "nl_query":
+        # Hide NL dialog and stop servers when switching away
+        if hasattr(dialog, '_nl_dialog') and dialog._nl_dialog:
+            # Stop servers before hiding
+            if hasattr(dialog._nl_dialog, 'server_manager') and dialog._nl_dialog.server_manager:
+                dialog._nl_dialog.server_manager.stop_all_servers()
+            dialog._nl_dialog.hide()
+
+
 def search_submit_handler(dialog):
     """Handle search submission."""
     selection = dialog.get_selected_option('search_type')
     
-    # Get search text - handle both QLineEdit and QTextEdit
-    if 'input' in dialog.input_fields:
-        input_widget = dialog.input_fields['input']
-        from PySide6.QtWidgets import QTextEdit
-        if isinstance(input_widget, QTextEdit):
-            search_text = input_widget.toPlainText()
+    # Handle nl_query - show dialog instead of standard search
+    if selection == "nl_query":
+        # Show dialog if not already visible
+        if hasattr(dialog, '_nl_dialog') and dialog._nl_dialog:
+            dialog._nl_dialog.show()
+            dialog._nl_dialog.raise_()
+            dialog._nl_dialog.activateWindow()
         else:
-            search_text = input_widget.text()
-    else:
-        search_text = dialog.get_input_value('input')
+            # Dialog not created yet - toggle handler will create it
+            dialog.show_validation_error(
+                "Please select 'nl_query' from the search type options to open the NL query dialog."
+            )
+        return
+    
+    # Standard search handling for player, team, number
+    # Get search text
+    search_text = dialog.get_input_value('input')
     
     if not selection:
         dialog.show_validation_error("Please select a search type.")
@@ -587,10 +616,6 @@ def search_submit_handler(dialog):
         elif selection == "team":
             tree_widget.setHeaderLabels(["Team", "Average"])
             tree_widget.setColumnCount(2)
-        elif selection == "nl_query":
-            # Dynamic headers will be set based on query results
-            tree_widget.setHeaderLabels(["Result"])
-            tree_widget.setColumnCount(1)
     
     # Populate search results
     if hasattr(dialog, '_populate_search'):

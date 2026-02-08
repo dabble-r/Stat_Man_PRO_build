@@ -1,0 +1,7 @@
+Collecting sqlglot
+  Downloading sqlglot-28.10.0-py3-none-any.whl.metadata (22 kB)
+Downloading sqlglot-28.10.0-py3-none-any.whl (597 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 597.0/597.0 kB 2.2 MB/s  0:00:00
+
+Installing collected packages: sqlglot
+Successfully installed sqlglot-28.10.0

@@ -189,15 +189,19 @@ class NLServerManager(QObject):
                 ["-m", "uvicorn", "api_call:app", "--host", "0.0.0.0", "--port", "8000"]
             )
         
+        # Don't immediately fail - QProcess.start() can return False even if process will start
+        # Instead, wait a moment and check process state, or rely on started/finished signals
         if not success:
-            self.fastapi_starting = False
-            error_msg = self.fastapi_process.errorString()
-            print(f"[NL Server Manager] Failed to start FastAPI server process: {error_msg}")
-            self.fastapi_failed.emit(f"Failed to start process: {error_msg}")
-            return
+            # Give process a moment to actually start (QProcess.start() is asynchronous)
+            # Check after 1 second if process actually failed or if it started successfully
+            QTimer.singleShot(1000, lambda: self._check_process_start_result('fastapi'))
+            # Don't return - let the timeout handler check if it actually failed
+            # The started signal will be emitted if it succeeds
+        else:
+            print(f"[NL Server Manager] FastAPI server process start() returned success")
         
-        print(f"[NL Server Manager] FastAPI server process started successfully")
         # Wait for server to start, then verify it's responding
+        # This will be called regardless of initial start() return value
         QTimer.singleShot(3000, self._verify_fastapi_ready)
     
     def start_mcp_server(self, output_callback=None, error_callback=None):
@@ -296,15 +300,19 @@ class NLServerManager(QObject):
                 ["-m", "uvicorn", "mcp_server:app", "--host", "0.0.0.0", "--port", "8001", "--no-reload"]
             )
         
+        # Don't immediately fail - QProcess.start() can return False even if process will start
+        # Instead, wait a moment and check process state, or rely on started/finished signals
         if not success:
-            self.mcp_starting = False
-            error_msg = self.mcp_process.errorString()
-            print(f"[NL Server Manager] Failed to start MCP server process: {error_msg}")
-            self.mcp_failed.emit(f"Failed to start process: {error_msg}")
-            return
+            # Give process a moment to actually start (QProcess.start() is asynchronous)
+            # Check after 1 second if process actually failed or if it started successfully
+            QTimer.singleShot(1000, lambda: self._check_process_start_result('mcp'))
+            # Don't return - let the timeout handler check if it actually failed
+            # The started signal will be emitted if it succeeds
+        else:
+            print(f"[NL Server Manager] MCP server process start() returned success")
         
-        print(f"[NL Server Manager] MCP server process started successfully")
         # Wait for server to start, then verify it's responding
+        # This will be called regardless of initial start() return value
         QTimer.singleShot(3000, self._verify_mcp_ready)
     
     def stop_fastapi_server(self):
@@ -375,6 +383,59 @@ class NLServerManager(QObject):
                 print("[NL Server Manager] All servers are ready")
                 self._all_servers_ready_emitted = True
                 self.all_servers_ready.emit()
+    
+    def _check_process_start_result(self, server_type: str):
+        """
+        Check if process actually started after initial start() call.
+        
+        This is called 1 second after QProcess.start() returns False to verify
+        if the process actually failed or if it started successfully (since
+        QProcess.start() is asynchronous and can return False even when the
+        process will start successfully).
+        
+        Args:
+            server_type: 'fastapi' or 'mcp'
+        """
+        if server_type == 'fastapi':
+            process = self.fastapi_process
+            starting_flag = self.fastapi_starting
+            failed_signal = self.fastapi_failed
+            script = self.nl_sql_dir / "start_server.py"
+        else:  # mcp
+            process = self.mcp_process
+            starting_flag = self.mcp_starting
+            failed_signal = self.mcp_failed
+            script = self.nl_sql_dir / "start_mcp_server.py"
+        
+        if not process or not starting_flag:
+            return
+        
+        state = process.state()
+        if state == QProcess.ProcessState.NotRunning:
+            # Process didn't start - this is a real failure
+            error_msg = process.errorString()
+            if not error_msg or error_msg == "Unknown error":
+                # Try to get more specific error
+                python_exe = sys.executable
+                
+                if not Path(python_exe).exists():
+                    error_msg = f"Python executable not found: {python_exe}"
+                elif not script.exists():
+                    error_msg = f"Server script not found: {script}"
+                else:
+                    error_msg = "Process failed to start. Check logs for details."
+            
+            if server_type == 'fastapi':
+                self.fastapi_starting = False
+            else:
+                self.mcp_starting = False
+            
+            print(f"[NL Server Manager] Failed to start {server_type.upper()} server process: {error_msg}")
+            failed_signal.emit(f"Failed to start process: {error_msg}")
+        # If state is Starting or Running, the process is starting/started successfully
+        # The started signal will be emitted, so we don't need to do anything here
+        elif state in (QProcess.ProcessState.Starting, QProcess.ProcessState.Running):
+            print(f"[NL Server Manager] {server_type.upper()} server process is {state.name} - waiting for started signal")
     
     # FastAPI server signal handlers
     
