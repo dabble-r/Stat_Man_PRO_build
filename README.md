@@ -247,6 +247,7 @@ STATMANG_DEBUG = 1 python3 main.py
   - Automatic schema detection from database
   - Results displayed in interactive tree widget
   - Dialog stays on top for easy access
+- ![Alt text](/assets/screenshots/nl_query.jpg?raw=true "Natural Language Queries")
 
 ## Development
 
