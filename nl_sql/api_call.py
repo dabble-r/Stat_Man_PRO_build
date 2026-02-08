@@ -339,9 +339,80 @@ async def nl_to_sql(
     api_key: str = Depends(get_api_key)
 ):
     """
-    Alias for /mcp/ask endpoint.
+    Convert natural language query to SQL ONLY (does not execute).
+    
+    Args:
+        request: Query request with natural language question
+        api_key: OpenAI API key (from header or request)
+        
+    Returns:
+        JSON with SQL query string
     """
-    return await ask_nl_query(request, api_key)
+    try:
+        # Get database schema
+        schema = await get_database_schema()
+        
+        # Create OpenAI client
+        client = AsyncOpenAI(api_key=api_key)
+        
+        # Build prompt for LLM
+        schema_note = ""
+        if not schema or not schema.strip() or schema.strip() == "sqlite_sequence(sqlite_sequence)":
+            schema_note = "\n⚠️ Note: Database appears to be empty. Using expected schema structure."
+            schema = get_fallback_schema()
+        
+        prompt = f"""You are a SQL expert. Convert the following natural language question into a SQLite SQL query.
+
+Database Schema:
+{schema}{schema_note}
+
+CRITICAL: Use EXACT table names from schema above:
+- Table name is "team" (singular, NOT "teams")
+- Table name is "player" (singular, NOT "players")  
+- Table name is "pitcher" (singular, NOT "pitchers")
+- Table name is "league" (singular, NOT "leagues")
+
+Rules:
+1. Only generate SELECT queries
+2. Always include a LIMIT clause (default to 100 if not specified)
+3. Use proper SQLite syntax
+4. Use EXACT table names from schema (singular forms: team, player, pitcher, league)
+5. Return ONLY the SQL query, no explanations, no markdown code blocks, no backticks
+6. Do NOT wrap the query in ```sql or any other markdown formatting
+7. Return the raw SQL query only
+
+Question: {request.question}
+
+SQL Query:"""
+        
+        # Generate SQL from OpenAI (non-streaming for simplicity)
+        response = await client.chat.completions.create(
+            model=DEFAULT_MODEL,
+            messages=[
+                {"role": "system", "content": "You are a SQL expert. Generate only SQL queries, no explanations, no markdown formatting, no code blocks. Return raw SQL only."},
+                {"role": "user", "content": prompt}
+            ],
+            stream=False,
+            temperature=0
+        )
+        
+        sql_query = response.choices[0].message.content.strip()
+        
+        # Clean SQL (remove markdown if present)
+        sql_query = clean_sql(sql_query)
+        
+        # Validate SQL
+        is_valid, validated_sql = validate_sql(sql_query)
+        
+        if not is_valid:
+            raise HTTPException(status_code=400, detail=f"Invalid SQL generated: {validated_sql}")
+        
+        return {"sql": validated_sql}
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generating SQL: {str(e)}")
 
 
 if __name__ == "__main__":

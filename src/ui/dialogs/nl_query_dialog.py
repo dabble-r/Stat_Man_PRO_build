@@ -6,9 +6,10 @@ Provides a GUI for natural language database queries using OpenAI and FastAPI.
 from PySide6.QtWidgets import (
     QDialog, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QLineEdit, QTextEdit, QPushButton, QTreeWidget,
-    QTreeWidgetItem, QMessageBox, QHeaderView
+    QTreeWidgetItem, QMessageBox, QHeaderView, QSplitter
 )
 from PySide6.QtCore import QThread, Signal, Qt
+from PySide6.QtGui import QCloseEvent
 from src.utils.nl_sql_server import NLServerManager
 from typing import Optional
 import os
@@ -19,9 +20,9 @@ logger = logging.getLogger(__name__)
 
 
 class NLQueryThread(QThread):
-    """Thread for sending NL query to FastAPI server."""
+    """Thread for sending NL query to FastAPI server - only gets SQL, doesn't execute."""
     
-    finished = Signal(dict)  # Emits {'sql': str, 'results': list} or None
+    finished = Signal(str)  # Emits SQL query string or None
     
     def __init__(self, api_key: str, query: str, fastapi_url: str):
         super().__init__()
@@ -30,81 +31,70 @@ class NLQueryThread(QThread):
         self.fastapi_url = fastapi_url
     
     def run(self):
-        """Send NL query and parse response."""
+        """Send NL query and get SQL only (does not execute)."""
         try:
+            # Use /nl_to_sql endpoint which only generates SQL, doesn't execute
             response = requests.post(
-                f"{self.fastapi_url}/mcp/ask",
+                f"{self.fastapi_url}/nl_to_sql",
                 json={"question": self.query},
                 headers={"Authorization": f"Bearer {self.api_key}"},
-                stream=True,
                 timeout=(10, 120)
             )
             
             if response.status_code != 200:
-                logger.error(f"Query failed with status {response.status_code}")
+                error_detail = response.json().get("detail", "Unknown error") if response.headers.get("content-type", "").startswith("application/json") else response.text
+                logger.error(f"Query failed with status {response.status_code}: {error_detail}")
                 self.finished.emit(None)
                 return
             
-            # Parse streaming response
-            full_response = ""
-            for line in response.iter_lines(decode_unicode=True):
-                if line:
-                    full_response += line + "\n"
+            # Get SQL from JSON response
+            result = response.json()
+            sql_query = result.get("sql", "").strip()
             
-            # Check for errors
-            if "ERROR:" in full_response:
-                logger.error(f"Query error: {full_response}")
+            if not sql_query:
+                logger.error("No SQL query in response")
                 self.finished.emit(None)
                 return
             
-            # Parse SQL and results
-            separator = "\n\n---\n\nRESULTS:\n"
-            if separator in full_response:
-                parts = full_response.split(separator, 1)
-                sql_query = parts[0].strip()
-                results_part = parts[1] if len(parts) > 1 else ""
-                
-                # Parse results
-                results = self._parse_results(results_part)
-                self.finished.emit({"sql": sql_query, "results": results})
-            else:
-                logger.warning("Response missing separator, SQL only")
-                # Try to extract SQL even without separator
-                if full_response.strip():
-                    self.finished.emit({"sql": full_response.strip(), "results": None})
-                else:
-                    self.finished.emit(None)
+            self.finished.emit(sql_query)
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Request error: {str(e)}", exc_info=True)
+            self.finished.emit(None)
         except Exception as e:
             logger.error(f"Query thread error: {str(e)}", exc_info=True)
             self.finished.emit(None)
+
+
+class SQLExecuteThread(QThread):
+    """Thread for executing SQL query on database via MCP server."""
     
-    def _parse_results(self, results_text: str):
-        """Parse results from response text."""
-        if not results_text or not results_text.strip():
-            return []
-        
-        if "ERROR:" in results_text:
-            return None
-        
-        lines = [line.strip() for line in results_text.strip().split("\n") if line.strip()]
-        if not lines:
-            return []
-        
-        headers = [h.strip() for h in lines[0].split("|")]
-        data_lines = [line for line in lines[1:] if not all(c in "-| " for c in line)]
-        
-        if not data_lines:
-            return []
-        
-        results = []
-        for line in data_lines:
-            values = [v.strip() for v in line.split("|")]
-            row = {}
-            for i, header in enumerate(headers):
-                row[header] = values[i] if i < len(values) else ""
-            results.append(row)
-        
-        return results
+    finished = Signal(list)  # Emits list of result dicts or None
+    
+    def __init__(self, sql: str, mcp_url: str):
+        super().__init__()
+        self.sql = sql
+        self.mcp_url = mcp_url
+    
+    def run(self):
+        """Execute SQL query via MCP server."""
+        try:
+            response = requests.post(
+                f"{self.mcp_url}/execute",
+                json={"sql": self.sql},
+                timeout=30
+            )
+            
+            if response.status_code != 200:
+                logger.error(f"SQL execution failed with status {response.status_code}: {response.text}")
+                self.finished.emit(None)
+                return
+            
+            result_data = response.json()
+            results = result_data.get("results", [])
+            self.finished.emit(results)
+        except Exception as e:
+            logger.error(f"SQL execution error: {str(e)}", exc_info=True)
+            self.finished.emit(None)
 
 
 class NLQueryDialog(QDialog):
@@ -116,29 +106,35 @@ class NLQueryDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("NL-to-SQL Query")
-        self.setMinimumSize(900, 650)
+        self.setMinimumSize(1000, 700)
+        
+        # Make dialog stay on top
+        self.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint)
         
         # State
         self.api_key: Optional[str] = None
         self.server_manager: Optional[NLServerManager] = None
         self.query_thread: Optional[NLQueryThread] = None
+        self.execute_thread: Optional[SQLExecuteThread] = None
+        self.current_sql: Optional[str] = None
         self.query_results: Optional[list] = None
+        self._is_closing = False  # Flag to prevent error messages during close
         
         # Create UI
         self._create_ui()
         self._setup_initial_state()
     
     def _create_ui(self):
-        """Create the two-panel UI layout."""
+        """Create the UI layout with left panel (inputs) and right panel (SQL + results)."""
         main_layout = QHBoxLayout()
         main_layout.setSpacing(20)
         main_layout.setContentsMargins(15, 15, 15, 15)
         
-        # Left panel
+        # Left panel (inputs)
         left_panel = self._create_left_panel()
         main_layout.addWidget(left_panel, stretch=1)
         
-        # Right panel
+        # Right panel (SQL display + results)
         right_panel = self._create_right_panel()
         main_layout.addWidget(right_panel, stretch=1)
         
@@ -186,26 +182,46 @@ class NLQueryDialog(QDialog):
         return panel
     
     def _create_right_panel(self) -> QWidget:
-        """Create right panel with SQL display and execute button."""
+        """Create right panel with SQL display, execute button, and results."""
         panel = QWidget()
         layout = QVBoxLayout()
         layout.setSpacing(15)
         
-        # SQL Display Section
+        # SQL Display Section (top)
         sql_label = QLabel("Generated SQL Query:")
         self.sql_display = QTextEdit()
         self.sql_display.setReadOnly(True)
         self.sql_display.setPlaceholderText("SQL query will appear here after submitting NL query...")
         self.sql_display.setMinimumHeight(200)
         
-        self.execute_sql_btn = QPushButton("Execute SQL")
+        self.execute_sql_btn = QPushButton("Execute SQL Query")
         self.execute_sql_btn.clicked.connect(self._handle_execute_sql)
         
         layout.addWidget(sql_label)
         layout.addWidget(self.sql_display)
         layout.addWidget(self.execute_sql_btn)
         
-        layout.addStretch()
+        # Separator
+        separator = QLabel("─" * 40)
+        separator.setAlignment(Qt.AlignCenter)
+        layout.addWidget(separator)
+        
+        # Results Section (bottom right)
+        results_label = QLabel("Query Results:")
+        self.results_tree = QTreeWidget()
+        self.results_tree.setAlternatingRowColors(True)
+        self.results_tree.setHeaderHidden(False)
+        self.results_tree.header().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        self.results_tree.setMinimumHeight(250)
+        # QTreeWidget doesn't have setPlaceholderText, so we'll show a message via label
+        self.results_status_label = QLabel("Results will appear here after executing SQL query...")
+        self.results_status_label.setAlignment(Qt.AlignCenter)
+        self.results_status_label.setStyleSheet("color: gray; font-style: italic;")
+        
+        layout.addWidget(results_label)
+        layout.addWidget(self.results_status_label)
+        layout.addWidget(self.results_tree)
+        
         panel.setLayout(layout)
         return panel
     
@@ -215,6 +231,7 @@ class NLQueryDialog(QDialog):
         self.submit_nl_query_btn.setEnabled(False)
         self.sql_display.setEnabled(False)
         self.execute_sql_btn.setEnabled(False)
+        self.results_tree.setEnabled(False)
     
     def _validate_api_key_format(self, api_key: str) -> bool:
         """Validate API key format."""
@@ -318,18 +335,26 @@ class NLQueryDialog(QDialog):
     
     def _on_fastapi_failed(self, msg: str):
         """Handle FastAPI server failure."""
+        # Don't show error messages if dialog is closing
+        if self._is_closing:
+            return
+        
         self.submit_api_key_btn.setEnabled(True)
         self.submit_api_key_btn.setText("Submit API Key")
         QMessageBox.critical(self, "Server Error", f"FastAPI server failed: {msg}")
     
     def _on_mcp_failed(self, msg: str):
         """Handle MCP server failure."""
+        # Don't show error messages if dialog is closing
+        if self._is_closing:
+            return
+        
         self.submit_api_key_btn.setEnabled(True)
         self.submit_api_key_btn.setText("Submit API Key")
         QMessageBox.critical(self, "Server Error", f"MCP server failed: {msg}")
     
     def _handle_nl_query_submit(self):
-        """Handle NL query submission."""
+        """Handle NL query submission - only generates SQL, doesn't execute."""
         query = self.nl_query_input.toPlainText().strip()
         if not query:
             QMessageBox.warning(self, "Empty Query", "Please enter a natural language query.")
@@ -339,19 +364,21 @@ class NLQueryDialog(QDialog):
         self.submit_nl_query_btn.setText("Processing...")
         self.sql_display.clear()
         self.sql_display.setPlainText("Generating SQL query...")
+        self.execute_sql_btn.setEnabled(False)
+        self.results_tree.clear()
         
-        # Start query thread
+        # Start query thread (only gets SQL, doesn't execute)
         self.query_thread = NLQueryThread(self.api_key, query, "http://localhost:8000")
         self.query_thread.finished.connect(self._on_query_complete)
         self.query_thread.start()
     
-    def _on_query_complete(self, result: Optional[dict]):
-        """Handle query completion."""
+    def _on_query_complete(self, sql_query: Optional[str]):
+        """Handle SQL query generation completion."""
         self.submit_nl_query_btn.setEnabled(True)
         self.submit_nl_query_btn.setText("Submit NL Query")
         
         # Handle None result (error occurred)
-        if result is None:
+        if sql_query is None or not sql_query.strip():
             QMessageBox.warning(self, "Query Failed", 
                               "Failed to generate SQL query. Please check your query and try again.\n\n"
                               "Common issues:\n"
@@ -361,26 +388,20 @@ class NLQueryDialog(QDialog):
             self.sql_display.clear()
             return
         
-        # Handle missing SQL in result
-        if not result.get("sql"):
-            QMessageBox.warning(self, "Query Failed", 
-                              "Failed to generate SQL query. Please check your query and try again.")
-            self.sql_display.clear()
-            return
+        # Store SQL for execution
+        self.current_sql = sql_query.strip()
         
-        # Display formatted SQL
-        formatted_sql = self._format_sql(result["sql"])
+        # Display formatted SQL (but don't execute)
+        formatted_sql = self._format_sql(self.current_sql)
         self.sql_display.setPlainText(formatted_sql)
         self.sql_display.setEnabled(True)
         
-        # Store results for execution
-        self.query_results = result.get("results")
-        
-        # Enable execute button
+        # Enable execute button so user can run the query
         self.execute_sql_btn.setEnabled(True)
         
-        # Emit signal for integration with search dialog (optional)
-        self.query_completed.emit(result)
+        # Clear previous results
+        self.results_tree.clear()
+        self.query_results = None
     
     def _format_sql(self, sql: str) -> str:
         """Format SQL for display."""
@@ -401,51 +422,86 @@ class NLQueryDialog(QDialog):
         return formatted.strip()
     
     def _handle_execute_sql(self):
-        """Handle SQL execution and show results."""
-        if self.query_results is None:
-            QMessageBox.warning(self, "No Results", "No query results available to display.")
+        """Handle SQL execution - runs query on database and displays results in bottom right."""
+        if not self.current_sql:
+            QMessageBox.warning(self, "No SQL Query", "No SQL query available to execute.")
             return
         
-        if not self.query_results:
+        # Disable button during execution
+        self.execute_sql_btn.setEnabled(False)
+        self.execute_sql_btn.setText("Executing...")
+        self.results_tree.clear()
+        self.results_status_label.setText("Executing query...")
+        self.results_status_label.setVisible(True)
+        
+        # Start execution thread
+        self.execute_thread = SQLExecuteThread(self.current_sql, "http://localhost:8001")
+        self.execute_thread.finished.connect(self._on_execution_complete)
+        self.execute_thread.start()
+    
+    def _on_execution_complete(self, results: Optional[list]):
+        """Handle SQL execution completion."""
+        self.execute_sql_btn.setEnabled(True)
+        self.execute_sql_btn.setText("Execute SQL Query")
+        
+        if results is None:
+            QMessageBox.warning(self, "Execution Failed", 
+                              "Failed to execute SQL query. Please check the query and try again.")
+            self.results_status_label.setText("Execution failed. Please try again.")
+            self.results_status_label.setVisible(True)
+            return
+        
+        # Store results
+        self.query_results = results
+        
+        # Display results in bottom right tree widget
+        if not results:
+            self.results_status_label.setText("Query returned no results.")
+            self.results_status_label.setVisible(True)
             QMessageBox.information(self, "No Results", "Query returned no results.")
             return
         
-        # Show results dialog
-        self._show_results_dialog(self.query_results)
-    
-    def _show_results_dialog(self, results: list):
-        """Show results in a new dialog."""
-        dialog = QDialog(self)
-        dialog.setWindowTitle("Query Results")
-        dialog.setMinimumSize(800, 600)
+        # Set up tree widget with headers
+        headers = list(results[0].keys()) if results else []
+        self.results_tree.setHeaderLabels(headers)
+        self.results_tree.setEnabled(True)
         
-        layout = QVBoxLayout()
-        
-        # Results table
-        tree = QTreeWidget()
-        tree.setHeaderLabels(list(results[0].keys()) if results else [])
-        tree.setAlternatingRowColors(True)
-        tree.header().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-        
+        # Populate tree with results
         for row in results:
             item = QTreeWidgetItem()
             for i, (key, value) in enumerate(row.items()):
-                item.setText(i, str(value))
-            tree.addTopLevelItem(item)
+                item.setText(i, str(value) if value is not None else "")
+            self.results_tree.addTopLevelItem(item)
         
-        layout.addWidget(QLabel(f"Total rows: {len(results)}"))
-        layout.addWidget(tree)
-        
-        # Close button
-        close_btn = QPushButton("Close")
-        close_btn.clicked.connect(dialog.accept)
-        layout.addWidget(close_btn)
-        
-        dialog.setLayout(layout)
-        dialog.exec()
+        # Update status label to show row count and hide it
+        self.results_status_label.setText(f"Total rows: {len(results)}")
+        self.results_status_label.setVisible(False)  # Hide when results are shown
     
-    def closeEvent(self, event):
+    def closeEvent(self, event: QCloseEvent):
         """Stop servers when dialog closes."""
+        # Set closing flag to prevent error messages
+        self._is_closing = True
+        
+        # Disconnect failure signal handlers to prevent error messages during shutdown
+        if self.server_manager:
+            try:
+                self.server_manager.fastapi_failed.disconnect()
+                self.server_manager.mcp_failed.disconnect()
+            except (TypeError, RuntimeError):
+                # Signals may not be connected, ignore
+                pass
+        
+        # Stop any running threads
+        if self.query_thread and self.query_thread.isRunning():
+            self.query_thread.terminate()
+            self.query_thread.wait(1000)  # Wait up to 1 second
+        
+        if self.execute_thread and self.execute_thread.isRunning():
+            self.execute_thread.terminate()
+            self.execute_thread.wait(1000)  # Wait up to 1 second
+        
+        # Stop servers (this may trigger process termination, but we've disconnected error handlers)
         if self.server_manager:
             self.server_manager.stop_all_servers()
+        
         event.accept()
