@@ -1,29 +1,4 @@
 {
   "version": "1.0",
-  "queries": [
-    {
-      "id": "3ebad494-ae14-44a8-bafa-3e8881469edb",
-      "nl_query": "show all players",
-      "sql_query": "SELECT * FROM player LIMIT 100",
-      "formatted_sql": "SELECT *\nFROM player\nLIMIT 100",
-      "timestamp": 1770603175.451771,
-      "display_name": "show all players"
-    },
-    {
-      "id": "addda605-8697-4c39-9511-755de9f3da78",
-      "nl_query": "show all pithcers",
-      "sql_query": "SELECT * FROM pitcher LIMIT 100;",
-      "formatted_sql": "SELECT *\nFROM pitcher\nLIMIT 100;",
-      "timestamp": 1770603656.363582,
-      "display_name": "show all pithcers"
-    },
-    {
-      "id": "288883e4-6458-406c-a31f-c75448aa4d2b",
-      "nl_query": "show all pithcers and incldue pkayer name",
-      "sql_query": "SELECT pitcher.*, player.name FROM pitcher JOIN player ON pitcher.playerID = player.playerID LIMIT 100;",
-      "formatted_sql": "SELECT pitcher.*, player.name\nFROM pitcher\nJOIN player ON pitcher.playerID = player.playerID\nLIMIT 100;",
-      "timestamp": 1770603671.330959,
-      "display_name": "show all pithcers and incldue pkayer name"
-    }
-  ]
+  "queries": []
 }

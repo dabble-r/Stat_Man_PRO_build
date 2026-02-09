@@ -228,6 +228,7 @@ class NLQueryDialog(QDialog):
         self._fastapi_failure_msg: Optional[str] = None
         self._mcp_failure_msg: Optional[str] = None
         self._servers_starting = False  # Track if servers are in startup phase
+        self._servers_ready_message_shown = False  # Show "Servers Ready" only once per start
         
         # API Key Manager and Global Server Manager
         self.api_key_manager = APIKeyManager()
@@ -555,6 +556,7 @@ class NLQueryDialog(QDialog):
         self.submit_api_key_btn.setText("Starting Servers...")
         self.restart_servers_btn.setEnabled(False)  # Disable during startup
         self.stop_servers_btn.setEnabled(False)  # Disable during startup
+        self._servers_ready_message_shown = False  # Allow one "Servers Ready" message this cycle
         
         # Start servers using GlobalServerManager
         logger.info("[NLQueryDialog] Calling GlobalServerManager.start_servers()...")
@@ -627,6 +629,7 @@ class NLQueryDialog(QDialog):
         self._fastapi_failure_msg = None
         self._mcp_failure_msg = None
         self._servers_starting = False
+        self._servers_ready_message_shown = False  # Reset so next start can show message once
         
         QMessageBox.information(self, "Servers Stopped", "Both servers have been stopped.")
     
@@ -679,6 +682,8 @@ class NLQueryDialog(QDialog):
         self.results_table.setModel(None)
         self.query_results_df = None
         self._original_dataframe = None
+        
+        self._servers_ready_message_shown = False  # Allow one "Servers Ready" message after restart
         
         # Start servers using GlobalServerManager
         if self.api_key and self.global_server_manager.start_servers(self.api_key, parent=self):
@@ -778,8 +783,11 @@ class NLQueryDialog(QDialog):
         # Update status icon to green (running)
         self._update_server_status_icon(True)
         
-        QMessageBox.information(self, "Servers Ready", 
-                              "Both servers are ready. You can now submit queries.")
+        # Show success message only once (signal can fire from both dialog and GlobalServerManager)
+        if not self._servers_ready_message_shown:
+            self._servers_ready_message_shown = True
+            QMessageBox.information(self, "Servers Ready", 
+                                  "Both servers are ready. You can now submit queries.")
         
         # Enable stop and restart buttons
         self.stop_servers_btn.setEnabled(True)

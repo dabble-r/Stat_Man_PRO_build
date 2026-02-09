@@ -278,7 +278,7 @@ class NLServerManager(QObject):
         """
         # Log server start attempt
         if hasattr(self, '_fastapi_logger'):
-            self._fastapi_logger.info("=" * 80)
+            self._fastapi_logger.info("\n\n" + "=" * 80)
             self._fastapi_logger.info(f"Attempting to start FastAPI server - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
             self._fastapi_logger.info(f"Current process state: {self.fastapi_process.state() if self.fastapi_process else 'No process'}")
             self._fastapi_logger.info(f"Already starting: {self.fastapi_starting}")
@@ -373,7 +373,7 @@ class NLServerManager(QObject):
         project_root = self.nl_sql_dir.parent
         new_pythonpath = env.value("PYTHONPATH", "")
         
-        print(f"[NL Server Manager] FastAPI Server Startup:")
+        print("\n\n[NL Server Manager] FastAPI Server Startup:")
         print(f"  Working directory: {self.nl_sql_dir}")
         print(f"  Python executable: {python_exe}")
         print(f"  Script path: {server_script}")
@@ -505,7 +505,7 @@ class NLServerManager(QObject):
         project_root = self.nl_sql_dir.parent
         new_pythonpath = env.value("PYTHONPATH", "")
         
-        print(f"[NL Server Manager] MCP Server Startup:")
+        print("\n\n[NL Server Manager] MCP Server Startup:")
         print(f"  Working directory: {self.nl_sql_dir}")
         print(f"  Python executable: {python_exe}")
         print(f"  Script path: {mcp_script}")
@@ -581,6 +581,7 @@ class NLServerManager(QObject):
     
     def stop_all_servers(self):
         """Stop both servers gracefully."""
+        print("\n\n[NL Server Manager] Stopping all servers...")
         self.stop_fastapi_server()
         self.stop_mcp_server()
     
@@ -622,7 +623,7 @@ class NLServerManager(QObject):
         """Check if both servers are ready and emit all_servers_ready signal if so."""
         if self._fastapi_ready_flag and self._mcp_ready_flag:
             if not self._all_servers_ready_emitted:
-                print("[NL Server Manager] All servers are ready")
+                print("\n\n[NL Server Manager] All servers are ready")
                 self._all_servers_ready_emitted = True
                 self.all_servers_ready.emit()
     
@@ -704,22 +705,22 @@ class NLServerManager(QObject):
             else:
                 self.mcp_starting = False
             
-            print(f"[NL Server Manager] Failed to start {server_type.upper()} server process after delayed check: {error_msg}")
+            print(f"\n\n[NL Server Manager] Failed to start {server_type.upper()} server process after delayed check: {error_msg}")
             failed_signal.emit(f"Failed to start process: {error_msg}")
         elif state in (QProcess.ProcessState.Starting, QProcess.ProcessState.Running):
             # Process is starting/running - success, don't emit failure
-            print(f"[NL Server Manager] {server_type.upper()} server process is {state.name} - startup successful")
+            print(f"\n\n[NL Server Manager] {server_type.upper()} server process is {state.name} - startup successful")
     
     # FastAPI server signal handlers
     
     def _on_fastapi_started(self):
         """Called when FastAPI server process starts."""
         if hasattr(self, '_fastapi_logger'):
-            self._fastapi_logger.info("=" * 80)
+            self._fastapi_logger.info("\n\n" + "=" * 80)
             self._fastapi_logger.info("FastAPI server process STARTED successfully")
             self._fastapi_logger.info(f"Process PID: {self.fastapi_process.processId() if self.fastapi_process else 'Unknown'}")
             self._fastapi_logger.info(f"Process state: {self.fastapi_process.state() if self.fastapi_process else 'Unknown'}")
-        print("[NL Server Manager] FastAPI server process started")
+        print("\n\n[NL Server Manager] FastAPI server process started")
         self.fastapi_started.emit()
     
     def _on_fastapi_output(self):
@@ -846,7 +847,7 @@ class NLServerManager(QObject):
                 buffered_stdout = '\n'.join(self._fastapi_stdout_buffer)
                 stdout_output = (buffered_stdout + '\n' + stdout_output).strip()
             
-            print(f"[NL Server Manager] FastAPI server exited with code {exit_code}")
+            print(f"\n\n[NL Server Manager] FastAPI server exited with code {exit_code}")
             
             # Combine outputs for better error detection
             combined_output = (error_output + "\n" + stdout_output).strip()
@@ -921,7 +922,7 @@ class NLServerManager(QObject):
         try:
             response = requests.get("http://localhost:8000/docs", timeout=2)
             if response.status_code == 200:
-                print("[NL Server Manager] FastAPI server is ready")
+                print("\n\n[NL Server Manager] FastAPI server is ready")
                 self.fastapi_starting = False
                 self._fastapi_ready_flag = True
                 self.fastapi_ready.emit()
@@ -941,11 +942,11 @@ class NLServerManager(QObject):
     def _on_mcp_started(self):
         """Called when MCP server process starts."""
         if hasattr(self, '_mcp_logger'):
-            self._mcp_logger.info("=" * 80)
+            self._mcp_logger.info("\n\n" + "=" * 80)
             self._mcp_logger.info("MCP server process STARTED successfully")
             self._mcp_logger.info(f"Process PID: {self.mcp_process.processId() if self.mcp_process else 'Unknown'}")
             self._mcp_logger.info(f"Process state: {self.mcp_process.state() if self.mcp_process else 'Unknown'}")
-        print("[NL Server Manager] MCP server process started")
+        print("\n\n[NL Server Manager] MCP server process started")
         self.mcp_started.emit()
     
     def _on_mcp_output(self):
@@ -1055,7 +1056,7 @@ class NLServerManager(QObject):
                 buffered_stdout = '\n'.join(self._mcp_stdout_buffer)
                 stdout_output = (buffered_stdout + '\n' + stdout_output).strip()
             
-            print(f"[NL Server Manager] MCP server exited with code {exit_code}")
+            print(f"\n\n[NL Server Manager] MCP server exited with code {exit_code}")
             
             # Combine outputs for better error detection
             combined_output = (error_output + "\n" + stdout_output).strip()
@@ -1124,7 +1125,7 @@ class NLServerManager(QObject):
         try:
             response = requests.get("http://localhost:8001/health", timeout=2)
             if response.status_code == 200:
-                print("[NL Server Manager] MCP server is ready")
+                print("\n\n[NL Server Manager] MCP server is ready")
                 self.mcp_starting = False
                 self._mcp_ready_flag = True
                 self.mcp_ready.emit()
