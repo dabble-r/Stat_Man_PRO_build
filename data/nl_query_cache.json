@@ -2,12 +2,12 @@
   "version": "1.0",
   "queries": [
     {
-      "id": "1fb55664-135f-46c9-b2c1-2ce305f9cea5",
-      "nl_query": "show all teams in league",
-      "sql_query": "SELECT * FROM team WHERE leagueID IN (SELECT leagueID FROM league) LIMIT 100;",
-      "formatted_sql": "SELECT *\nFROM team\nWHERE leagueID IN (SELECT leagueID\nFROM league)\nLIMIT 100;",
-      "timestamp": 1770599077.498651,
-      "display_name": "show all teams in league"
+      "id": "3ebad494-ae14-44a8-bafa-3e8881469edb",
+      "nl_query": "show all players",
+      "sql_query": "SELECT * FROM player LIMIT 100",
+      "formatted_sql": "SELECT *\nFROM player\nLIMIT 100",
+      "timestamp": 1770603175.451771,
+      "display_name": "show all players"
     }
   ]
 }

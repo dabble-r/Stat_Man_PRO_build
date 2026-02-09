@@ -4,7 +4,6 @@ NL Query Cache Manager
 Manages caching of formatted SQL queries with metadata and persistence.
 """
 import json
-import shutil
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -158,18 +157,9 @@ class NLQueryCache:
             self.queries = {}
     
     def _save_to_file(self) -> None:
-        """Save cache to persistent storage with backup."""
+        """Save cache to persistent storage."""
         try:
-            # Create backup if file exists
-            if self.cache_file.exists():
-                backup_file = get_data_path(
-                    f"nl_query_cache_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-                )
-                shutil.copy2(self.cache_file, backup_file)
-                # Keep only last 3 backups
-                self._cleanup_backups()
-            
-            # Save current cache
+            # Save current cache directly to JSON file
             data = {
                 "version": "1.0",
                 "queries": list(self.queries.values())
@@ -178,19 +168,3 @@ class NLQueryCache:
                 json.dump(data, f, indent=2, ensure_ascii=False)
         except Exception as e:
             logger.error(f"Failed to save cache: {e}")
-    
-    def _cleanup_backups(self) -> None:
-        """Keep only the last 3 backup files."""
-        try:
-            backup_files = sorted(
-                self.cache_file.parent.glob("nl_query_cache_backup_*.json"),
-                key=lambda p: p.stat().st_mtime,
-                reverse=True
-            )
-            for backup in backup_files[3:]:  # Keep only first 3
-                try:
-                    backup.unlink()
-                except Exception:
-                    pass
-        except Exception as e:
-            logger.warning(f"Failed to cleanup backups: {e}")

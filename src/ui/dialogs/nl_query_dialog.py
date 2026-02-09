@@ -153,6 +153,50 @@ class SQLExecuteThread(QThread):
             self.finished.emit(None)
 
 
+class LocalSQLExecuteThread(QThread):
+    """Thread for executing SQL query locally on SQLite database (no server required)."""
+    
+    finished = Signal(list)  # Emits list of result dicts or None
+    
+    def __init__(self, sql: str):
+        super().__init__()
+        self.sql = sql
+    
+    def run(self):
+        """Execute SQL query directly on SQLite database."""
+        try:
+            import sqlite3
+            from src.utils.path_resolver import get_database_path
+            
+            db_path = get_database_path()
+            logger.info(f"[LocalSQLExecute] Executing query locally on {db_path}")
+            
+            # Connect to database
+            conn = sqlite3.connect(str(db_path))
+            conn.row_factory = sqlite3.Row  # Return rows as dict-like objects
+            
+            try:
+                cursor = conn.cursor()
+                cursor.execute(self.sql)
+                
+                # Fetch all results
+                rows = cursor.fetchall()
+                
+                # Convert to list of dicts
+                results = []
+                for row in rows:
+                    results.append(dict(row))
+                
+                logger.info(f"[LocalSQLExecute] Query executed successfully, returned {len(results)} rows")
+                self.finished.emit(results)
+            finally:
+                conn.close()
+                
+        except Exception as e:
+            logger.error(f"[LocalSQLExecute] SQL execution error: {str(e)}", exc_info=True)
+            self.finished.emit(None)
+
+
 class NLQueryDialog(QDialog):
     """Dialog for NL-to-SQL queries."""
     
@@ -172,11 +216,13 @@ class NLQueryDialog(QDialog):
         self.server_manager: Optional[NLServerManager] = None
         self.query_thread: Optional[NLQueryThread] = None
         self.execute_thread: Optional[SQLExecuteThread] = None
+        self.local_execute_thread: Optional[LocalSQLExecuteThread] = None
         self.current_sql: Optional[str] = None
         self.query_results: Optional[list] = None  # Keep for backward compatibility
         self.query_results_df: Optional[pd.DataFrame] = None  # DataFrame storage
         self._original_dataframe: Optional[pd.DataFrame] = None  # Store original for filter reset
         self._is_closing = False  # Flag to prevent error messages during close
+        self._is_cached_query = False  # Track if current query is from cache (for local execution)
         
         # Server failure state (stored, not shown immediately)
         self._fastapi_failure_msg: Optional[str] = None
@@ -304,34 +350,11 @@ class NLQueryDialog(QDialog):
         return panel
     
     def _create_toolbar(self) -> QToolBar:
-        """Create toolbar with search/filter and export functionality."""
+        """Create toolbar with cache size indicator."""
         toolbar = QToolBar("Query Cache Tools", self)
         toolbar.setMovable(False)
         
-        # Search/Filter Section
-        toolbar.addWidget(QLabel("Search:"))
-        self.search_filter_input = QLineEdit()
-        self.search_filter_input.setPlaceholderText("Filter cached queries by NL query or SQL keywords...")
-        self.search_filter_input.setMaximumWidth(300)
-        self.search_filter_input.textChanged.connect(self._on_search_filter_changed)
-        toolbar.addWidget(self.search_filter_input)
-        
-        # Separator
-        toolbar.addSeparator()
-        
-        # Import/Export Section
-        import_action = QAction("Import Queries from CSV", self)
-        import_action.setToolTip("Import formatted SQL queries from CSV file (from formatted/ folder)")
-        import_action.triggered.connect(self._handle_import_queries_csv)
-        toolbar.addAction(import_action)
-        
-        export_action = QAction("Export Query & Results", self)
-        export_action.setToolTip("Export formatted SQL query and results to separate folders")
-        export_action.triggered.connect(self._handle_export_query_results)
-        toolbar.addAction(export_action)
-        
         # Cache size indicator
-        toolbar.addSeparator()
         self.cache_size_label = QLabel("Cache: 0/50")
         toolbar.addWidget(self.cache_size_label)
         
@@ -349,13 +372,10 @@ class NLQueryDialog(QDialog):
         self.query_cache_combo = QComboBox()
         self.query_cache_combo.setEditable(False)
         self.query_cache_combo.setPlaceholderText("Select a cached query...")
-        self.query_cache_combo.currentIndexChanged.connect(self._on_cached_query_selected)
+        # Use activated signal for user selections (fires when user clicks an item)
+        # This signal only fires on actual user interaction, not programmatic changes
+        self.query_cache_combo.activated.connect(self._on_cached_query_selected)
         # Cache dropdown is always enabled (independent of API key state)
-        
-        # Execute button for cached queries (works without API key)
-        self.execute_cached_btn = QPushButton("Execute Cached Query")
-        self.execute_cached_btn.clicked.connect(self._handle_execute_cached_query)
-        self.execute_cached_btn.setEnabled(False)  # Enabled when cached query is selected
         
         # Clear cache button
         self.clear_cache_btn = QPushButton("Clear Cache")
@@ -366,7 +386,6 @@ class NLQueryDialog(QDialog):
         cache_buttons_layout = QHBoxLayout()
         cache_buttons_layout.addWidget(cached_label)
         cache_buttons_layout.addWidget(self.query_cache_combo, stretch=1)
-        cache_buttons_layout.addWidget(self.execute_cached_btn)
         cache_buttons_layout.addWidget(self.clear_cache_btn)
         
         layout.addLayout(cache_buttons_layout)
@@ -383,11 +402,28 @@ class NLQueryDialog(QDialog):
         self.sql_display.setPlaceholderText("SQL query will appear here after submitting NL query...")
         self.sql_display.setMinimumHeight(200)
         
+        # Import/Export buttons (uniform style with other buttons)
+        import_export_layout = QHBoxLayout()
+        import_export_layout.setSpacing(10)
+        
+        self.import_queries_btn = QPushButton("Import Queries from CSV")
+        self.import_queries_btn.setToolTip("Import formatted SQL queries from CSV file (from formatted/ folder)")
+        self.import_queries_btn.clicked.connect(self._handle_import_queries_csv)
+        
+        self.export_query_results_btn = QPushButton("Export Query and Results")
+        self.export_query_results_btn.setToolTip("Export formatted SQL query and results to separate folders")
+        self.export_query_results_btn.clicked.connect(self._handle_export_query_results)
+        
+        import_export_layout.addWidget(self.import_queries_btn)
+        import_export_layout.addWidget(self.export_query_results_btn)
+        import_export_layout.addStretch()
+        
         self.execute_sql_btn = QPushButton("Execute SQL Query")
         self.execute_sql_btn.clicked.connect(self._handle_execute_sql)
         
         layout.addWidget(sql_label)
         layout.addWidget(self.sql_display)
+        layout.addLayout(import_export_layout)
         layout.addWidget(self.execute_sql_btn)
         
         # Separator
@@ -410,31 +446,9 @@ class NLQueryDialog(QDialog):
         self.results_status_label.setAlignment(Qt.AlignCenter)
         self.results_status_label.setStyleSheet("color: gray; font-style: italic;")
         
-        # Analysis buttons (below results table)
-        analysis_layout = QHBoxLayout()
-        analysis_layout.setSpacing(10)
-        
-        self.stats_btn = QPushButton("Show Statistics")
-        self.stats_btn.clicked.connect(self._show_dataframe_stats)
-        self.stats_btn.setEnabled(False)
-        
-        self.filter_btn = QPushButton("Filter Data")
-        self.filter_btn.clicked.connect(self._show_filter_dialog)
-        self.filter_btn.setEnabled(False)
-        
-        self.reset_filter_btn = QPushButton("Reset Filter")
-        self.reset_filter_btn.clicked.connect(self._reset_filter)
-        self.reset_filter_btn.setEnabled(False)
-        
-        analysis_layout.addWidget(self.stats_btn)
-        analysis_layout.addWidget(self.filter_btn)
-        analysis_layout.addWidget(self.reset_filter_btn)
-        analysis_layout.addStretch()
-        
         layout.addWidget(results_label)
         layout.addWidget(self.results_status_label)
         layout.addWidget(self.results_table)
-        layout.addLayout(analysis_layout)
         
         panel.setLayout(layout)
         return panel
@@ -449,15 +463,17 @@ class NLQueryDialog(QDialog):
             logger.info("Loaded saved API key from encrypted storage")
         
         # Check if servers are already running via GlobalServerManager
+        # Note: With new logic, servers should not persist, so this check is mainly for safety
         if self.global_server_manager.is_servers_running():
             logger.info("Servers are already running, connecting to existing instance")
             self.server_manager = self.global_server_manager.get_server_manager()
             self._connect_server_signals()
             self._on_servers_ready()
         elif saved_api_key:
-            # Servers not running but API key exists - offer to start
-            logger.info("API key found but servers not running")
-            # User can click "Submit API Key" to start servers
+            # Servers not running but API key exists - user can restart servers easily
+            logger.info("API key found but servers not running - user can restart servers")
+            # Pre-fill API key input for easy restart (will be masked)
+            self.api_key_input.setText(saved_api_key)
         
         # API key dependent widgets
         self.nl_query_input.setEnabled(False)
@@ -961,29 +977,63 @@ class NLQueryDialog(QDialog):
         
         # Store SQL for execution
         self.current_sql = sql_query.strip()
+        logger.info(f"[Query Complete] Received SQL query (length: {len(self.current_sql)})")
+        logger.info(f"[Query Complete] SQL preview: {self.current_sql[:100]}...")
         
-        # Display formatted SQL (but don't execute)
+        # Format SQL for display
         formatted_sql = self._format_sql(self.current_sql)
+        logger.info(f"[Query Complete] Formatted SQL (length: {len(formatted_sql)})")
+        logger.info(f"[Query Complete] Formatted SQL preview:\n{formatted_sql[:200]}...")
+        
+        # Display formatted SQL in panel (CRITICAL: This must happen before caching)
+        logger.info(f"[Query Complete] Setting sql_display text...")
+        logger.info(f"[Query Complete] sql_display widget state: enabled={self.sql_display.isEnabled()}, visible={self.sql_display.isVisible()}")
+        
         self.sql_display.setPlainText(formatted_sql)
         self.sql_display.setEnabled(True)
         
+        # Verify text was set correctly
+        displayed_text = self.sql_display.toPlainText()
+        if displayed_text == formatted_sql:
+            logger.info(f"[Query Complete] ✅ Formatted SQL successfully displayed in panel (length: {len(displayed_text)})")
+        else:
+            logger.warning(f"[Query Complete] ⚠️ Text mismatch! Expected {len(formatted_sql)} chars, got {len(displayed_text)} chars")
+            logger.warning(f"[Query Complete] Expected preview: {formatted_sql[:100]}...")
+            logger.warning(f"[Query Complete] Actual preview: {displayed_text[:100]}...")
+            # Try setting again
+            self.sql_display.setPlainText(formatted_sql)
+            self.sql_display.update()
+            self.sql_display.repaint()
+        
         # Enable execute button so user can run the query
         self.execute_sql_btn.setEnabled(True)
+        logger.info(f"[Query Complete] Execute button enabled")
         
         # Cache the query (non-blocking, with error handling)
+        # Mark as new query (not from cache)
+        self._is_cached_query = False
+        
+        # NOTE: formatted_sql is already computed and displayed above
         if sql_query and sql_query.strip() and self.query_cache is not None:
             try:
+                logger.info(f"[Query Complete] Caching query with formatted_sql (length: {len(formatted_sql)})")
                 cache_id = self.query_cache.add_query(
                     nl_query=self.nl_query_input.toPlainText().strip(),
                     sql_query=self.current_sql,
-                    formatted_sql=formatted_sql
+                    formatted_sql=formatted_sql  # Use the same formatted_sql that was displayed
                 )
+                logger.info(f"[Query Complete] ✅ Query cached successfully (ID: {cache_id})")
                 # Defer dropdown refresh to avoid blocking UI
                 from PySide6.QtCore import QTimer
                 QTimer.singleShot(100, self._refresh_cache_dropdown)
             except Exception as e:
-                logger.warning(f"Failed to cache query: {e}", exc_info=True)
+                logger.error(f"[Query Complete] ❌ Failed to cache query: {e}", exc_info=True)
                 # Continue without caching - don't block user
+        else:
+            if not sql_query or not sql_query.strip():
+                logger.warning(f"[Query Complete] Not caching: sql_query is empty")
+            if self.query_cache is None:
+                logger.warning(f"[Query Complete] Not caching: query_cache is None")
         
         # Clear previous results
         self.results_table.setModel(None)
@@ -1015,9 +1065,6 @@ class NLQueryDialog(QDialog):
             self.results_status_label.setText("Query returned no results.")
             self.results_status_label.setVisible(True)
             self.results_table.setModel(None)
-            self.stats_btn.setEnabled(False)
-            self.filter_btn.setEnabled(False)
-            self.reset_filter_btn.setEnabled(False)
             return
         
         # Create and set model
@@ -1037,178 +1084,17 @@ class NLQueryDialog(QDialog):
         )
         self.results_status_label.setVisible(True)
         
-        # Enable table and analysis buttons
+        # Enable table
         self.results_table.setEnabled(True)
-        self.stats_btn.setEnabled(True)
-        self.filter_btn.setEnabled(True)
-        # Enable reset filter only if we have an original dataframe and it's different
-        if self._original_dataframe is not None and not df.equals(self._original_dataframe):
-            self.reset_filter_btn.setEnabled(True)
-        else:
-            self.reset_filter_btn.setEnabled(False)
-    
-    def _show_dataframe_stats(self):
-        """Display DataFrame statistics in a dialog."""
-        if self.query_results_df is None or self.query_results_df.empty:
-            QMessageBox.warning(self, "No Data", "No data available for statistics.")
-            return
-        
-        df = self.query_results_df
-        
-        # Create statistics text
-        stats_text = []
-        stats_text.append("=== DataFrame Statistics ===\n")
-        stats_text.append(f"Shape: {df.shape[0]:,} rows × {df.shape[1]} columns\n")
-        stats_text.append(f"Memory Usage: {df.memory_usage(deep=True).sum() / 1024:.2f} KB\n\n")
-        
-        # Column info
-        stats_text.append("=== Column Information ===\n")
-        for col in df.columns:
-            dtype = df[col].dtype
-            null_count = df[col].isna().sum()
-            null_pct = (null_count / len(df)) * 100 if len(df) > 0 else 0
-            stats_text.append(f"{col} ({dtype}): {null_count} nulls ({null_pct:.1f}%)\n")
-        
-        # Numeric statistics
-        numeric_cols = df.select_dtypes(include=['number']).columns
-        if len(numeric_cols) > 0:
-            stats_text.append("\n=== Numeric Statistics ===\n")
-            try:
-                stats_text.append(df[numeric_cols].describe().to_string())
-            except Exception as e:
-                stats_text.append(f"Error generating statistics: {str(e)}")
-        
-        # Show in dialog
-        dialog = QDialog(self)
-        dialog.setWindowTitle("DataFrame Statistics")
-        dialog.setMinimumSize(600, 500)
-        
-        layout = QVBoxLayout()
-        text_edit = QTextEdit()
-        text_edit.setReadOnly(True)
-        text_edit.setPlainText("".join(stats_text))
-        text_edit.setFontFamily("Courier")
-        
-        close_btn = QPushButton("Close")
-        close_btn.clicked.connect(dialog.close)
-        
-        layout.addWidget(text_edit)
-        layout.addWidget(close_btn)
-        dialog.setLayout(layout)
-        dialog.exec()
-    
-    def _show_filter_dialog(self):
-        """Show dialog to filter DataFrame by column conditions."""
-        if self.query_results_df is None or self.query_results_df.empty:
-            QMessageBox.warning(self, "No Data", "No data available to filter.")
-            return
-        
-        df = self.query_results_df
-        
-        # Simple filter dialog
-        dialog = QDialog(self)
-        dialog.setWindowTitle("Filter Data")
-        dialog.setMinimumSize(400, 200)
-        
-        layout = QVBoxLayout()
-        
-        # Column selection
-        col_label = QLabel("Column:")
-        col_combo = QComboBox()
-        col_combo.addItems([str(col) for col in df.columns])
-        layout.addWidget(col_label)
-        layout.addWidget(col_combo)
-        
-        # Filter condition
-        condition_label = QLabel("Condition (e.g., > 100, == 'value', contains 'text'):")
-        condition_input = QLineEdit()
-        condition_input.setPlaceholderText("Enter filter condition...")
-        layout.addWidget(condition_label)
-        layout.addWidget(condition_input)
-        
-        # Buttons
-        btn_layout = QHBoxLayout()
-        apply_btn = QPushButton("Apply Filter")
-        cancel_btn = QPushButton("Cancel")
-        btn_layout.addWidget(apply_btn)
-        btn_layout.addWidget(cancel_btn)
-        layout.addLayout(btn_layout)
-        
-        def apply_filter():
-            column = col_combo.currentText()
-            condition = condition_input.text().strip()
-            
-            if not condition:
-                QMessageBox.warning(dialog, "Invalid Filter", "Please enter a filter condition.")
-                return
-            
-            try:
-                # Try to use pandas query() for filtering
-                # Support common conditions: >, <, >=, <=, ==, !=, contains
-                query_str = f"{column} {condition}"
-                filtered_df = df.query(query_str)
-                
-                if filtered_df.empty:
-                    QMessageBox.information(dialog, "No Results", 
-                                          "Filter returned no results.")
-                    return
-                
-                # Update displayed DataFrame
-                self.query_results_df = filtered_df
-                self._display_dataframe(filtered_df)
-                dialog.close()
-                
-            except Exception as e:
-                # If query() fails, try eval() as fallback (less safe but more flexible)
-                try:
-                    # Create a safe evaluation context
-                    safe_dict = {col: df[col] for col in df.columns}
-                    # Try to evaluate condition
-                    if condition.startswith('>') or condition.startswith('<') or \
-                       condition.startswith('>=') or condition.startswith('<=') or \
-                       condition.startswith('==') or condition.startswith('!='):
-                        # Simple comparison
-                        filtered_df = df[eval(f"df['{column}'] {condition}")]
-                    elif 'contains' in condition.lower():
-                        # String contains
-                        search_term = condition.split("'")[1] if "'" in condition else condition.split('"')[1]
-                        filtered_df = df[df[column].astype(str).str.contains(search_term, case=False, na=False)]
-                    else:
-                        raise ValueError("Unsupported filter condition")
-                    
-                    if filtered_df.empty:
-                        QMessageBox.information(dialog, "No Results", 
-                                              "Filter returned no results.")
-                        return
-                    
-                    self.query_results_df = filtered_df
-                    self._display_dataframe(filtered_df)
-                    dialog.close()
-                    
-                except Exception as e2:
-                    QMessageBox.critical(dialog, "Filter Error", 
-                                       f"Failed to apply filter: {str(e2)}\n\n"
-                                       f"Supported formats:\n"
-                                       f"- Comparison: > 100, < 50, >= 10, <= 20, == 'value', != 'value'\n"
-                                       f"- Contains: contains 'text'")
-        
-        apply_btn.clicked.connect(apply_filter)
-        cancel_btn.clicked.connect(dialog.close)
-        
-        dialog.setLayout(layout)
-        dialog.exec()
-    
-    def _reset_filter(self):
-        """Reset filter and show original DataFrame."""
-        if self._original_dataframe is None:
-            return
-        
-        # Restore original DataFrame
-        self.query_results_df = self._original_dataframe.copy()
-        self._display_dataframe(self.query_results_df)
     
     def _refresh_cache_dropdown(self):
         """Refresh the cached queries dropdown with current cache."""
+        # Preserve currently selected query to avoid clearing SQL display
+        current_selection = None
+        current_index = self.query_cache_combo.currentIndex()
+        if current_index >= 0:
+            current_selection = self.query_cache_combo.itemData(current_index)
+        
         if self.query_cache is None:
             # Cache not available, show empty state
             self.query_cache_combo.clear()
@@ -1240,29 +1126,34 @@ class NLQueryDialog(QDialog):
             self.query_cache_combo.setEnabled(True)
             if hasattr(self, 'clear_cache_btn'):
                 self.clear_cache_btn.setEnabled(False)
-            if hasattr(self, 'execute_cached_btn'):
-                self.execute_cached_btn.setEnabled(False)
             return
         
+        # Add placeholder option first (only one)
+        self.query_cache_combo.addItem("Select a cached query...", None)
+        
         # Add cached queries to dropdown
+        restored_index = 0  # Default to placeholder
         for query in cached_queries:
             display_text = f"{query['display_name']} ({self._format_timestamp(query['timestamp'])})"
+            item_index = self.query_cache_combo.count()
             self.query_cache_combo.addItem(display_text, query['id'])
             # Add tooltip with full NL query
-            item_index = self.query_cache_combo.count() - 1
             self.query_cache_combo.setItemData(item_index, query['nl_query'], Qt.ToolTipRole)
+            
+            # Restore selection if this was the previously selected query
+            if current_selection and query['id'] == current_selection:
+                restored_index = item_index
         
         # Always enable dropdown (no API key required)
         self.query_cache_combo.setEnabled(True)
         if hasattr(self, 'clear_cache_btn'):
             self.clear_cache_btn.setEnabled(True)
-        if hasattr(self, 'execute_cached_btn'):
-            # Only enable if a query is selected
-            self.execute_cached_btn.setEnabled(False)  # Will be enabled on selection
         
-        # Add placeholder option at top
-        self.query_cache_combo.insertItem(0, "Select a cached query...", None)
-        self.query_cache_combo.setCurrentIndex(0)
+        # Restore previous selection (or set to placeholder)
+        # Block signals temporarily to avoid triggering _on_cached_query_selected
+        self.query_cache_combo.blockSignals(True)
+        self.query_cache_combo.setCurrentIndex(restored_index)
+        self.query_cache_combo.blockSignals(False)
     
     def _format_timestamp(self, timestamp: float) -> str:
         """Format timestamp to readable string."""
@@ -1280,45 +1171,67 @@ class NLQueryDialog(QDialog):
         # Skip placeholder item (first item with None data)
         cache_id = self.query_cache_combo.itemData(index)
         if not cache_id:
-            # Placeholder selected, clear SQL display
+            # Placeholder selected - only clear if user explicitly selected it
+            # Don't clear if this was triggered by refresh or during execution
+            # Don't clear SQL display if it has content - preserve it
+            
+            # Check if SQL display has content - if so, preserve it
+            # Only clear if display is already empty or user explicitly wants to clear
+            if self.sql_display.toPlainText().strip():
+                # SQL display has content - don't clear automatically
+                # User can manually clear if needed
+                logger.info("[Cached Query Selected] Preserving SQL display (has content)")
+                # Close the dropdown after selection using QTimer to ensure it happens after event processing
+                from PySide6.QtCore import QTimer
+                QTimer.singleShot(10, lambda: self.query_cache_combo.hidePopup())
+                return
+            
+            # User explicitly selected placeholder and display is empty - clear everything
             self.sql_display.clear()
             self.current_sql = None
+            self._is_cached_query = False  # Reset cached query flag
             self.execute_sql_btn.setEnabled(False)  # For new queries (needs API key)
-            self.execute_cached_btn.setEnabled(False)  # For cached queries
             self.results_table.setModel(None)
             self.results_status_label.setText("Select a cached query to view or execute...")
             self.results_status_label.setVisible(True)
+            # Close the dropdown after selection using QTimer to ensure it happens after event processing
+            from PySide6.QtCore import QTimer
+            QTimer.singleShot(10, lambda: self.query_cache_combo.hidePopup())
             return
         
         if self.query_cache is None:
             QMessageBox.warning(self, "Cache Unavailable", "Query cache is not available.")
+            # Close dropdown even on error
+            from PySide6.QtCore import QTimer
+            QTimer.singleShot(10, lambda: self.query_cache_combo.hidePopup())
             return
         
         cached_query = self.query_cache.get_query(cache_id)
         if not cached_query:
             QMessageBox.warning(self, "Cache Error", "Selected query not found in cache.")
+            # Close dropdown even on error
+            from PySide6.QtCore import QTimer
+            QTimer.singleShot(10, lambda: self.query_cache_combo.hidePopup())
             return
         
         # Populate SQL display with cached formatted SQL (right below dropdown in right panel)
         self.sql_display.setPlainText(cached_query["formatted_sql"])
         self.sql_display.setEnabled(True)  # Enable for viewing/editing
         self.current_sql = cached_query["sql_query"]  # Store raw SQL for execution
+        self._is_cached_query = True  # Mark as cached query for local execution
         
-        # Enable execute button for cached query (no API key required)
-        self.execute_cached_btn.setEnabled(True)
-        self.execute_cached_btn.setText("Execute Cached Query")
-        
-        # Keep execute_sql_btn disabled if no API key (for new queries)
-        # Only enable if API key is set
-        if self.api_key:
-            self.execute_sql_btn.setEnabled(True)
-        else:
-            self.execute_sql_btn.setEnabled(False)
+        # Enable execute button - cached queries can execute locally without API key
+        self.execute_sql_btn.setEnabled(True)
         
         # Clear previous results
         self.results_table.setModel(None)
-        self.results_status_label.setText("Cached query loaded. Click 'Execute Cached Query' to run it (no API key needed).")
+        self.results_status_label.setText("Cached query loaded. Use 'Execute SQL Query' button to run it (requires API key).")
         self.results_status_label.setVisible(True)
+        
+        # Close the dropdown after selection using QTimer to ensure it happens after event processing
+        # This prevents the popup from staying visible behind the dialog
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(10, lambda: self.query_cache_combo.hidePopup())
     
     def _handle_clear_cache(self):
         """Handle clear cache button click."""
@@ -1342,113 +1255,79 @@ class NLQueryDialog(QDialog):
                 QMessageBox.information(self, "Cache Unavailable", "Cache is not available.")
             QMessageBox.information(self, "Cache Cleared", "All cached queries have been cleared.")
     
-    def _handle_execute_cached_query(self):
-        """Handle execution of cached query - works without API key."""
-        if not self.current_sql:
-            QMessageBox.warning(self, "No SQL Query", "No cached query selected to execute.")
-            return
-        
-        # Check if MCP server is running (needed for execution)
-        if not self.server_manager or not self.server_manager.is_mcp_running():
-            # Try to start MCP server (doesn't require API key)
-            if not self.server_manager:
-                self.server_manager = NLServerManager(parent=self)
-                self.server_manager.mcp_failed.connect(self._on_mcp_failed)
-            
-            # Start only MCP server (no API key needed)
-            self.server_manager.start_mcp_server(
-                output_callback=self._on_mcp_output,
-                error_callback=self._on_mcp_error
-            )
-            
-            # Wait for server to start (or show message)
-            QMessageBox.information(
-                self, 
-                "Starting Server", 
-                "Starting MCP server for query execution. Please wait..."
-            )
-            # Note: In production, use signals to detect when server is ready
-            return
-        
-        # Execute the cached SQL query
-        self.execute_cached_btn.setEnabled(False)
-        self.execute_cached_btn.setText("Executing...")
-        
-        # Use existing SQLExecuteThread (works with MCP server only)
-        self.execute_thread = SQLExecuteThread(self.current_sql, "http://localhost:8001")
-        self.execute_thread.finished.connect(self._on_execution_complete)
-        self.execute_thread.start()
-        
-        # Update status
-        self.results_status_label.setText("Executing cached query...")
-        self.results_status_label.setVisible(True)
     
-    def _on_search_filter_changed(self, text: str):
-        """Filter cached queries based on search text."""
-        search_text = text.strip().lower()
+    def _generate_descriptive_filename(self, nl_query: Optional[str] = None) -> str:
+        """Generate a descriptive filename from NL query or use fallback."""
+        if nl_query:
+            # Extract first 5 words from NL query
+            words = nl_query.lower().split()[:5]
+            summary = "_".join(words)
+            # Sanitize: remove special chars, limit length
+            summary = "".join(c if c.isalnum() or c == "_" else "" for c in summary)[:40]
+            if summary:
+                return f"query_{summary}"
         
-        if not search_text:
-            # Show all queries
-            self._refresh_cache_dropdown()
-            return
+        # Fallback to generic name
+        return "query"
+    
+    def _sanitize_filename(self, filename: str) -> str:
+        """Sanitize filename to be filesystem-safe."""
+        # Remove/replace filesystem-unsafe characters
+        unsafe_chars = '<>:"/\\|?*'
+        for char in unsafe_chars:
+            filename = filename.replace(char, '_')
+        # Remove leading/trailing dots and spaces
+        filename = filename.strip('. ')
+        # Limit total length (Windows: 260 chars, but we'll be more conservative)
+        if len(filename) > 200:
+            filename = filename[:200]
+        return filename
+    
+    def _get_unique_filename(self, directory: Path, base_filename: str, extension: str = ".csv") -> Path:
+        """Get a unique filename by appending (1), (2), etc. if duplicates exist."""
+        base_filename = self._sanitize_filename(base_filename)
+        full_filename = f"{base_filename}{extension}"
+        file_path = directory / full_filename
         
-        # Get all cached queries
-        if self.query_cache is None:
-            self.query_cache_combo.clear()
-            self.query_cache_combo.addItem("Cache unavailable", None)
-            self.query_cache_combo.setEnabled(False)
-            return
+        # If file doesn't exist, return it
+        if not file_path.exists():
+            return file_path
         
-        try:
-            all_queries = self.query_cache.get_all_queries()
-        except Exception as e:
-            logger.warning(f"Failed to get cached queries for search: {e}", exc_info=True)
-            self.query_cache_combo.clear()
-            self.query_cache_combo.addItem("Error loading cache", None)
-            self.query_cache_combo.setEnabled(False)
-            return
+        # If file exists, append (1), (2), etc.
+        counter = 1
+        while file_path.exists():
+            new_filename = f"{base_filename}({counter}){extension}"
+            file_path = directory / new_filename
+            counter += 1
         
-        # Filter queries that match search text
-        filtered_queries = []
-        for query in all_queries:
-            # Search in NL query
-            if search_text in query['nl_query'].lower():
-                filtered_queries.append(query)
-                continue
-            # Search in SQL query
-            if search_text in query['sql_query'].lower():
-                filtered_queries.append(query)
-                continue
-            # Search in formatted SQL
-            if search_text in query['formatted_sql'].lower():
-                filtered_queries.append(query)
-                continue
-            # Search in display name
-            if search_text in query['display_name'].lower():
-                filtered_queries.append(query)
+        return file_path
+    
+    def _get_date_folder(self, base_dir: Path) -> Path:
+        """Get or create date-based folder (YYYY-MM-DD format)."""
+        date_str = datetime.now().strftime('%Y-%m-%d')
+        date_folder = base_dir / date_str
+        date_folder.mkdir(parents=True, exist_ok=True)
+        return date_folder
+    
+    def _get_nl_query_for_export(self) -> Optional[str]:
+        """Get the NL query for export (from input or cache)."""
+        # Try to get from input field
+        nl_query = self.nl_query_input.toPlainText().strip()
+        if nl_query:
+            return nl_query
         
-        # Update dropdown with filtered results
-        self.query_cache_combo.clear()
+        # Try to get from cache if current SQL matches a cached query
+        if self.current_sql and self.query_cache:
+            try:
+                # Search through all cached queries to find one matching current SQL
+                all_queries = self.query_cache.get_all_queries()
+                for cached_query in all_queries:
+                    if cached_query.get("sql_query") == self.current_sql:
+                        return cached_query.get("nl_query")
+            except Exception as e:
+                logger.warning(f"Failed to search cache for NL query: {e}", exc_info=True)
         
-        if not filtered_queries:
-            self.query_cache_combo.addItem("No matching queries", None)
-            self.query_cache_combo.setEnabled(True)
-            if hasattr(self, 'execute_cached_btn'):
-                self.execute_cached_btn.setEnabled(False)
-            return
-        
-        # Add filtered queries to dropdown
-        for query in filtered_queries:
-            display_text = f"{query['display_name']} ({self._format_timestamp(query['timestamp'])})"
-            self.query_cache_combo.addItem(display_text, query['id'])
-        
-        self.query_cache_combo.setEnabled(True)
-        if hasattr(self, 'execute_cached_btn'):
-            self.execute_cached_btn.setEnabled(False)  # Will be enabled on selection
-        
-        # Add placeholder option at top
-        self.query_cache_combo.insertItem(0, "Select a cached query...", None)
-        self.query_cache_combo.setCurrentIndex(0)
+        return None
     
     def _handle_export_query_results(self):
         """Export formatted SQL query and results to separate folders."""
@@ -1471,19 +1350,25 @@ class NLQueryDialog(QDialog):
         elif self.query_results is not None and len(self.query_results) > 0:
             has_results = True
         
-        # Create export directories if they don't exist
-        formatted_dir = get_data_path("exports", "nl_queries", "formatted")
-        results_dir = get_data_path("exports", "nl_queries", "results")
-        formatted_dir.mkdir(parents=True, exist_ok=True)
-        results_dir.mkdir(parents=True, exist_ok=True)
+        # Create base export directories if they don't exist
+        formatted_base_dir = get_data_path("exports", "nl_queries", "formatted")
+        results_base_dir = get_data_path("exports", "nl_queries", "results")
+        formatted_base_dir.mkdir(parents=True, exist_ok=True)
+        results_base_dir.mkdir(parents=True, exist_ok=True)
         
-        # Generate timestamp for filename
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        # Get or create date folders
+        formatted_date_dir = self._get_date_folder(formatted_base_dir)
+        results_date_dir = self._get_date_folder(results_base_dir)
+        
+        # Get NL query for descriptive naming
+        nl_query = self._get_nl_query_for_export()
+        
+        # Generate descriptive base filename
+        base_filename = self._generate_descriptive_filename(nl_query)
         
         try:
-            # Export 1: Formatted SQL Query to formatted/ folder
-            formatted_filename = f"formatted_query_{timestamp}.csv"
-            formatted_path = formatted_dir / formatted_filename
+            # Export 1: Formatted SQL Query to formatted/date folder
+            formatted_path = self._get_unique_filename(formatted_date_dir, base_filename, ".csv")
             
             with open(formatted_path, 'w', newline='', encoding='utf-8') as csvfile:
                 writer = csv.writer(csvfile)
@@ -1502,11 +1387,11 @@ class NLQueryDialog(QDialog):
                 writer.writerow([])  # Empty row
                 writer.writerow(["End of Export"])
             
-            # Export 2: Query Results to results/ folder (if available)
+            # Export 2: Query Results to results/date folder (if available)
             results_path = None
             if has_results:
-                results_filename = f"query_results_{timestamp}.csv"
-                results_path = results_dir / results_filename
+                # Use same base filename for results
+                results_path = self._get_unique_filename(results_date_dir, base_filename, ".csv")
                 
                 # Use DataFrame if available (better CSV handling)
                 if self.query_results_df is not None and not self.query_results_df.empty:
@@ -1525,13 +1410,14 @@ class NLQueryDialog(QDialog):
                             writer.writerow([row.get(header, '') for header in headers])
             
             # Success message
+            date_str = datetime.now().strftime('%Y-%m-%d')
             message = f"Export successful!\n\n"
-            message += f"Formatted Query:\n{formatted_path}\n"
-            message += f"Location: data/exports/nl_queries/formatted/\n\n"
+            message += f"Formatted Query:\n{formatted_path.name}\n"
+            message += f"Location: data/exports/nl_queries/formatted/{date_str}/\n\n"
             
             if results_path:
-                message += f"Query Results:\n{results_path}\n"
-                message += f"Location: data/exports/nl_queries/results/"
+                message += f"Query Results:\n{results_path.name}\n"
+                message += f"Location: data/exports/nl_queries/results/{date_str}/"
             else:
                 message += "Query Results: Not exported (no results available)"
             
@@ -1550,7 +1436,15 @@ class NLQueryDialog(QDialog):
     def _handle_import_queries_csv(self):
         """Import formatted SQL queries from CSV file into cache."""
         # Default to formatted queries directory (not results directory)
-        default_dir = str(get_data_path("exports", "nl_queries", "formatted"))
+        # Use today's date folder as default, but allow browsing to any date folder
+        formatted_base_dir = get_data_path("exports", "nl_queries", "formatted")
+        date_str = datetime.now().strftime('%Y-%m-%d')
+        default_date_dir = formatted_base_dir / date_str
+        # If today's folder doesn't exist, use base directory
+        if not default_date_dir.exists():
+            default_dir = str(formatted_base_dir)
+        else:
+            default_dir = str(default_date_dir)
         
         # Get file path using QFileDialog
         file_path, _ = QFileDialog.getOpenFileName(
@@ -1684,20 +1578,37 @@ class NLQueryDialog(QDialog):
         self.results_status_label.setText("Executing query...")
         self.results_status_label.setVisible(True)
         
-        # Start execution thread
-        self.execute_thread = SQLExecuteThread(self.current_sql, "http://localhost:8001")
-        self.execute_thread.finished.connect(self._on_execution_complete)
-        self.execute_thread.start()
+        # For cached queries, execute locally without server call
+        # For new queries, use MCP server (requires servers running)
+        if self._is_cached_query:
+            logger.info("[Execute SQL] Executing cached query locally (no server required)")
+            self.local_execute_thread = LocalSQLExecuteThread(self.current_sql)
+            self.local_execute_thread.finished.connect(self._on_execution_complete)
+            self.local_execute_thread.start()
+        else:
+            logger.info("[Execute SQL] Executing new query via MCP server")
+            # Check if servers are running before executing
+            if not self.global_server_manager.is_servers_running():
+                QMessageBox.warning(
+                    self,
+                    "Servers Not Running",
+                    "Servers are not running. Please submit your API key first to start servers."
+                )
+                self.execute_sql_btn.setEnabled(True)
+                self.execute_sql_btn.setText("Execute SQL Query")
+                self.results_status_label.setText("Servers not running. Please start servers first.")
+                self.results_status_label.setVisible(True)
+                return
+            
+            # Start execution thread via MCP server
+            self.execute_thread = SQLExecuteThread(self.current_sql, "http://localhost:8001")
+            self.execute_thread.finished.connect(self._on_execution_complete)
+            self.execute_thread.start()
     
     def _on_execution_complete(self, results: Optional[list]):
         """Handle SQL execution completion."""
         self.execute_sql_btn.setEnabled(True)
         self.execute_sql_btn.setText("Execute SQL Query")
-        
-        # Reset execute button for cached queries
-        if hasattr(self, 'execute_cached_btn'):
-            self.execute_cached_btn.setEnabled(True)
-            self.execute_cached_btn.setText("Execute Cached Query")
         
         if results is None:
             QMessageBox.warning(self, "Execution Failed", 
@@ -1736,7 +1647,7 @@ class NLQueryDialog(QDialog):
             self.query_results = None
     
     def closeEvent(self, event: QCloseEvent):
-        """Handle dialog close - keep servers running for persistence."""
+        """Handle dialog close - stop servers and save API key."""
         # Set closing flag to prevent error messages
         self._is_closing = True
         
@@ -1758,13 +1669,19 @@ class NLQueryDialog(QDialog):
             self.execute_thread.terminate()
             self.execute_thread.wait(1000)  # Wait up to 1 second
         
-        # IMPORTANT: Do NOT stop servers - keep them running for persistence
-        # Servers will remain running via GlobalServerManager
-        # This allows user to close dialog and reopen later without restarting servers
-        logger.info("Dialog closing - servers will remain running for persistence")
+        if self.local_execute_thread and self.local_execute_thread.isRunning():
+            self.local_execute_thread.terminate()
+            self.local_execute_thread.wait(1000)  # Wait up to 1 second
+        
+        # Stop servers when dialog closes
+        # API key is saved, so user can easily restart servers when reopening dialog
+        if self.global_server_manager:
+            logger.info("Dialog closing - stopping servers")
+            self.global_server_manager.stop_servers()
         
         # Save API key if it was changed
         if self.api_key:
             self.api_key_manager.save_api_key(self.api_key)
+            logger.info("API key saved - user can restart servers when reopening dialog")
         
         event.accept()
