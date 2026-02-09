@@ -17,3 +17,9 @@ anthropic>=0.18.0  # For Anthropic Claude integration
 # Note: sqlite3 and asyncio are built-in Python modules
 # sqlglot>=23.0.0  # SQL parsing and validation
 sqlglot>=23.0.0
+
+# Data analysis
+pandas>=2.0.0  # Data analysis and DataFrame support
+
+# Security
+cryptography>=41.0.0  # For API key encryption

@@ -15,6 +15,8 @@ import asyncio
 import os
 import sys
 import re
+import logging
+from datetime import datetime
 from pathlib import Path
 from typing import Optional, Tuple
 from fastapi import FastAPI, HTTPException, Header, Depends
@@ -24,6 +26,7 @@ from openai import AsyncOpenAI
 import sqlglot
 from sqlglot import expressions as exp
 import requests
+import httpx
 
 # Add project root to path for imports
 project_root = Path(__file__).parent.parent
@@ -41,6 +44,64 @@ MCP_SERVER_URL = "http://localhost:8001"
 
 # Default model
 DEFAULT_MODEL = "gpt-4o-mini"
+
+# Cache for pre-loaded schema (initialized on startup)
+_cached_schema: Optional[str] = None
+
+# Setup file logging for FastAPI application
+_logger_initialized = False
+_app_logger: Optional[logging.Logger] = None
+
+def _setup_app_logging():
+    """Setup file logging for FastAPI application."""
+    global _logger_initialized, _app_logger
+    
+    if _logger_initialized:
+        return _app_logger
+    
+    # Get project root and create logs directory
+    project_root = Path(__file__).parent.parent
+    logs_dir = project_root / "tests" / "logs"
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Setup application log file
+    app_log_file = logs_dir / "fastapi_app.log"
+    _app_logger = logging.getLogger("fastapi_app")
+    _app_logger.setLevel(logging.DEBUG)
+    # Remove existing handlers to avoid duplicates
+    _app_logger.handlers.clear()
+    app_handler = logging.FileHandler(app_log_file, mode='a', encoding='utf-8')
+    app_handler.setLevel(logging.DEBUG)
+    app_formatter = logging.Formatter(
+        '%(asctime)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    app_handler.setFormatter(app_formatter)
+    _app_logger.addHandler(app_handler)
+    _app_logger.propagate = False
+    
+    # Log initialization
+    _app_logger.info("=" * 80)
+    _app_logger.info(f"FastAPI Application Logging Initialized - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    
+    _logger_initialized = True
+    return _app_logger
+
+# Initialize logging on module import
+_setup_app_logging()
+
+def _log_print(level: str, message: str):
+    """Log message to both file and print to stdout."""
+    if _app_logger:
+        if level == "INFO":
+            _app_logger.info(message)
+        elif level == "ERROR":
+            _app_logger.error(message)
+        elif level == "WARNING":
+            _app_logger.warning(message)
+        elif level == "DEBUG":
+            _app_logger.debug(message)
+    print(message)
 
 
 class QueryRequest(BaseModel):
@@ -75,17 +136,25 @@ def get_api_key(
     """
     # Priority: Header > Request body > Environment variable
     api_key = authorization
+    print(f"[API Key] Header received: {authorization[:20] if authorization else 'None'}...")
+    
     if not api_key and request.api_key:
         api_key = request.api_key
-    if not api_key:
-        api_key = os.getenv("OPENAI_API_KEY")
+        print(f"[API Key] Using API key from request body")
     
     if not api_key:
+        api_key = os.getenv("OPENAI_API_KEY")
+        if api_key:
+            print(f"[API Key] Using API key from environment variable")
+    
+    if not api_key:
+        print(f"[API Key] ERROR: No API key found in header, body, or environment")
         raise HTTPException(
             status_code=400,
             detail="API key required. Provide via Authorization header (Bearer <key>) or request body."
         )
     
+    print(f"[API Key] Extracted key length: {len(api_key)}, preview: {api_key[:7]}...{api_key[-4:] if len(api_key) > 11 else ''}")
     return api_key
 
 
@@ -165,13 +234,22 @@ def validate_sql(sql: str) -> Tuple[bool, str]:
         return False, f"SQL validation error: {str(e)}"
 
 
-async def get_database_schema() -> str:
+async def get_database_schema(use_cache: bool = True) -> str:
     """
     Get database schema from MCP server.
+    
+    Args:
+        use_cache: If True, use cached schema if available (faster)
     
     Returns:
         str: Database schema, or fallback schema if database is empty
     """
+    global _cached_schema
+    
+    # Return cached schema if available and caching is enabled
+    if use_cache and _cached_schema is not None:
+        return _cached_schema
+    
     try:
         response = requests.get(f"{MCP_SERVER_URL}/schema", timeout=5)
         if response.status_code == 200:
@@ -179,15 +257,21 @@ async def get_database_schema() -> str:
             
             # If schema is empty, provide fallback schema based on expected structure
             if not schema or not schema.strip():
-                return get_fallback_schema()
+                schema = get_fallback_schema()
             
+            # Cache the schema for future requests
+            _cached_schema = schema
             return schema
         else:
             # MCP server unavailable, use fallback
-            return get_fallback_schema()
+            schema = get_fallback_schema()
+            _cached_schema = schema
+            return schema
     except Exception:
         # MCP server unavailable, use fallback
-        return get_fallback_schema()
+        schema = get_fallback_schema()
+        _cached_schema = schema
+        return schema
 
 
 def get_fallback_schema() -> str:
@@ -203,6 +287,31 @@ def get_fallback_schema() -> str:
 team(teamID INTEGER, name TEXT, leagueID INTEGER, league TEXT, logo TEXT, manager TEXT, players TEXT, lineup TEXT, positions TEXT, wins INTEGER, losses INTEGER, games_played INTEGER, wl_avg REAL, bat_avg REAL, team_era REAL, max_roster INTEGER)
 player(playerID INTEGER, name TEXT, leagueID INTEGER, teamID INTEGER, number INTEGER, team TEXT, positions TEXT, pa INTEGER, at_bat INTEGER, fielder_choice INTEGER, hit INTEGER, bb INTEGER, hbp INTEGER, put_out INTEGER, so INTEGER, hr INTEGER, rbi INTEGER, runs INTEGER, singles INTEGER, doubles INTEGER, triples INTEGER, sac_fly INTEGER, OBP REAL, BABIP REAL, SLG REAL, AVG REAL, ISO REAL, image TEXT)
 pitcher(playerID INTEGER, name TEXT, leagueID INTEGER, teamID INTEGER, number INTEGER, team TEXT, positions TEXT, wins INTEGER, losses INTEGER, games_played INTEGER, games_started INTEGER, games_completed INTEGER, shutouts INTEGER, saves INTEGER, save_ops INTEGER, ip REAL, p_at_bats INTEGER, p_hits INTEGER, p_runs INTEGER, er INTEGER, p_hr INTEGER, p_hb INTEGER, p_bb INTEGER, p_so INTEGER, WHIP REAL, p_avg REAL, k_9 REAL, bb_9 REAL, era REAL)"""
+
+
+@app.on_event("startup")
+async def startup_event():
+    """
+    Pre-initialize endpoint on server startup.
+    
+    This eliminates the cold start delay by pre-loading:
+    - Database schema from MCP server
+    - Fallback schema if MCP server is unavailable
+    
+    This makes the first request to /nl_to_sql much faster.
+    """
+    print("[FastAPI Startup] Pre-initializing database schema...")
+    try:
+        # Pre-load database schema (this will cache it)
+        schema = await get_database_schema(use_cache=False)
+        if schema:
+            print(f"[FastAPI Startup] Schema loaded successfully ({len(schema)} chars)")
+        else:
+            print("[FastAPI Startup] Using fallback schema")
+    except Exception as e:
+        print(f"[FastAPI Startup] Warning: Could not pre-load schema: {e}")
+        print("[FastAPI Startup] Will use fallback schema on first request")
+    print("[FastAPI Startup] Initialization complete")
 
 
 @app.get("/health")
@@ -348,12 +457,73 @@ async def nl_to_sql(
     Returns:
         JSON with SQL query string
     """
+    import traceback
+    
     try:
-        # Get database schema
-        schema = await get_database_schema()
+        # Log API key status (without exposing full key)
+        api_key_preview = f"{api_key[:7]}...{api_key[-4:]}" if api_key and len(api_key) > 11 else "None"
+        print(f"[NL-to-SQL] Step 1: Received request with API key: {api_key_preview}")
+        print(f"[NL-to-SQL] Step 1: Question: {request.question[:100]}...")
         
-        # Create OpenAI client
-        client = AsyncOpenAI(api_key=api_key)
+        # Validate API key format
+        if not api_key or not api_key.startswith("sk-"):
+            error_msg = f"Invalid API key format. OpenAI API keys should start with 'sk-'. Got: {api_key_preview}"
+            print(f"[NL-to-SQL] ERROR: {error_msg}")
+            raise HTTPException(status_code=400, detail=error_msg)
+        
+        # Get database schema
+        print(f"[NL-to-SQL] Step 2: Getting database schema...")
+        schema = await get_database_schema()
+        print(f"[NL-to-SQL] Step 2: Schema loaded ({len(schema)} chars)")
+        
+        # Create OpenAI client with explicit timeout and connection settings
+        print(f"[NL-to-SQL] Step 3: Creating OpenAI client...")
+        print(f"[NL-to-SQL] Step 3: API Key Info:")
+        print(f"  - Length: {len(api_key) if api_key else 0}")
+        print(f"  - Preview: {api_key[:7] if api_key else 'None'}...{api_key[-4:] if api_key and len(api_key) > 11 else ''}")
+        print(f"  - Format valid: {api_key.startswith('sk-') if api_key else False}")
+        
+        try:
+            # Explicit base URL to ensure correct endpoint
+            base_url = "https://api.openai.com/v1"
+            
+            # Create HTTP client with explicit configuration
+            # Use context manager to ensure proper cleanup
+            # Increased timeouts to handle slow connections and proxy delays
+            # Read timeout increased to 120s for slow responses
+            # Connect timeout increased to 30s for proxy/SSL handshake delays
+            http_client = httpx.AsyncClient(
+                timeout=httpx.Timeout(120.0, connect=30.0, read=120.0, write=20.0, pool=20.0),
+                verify=True,  # Explicit SSL verification
+                follow_redirects=True,
+                limits=httpx.Limits(max_keepalive_connections=5, max_connections=10)
+            )
+            
+            # Add proxy support if configured
+            proxy_url = os.getenv("HTTPS_PROXY") or os.getenv("HTTP_PROXY") or os.getenv("https_proxy") or os.getenv("http_proxy")
+            if proxy_url:
+                print(f"[NL-to-SQL] Step 3: Using proxy: {proxy_url}")
+                http_client = httpx.AsyncClient(
+                    timeout=httpx.Timeout(120.0, connect=30.0, read=120.0, write=20.0, pool=20.0),
+                    verify=True,
+                    follow_redirects=True,
+                    limits=httpx.Limits(max_keepalive_connections=5, max_connections=10),
+                    proxies={"https://": proxy_url, "http://": proxy_url}
+                )
+            
+            client = AsyncOpenAI(
+                api_key=api_key,
+                base_url=base_url,
+                http_client=http_client,
+                max_retries=2
+            )
+            print(f"[NL-to-SQL] Step 3: OpenAI client created successfully")
+            print(f"[NL-to-SQL] Step 3: Base URL: {base_url}")
+        except Exception as e:
+            error_msg = f"Failed to create OpenAI client: {str(e)}"
+            print(f"[NL-to-SQL] ERROR: {error_msg}")
+            print(f"[NL-to-SQL] ERROR traceback:\n{traceback.format_exc()}")
+            raise HTTPException(status_code=500, detail=error_msg)
         
         # Build prompt for LLM
         schema_note = ""
@@ -386,33 +556,120 @@ Question: {request.question}
 SQL Query:"""
         
         # Generate SQL from OpenAI (non-streaming for simplicity)
-        response = await client.chat.completions.create(
-            model=DEFAULT_MODEL,
-            messages=[
-                {"role": "system", "content": "You are a SQL expert. Generate only SQL queries, no explanations, no markdown formatting, no code blocks. Return raw SQL only."},
-                {"role": "user", "content": prompt}
-            ],
-            stream=False,
-            temperature=0
-        )
+        print(f"[NL-to-SQL] Step 4: Sending request to OpenAI API (model: {DEFAULT_MODEL})...")
+        print(f"[NL-to-SQL] Step 4: Prompt length: {len(prompt)} chars")
+        print(f"[NL-to-SQL] Step 4: Request details:")
+        print(f"  - Model: {DEFAULT_MODEL}")
+        print(f"  - Max tokens: 500")
+        print(f"  - Temperature: 0")
+        
+        try:
+            # Use httpx.Timeout configured in client (no need for asyncio.wait_for wrapper)
+            # The httpx.Timeout(60.0, connect=15.0, read=60.0) already handles timeouts
+            print(f"[NL-to-SQL] Step 4: Calling OpenAI API...")
+            response = await client.chat.completions.create(
+                model=DEFAULT_MODEL,
+                messages=[
+                    {"role": "system", "content": "You are a SQL expert. Generate only SQL queries, no explanations, no markdown formatting, no code blocks. Return raw SQL only."},
+                    {"role": "user", "content": prompt}
+                ],
+                stream=False,
+                temperature=0,
+                max_tokens=500
+            )
+            print(f"[NL-to-SQL] Step 5: SUCCESS - Received response from OpenAI API")
+            print(f"[NL-to-SQL] Step 5: Response has {len(response.choices)} choices")
+        except httpx.TimeoutException as e:
+            error_msg = f"OpenAI API call timed out: {str(e)}"
+            print(f"[NL-to-SQL] ERROR: {error_msg}")
+            print(f"[NL-to-SQL] ERROR: Timeout occurred - connection or read timeout exceeded")
+            raise HTTPException(status_code=504, detail=error_msg)
+        except Exception as e:
+            error_type = type(e).__name__
+            error_msg = str(e)
+            
+            # Enhanced error diagnostics for connection errors
+            if "Connection" in error_type or "connection" in error_msg.lower() or "connect" in error_msg.lower():
+                print(f"[NL-to-SQL] Connection error detected. Diagnosing network issue...")
+                
+                # Test network connectivity
+                import socket
+                network_ok = False
+                dns_ok = False
+                try:
+                    # Test DNS resolution
+                    socket.gethostbyname("api.openai.com")
+                    dns_ok = True
+                    print(f"[NL-to-SQL] DNS resolution: OK")
+                    
+                    # Test TCP connection
+                    sock = socket.create_connection(("api.openai.com", 443), timeout=5)
+                    sock.close()
+                    network_ok = True
+                    print(f"[NL-to-SQL] TCP connection to api.openai.com:443: OK")
+                except socket.gaierror as dns_err:
+                    dns_ok = False
+                    print(f"[NL-to-SQL] DNS resolution failed: {dns_err}")
+                except (socket.timeout, OSError, ConnectionRefusedError) as conn_err:
+                    network_ok = False
+                    print(f"[NL-to-SQL] TCP connection failed: {conn_err}")
+                
+                # Build detailed error message
+                if not dns_ok:
+                    error_msg = f"OpenAI API connection error: DNS resolution failed. Cannot resolve api.openai.com. Check network/DNS settings."
+                elif not network_ok:
+                    error_msg = f"OpenAI API connection error: Cannot connect to api.openai.com:443. Check firewall/proxy settings. Original error: {error_msg}"
+                else:
+                    error_msg = f"OpenAI API connection error: {error_msg}. Network appears reachable, but API call failed."
+            else:
+                error_msg = f"OpenAI API error: {error_msg}"
+            
+            print(f"[NL-to-SQL] ERROR: {error_msg}")
+            print(f"[NL-to-SQL] ERROR type: {error_type}")
+            print(f"[NL-to-SQL] ERROR traceback:\n{traceback.format_exc()}")
+            raise HTTPException(status_code=502, detail=error_msg)
+        
+        if not response.choices or not response.choices[0].message.content:
+            error_msg = "OpenAI API returned empty response"
+            print(f"[NL-to-SQL] ERROR: {error_msg}")
+            raise HTTPException(status_code=502, detail=error_msg)
         
         sql_query = response.choices[0].message.content.strip()
+        print(f"[NL-to-SQL] Step 6: Raw SQL from OpenAI: {sql_query[:100]}...")
         
         # Clean SQL (remove markdown if present)
         sql_query = clean_sql(sql_query)
+        print(f"[NL-to-SQL] Step 7: Cleaned SQL: {sql_query[:100]}...")
         
         # Validate SQL
+        print(f"[NL-to-SQL] Step 8: Validating SQL...")
         is_valid, validated_sql = validate_sql(sql_query)
         
         if not is_valid:
-            raise HTTPException(status_code=400, detail=f"Invalid SQL generated: {validated_sql}")
+            error_msg = f"Invalid SQL generated: {validated_sql}"
+            print(f"[NL-to-SQL] ERROR: {error_msg}")
+            raise HTTPException(status_code=400, detail=error_msg)
+        
+        print(f"[NL-to-SQL] Step 9: SQL validated successfully")
+        print(f"[NL-to-SQL] Step 9: Final SQL: {validated_sql[:100]}...")
         
         return {"sql": validated_sql}
     
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error generating SQL: {str(e)}")
+        # Catch ALL exceptions to prevent server crash
+        error_type = type(e).__name__
+        error_msg = str(e)
+        print(f"[NL-to-SQL] CRITICAL ERROR: {error_type}: {error_msg}")
+        print(f"[NL-to-SQL] CRITICAL ERROR traceback:\n{traceback.format_exc()}")
+        
+        # Return error response instead of crashing
+        # This prevents server from being killed (SIGKILL)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Unexpected error generating SQL: {error_type}: {error_msg}"
+        )
 
 
 if __name__ == "__main__":

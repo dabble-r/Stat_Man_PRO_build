@@ -13,8 +13,30 @@ from src.ui.styles.stylesheets import StyleSheets
 from src.utils.clear_db_startup import clear_database_on_startup
 from src.utils.print_filter import mute_print
 from src.utils.path_resolver import get_resource_path
+from src.utils.nl_sql_server import NLServerManager
 
 # --------------------------------------------------
+
+
+def ensure_ports_free():
+    """Ensure ports 8000 and 8001 are free on program startup."""
+    print("[Main] Checking and freeing ports 8000 and 8001...")
+    
+    # Create a temporary server manager just for port checking
+    # We don't need to keep it, just use its port checking method
+    temp_manager = NLServerManager()
+    
+    # Check and free both ports
+    port_8000_free = temp_manager._check_and_free_port(8000)
+    port_8001_free = temp_manager._check_and_free_port(8001)
+    
+    if port_8000_free and port_8001_free:
+        print("[Main] Ports 8000 and 8001 are free and ready")
+    else:
+        print("[Main] Warning: Some ports may still be in use")
+    
+    return port_8000_free and port_8001_free
+
 
 if __name__ == "__main__":
     # mute print statements unless STATMANG_DEBUG=1 is set
@@ -22,6 +44,9 @@ if __name__ == "__main__":
 
     # Clear database before starting application
     clear_database_on_startup()
+    
+    # Ensure ports 8000 and 8001 are free
+    ensure_ports_free()
     
     app = QApplication(sys.argv)
     styles = StyleSheets()
