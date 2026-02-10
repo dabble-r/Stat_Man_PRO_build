@@ -16,6 +16,7 @@ The manager:
 
 import sys
 import os
+import shutil
 import socket
 import subprocess
 import time
@@ -24,6 +25,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional, Callable
 from PySide6.QtCore import QProcess, QTimer, Signal, QObject
+
+from src.utils.path_resolver import get_app_base_path, get_database_path
 
 
 class NLServerManager(QObject):
@@ -90,31 +93,59 @@ class NLServerManager(QObject):
     def _get_nl_sql_directory(self) -> Path:
         """
         Get the absolute path to the nl_sql directory.
-        
+
         The nl_sql directory contains:
         - api_call.py (FastAPI server)
         - mcp_server.py (MCP server)
         - start_server.py (FastAPI startup script)
         - start_mcp_server.py (MCP startup script)
+
+        When running as a frozen exe, nl_sql is under the bundle root (sys._MEIPASS).
         """
-        # Get project root (assuming this file is in src/utils/)
-        # Path structure: project_root/src/utils/nl_sql_server.py
-        project_root = Path(__file__).parent.parent.parent
+        if getattr(sys, "frozen", False):
+            project_root = Path(sys._MEIPASS)
+        else:
+            # Path structure: project_root/src/utils/nl_sql_server.py
+            project_root = Path(__file__).parent.parent.parent
         nl_sql_dir = project_root / "nl_sql"
-        
+
         if not nl_sql_dir.exists():
             raise FileNotFoundError(
                 f"NL-SQL directory not found: {nl_sql_dir}\n"
-                "Please ensure the nl_sql directory exists in the project root."
+                "Please ensure the nl_sql directory exists in the project root (or is bundled)."
             )
-        
+
         return nl_sql_dir.resolve()
-    
+
+    def _get_python_executable(self) -> str:
+        """
+        Return the Python executable to use for server subprocesses.
+        When frozen (onefile exe), sys.executable is the exe itself, so we must
+        use a system Python; otherwise the subprocess would re-run the app.
+        """
+        if not getattr(sys, "frozen", False):
+            return sys.executable
+        # Prefer python3 then python so server scripts run with a real interpreter
+        for name in ("python3", "python"):
+            exe = shutil.which(name)
+            if exe:
+                return exe
+        # Fallback: sys.executable will launch the exe again; log and return it
+        print(
+            "[NL Server Manager] Warning: No system Python found (python3/python). "
+            "NL servers may not start from the built exe. Install Python and add to PATH."
+        )
+        return sys.executable
+
     def _setup_file_logging(self):
         """Setup file logging for server output."""
-        # Get project root and create logs directory
-        project_root = Path(__file__).parent.parent.parent
-        logs_dir = project_root / "tests" / "logs"
+        # When frozen, use app base (next to exe) for writable logs; else project tests/logs
+        if getattr(sys, "frozen", False):
+            project_root = Path(get_app_base_path())
+            logs_dir = project_root / "logs"
+        else:
+            project_root = Path(__file__).parent.parent.parent
+            logs_dir = project_root / "tests" / "logs"
         logs_dir.mkdir(parents=True, exist_ok=True)
         
         # Setup FastAPI server log file
@@ -340,11 +371,16 @@ class NLServerManager(QObject):
             pythonpath_parts.append(current_pythonpath)
         
         # Set new PYTHONPATH
-        new_pythonpath = ":".join(pythonpath_parts)
+        new_pythonpath = os.pathsep.join(pythonpath_parts)
         env.insert("PYTHONPATH", new_pythonpath)
         
         # Disable reload by default (causes issues with QProcess)
         env.insert("STATMANG_ENABLE_RELOAD", "false")
+        
+        # When frozen, server subprocess (system Python) must use same app base and DB as main app
+        if getattr(sys, "frozen", False):
+            env.insert("STATMANG_APP_BASE", get_app_base_path())
+            env.insert("STATMANG_DB_PATH", str(get_database_path()))
         
         # IMPORTANT: Pass OPENAI_API_KEY from parent process environment to subprocess
         # This allows the API key set in the dialog to be available in the server subprocess
@@ -368,7 +404,7 @@ class NLServerManager(QObject):
         self.fastapi_process.setProcessEnvironment(env)
         
         # Start the server using start_server.py script
-        python_exe = sys.executable
+        python_exe = self._get_python_executable()
         server_script = self.nl_sql_dir / "start_server.py"
         project_root = self.nl_sql_dir.parent
         new_pythonpath = env.value("PYTHONPATH", "")
@@ -490,16 +526,21 @@ class NLServerManager(QObject):
             pythonpath_parts.append(current_pythonpath)
         
         # Set new PYTHONPATH
-        new_pythonpath = ":".join(pythonpath_parts)
+        new_pythonpath = os.pathsep.join(pythonpath_parts)
         env.insert("PYTHONPATH", new_pythonpath)
         
         # Disable reload by default (causes issues with QProcess)
         env.insert("STATMANG_ENABLE_RELOAD", "false")
         
+        # When frozen, server subprocess (system Python) must use same app base and DB as main app
+        if getattr(sys, "frozen", False):
+            env.insert("STATMANG_APP_BASE", get_app_base_path())
+            env.insert("STATMANG_DB_PATH", str(get_database_path()))
+        
         self.mcp_process.setProcessEnvironment(env)
         
         # Start the server using start_mcp_server.py script
-        python_exe = sys.executable
+        python_exe = self._get_python_executable()
         mcp_script = self.nl_sql_dir / "start_mcp_server.py"
         
         project_root = self.nl_sql_dir.parent
@@ -691,7 +732,7 @@ class NLServerManager(QObject):
             error_msg = process.errorString()
             if not error_msg or error_msg == "Unknown error":
                 # Try to get more specific error
-                python_exe = sys.executable
+                python_exe = self._get_python_executable()
                 
                 if not Path(python_exe).exists():
                     error_msg = f"Python executable not found: {python_exe}"

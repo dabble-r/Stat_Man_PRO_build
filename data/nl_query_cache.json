@@ -24,6 +24,14 @@
       "formatted_sql": "SELECT *\nFROM player\nLIMIT 100",
       "timestamp": 1770686743.653419,
       "display_name": "show all plauyers"
+    },
+    {
+      "id": "8ccea1ea-9fef-4820-9b00-ae456566f959",
+      "nl_query": "show all teams that have a logo",
+      "sql_query": "SELECT * FROM team WHERE logo IS NOT NULL LIMIT 100",
+      "formatted_sql": "SELECT *\nFROM team\nWHERE logo IS NOT NULL\nLIMIT 100",
+      "timestamp": 1770738711.362427,
+      "display_name": "show all teams that have a logo"
     }
   ]
 }

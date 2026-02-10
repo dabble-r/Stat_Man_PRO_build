@@ -143,11 +143,22 @@ if assets_path.exists():
 else:
     print(f"⚠ WARNING: Assets folder not found at {assets_path}")
 
+# Bundle nl_sql directory so server scripts exist at runtime (FastAPI/MCP servers)
+# When frozen, NLServerManager runs these via system Python; scripts must be on disk
+nl_sql_path = base_dir / 'nl_sql'
+nl_sql_data = []
+if nl_sql_path.exists():
+    nl_sql_data = [(str(nl_sql_path), 'nl_sql')]
+    print(f"✓ Bundling nl_sql folder: {nl_sql_path}")
+    print(f"  nl_sql will be available at runtime in: nl_sql/")
+else:
+    print(f"⚠ WARNING: nl_sql folder not found at {nl_sql_path}")
+
 a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=pyside6_binaries,
-    datas=pyside6_datas + assets_data,
+    datas=pyside6_datas + assets_data + nl_sql_data,
     hiddenimports=[
         'PySide6',
         'PySide6.QtCore',

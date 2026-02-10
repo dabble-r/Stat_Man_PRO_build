@@ -12,10 +12,16 @@ def get_app_base_path():
     Get the base path where the application is running from.
     For bundled executables, this is the directory containing the .exe.
     For development, this is the project root.
+
+    When the process is a server subprocess started by the frozen app, the parent
+    sets STATMANG_APP_BASE so the server uses the same data directory as the main app.
     
     Returns:
         str: Absolute path to application base directory
     """
+    env_base = os.environ.get("STATMANG_APP_BASE", "").strip()
+    if env_base:
+        return env_base
     if getattr(sys, 'frozen', False):
         # Running as bundled executable
         return os.path.dirname(sys.executable)
@@ -67,9 +73,15 @@ def get_data_path(*relative_paths):
 def get_database_path():
     """
     Get the path to the League database.
+
+    When the process is a server subprocess started by the frozen app, the parent
+    sets STATMANG_DB_PATH so the server uses the same database as the main app.
     
     Returns:
         Path: Path to data/database/League.db
     """
+    env_db = os.environ.get("STATMANG_DB_PATH", "").strip()
+    if env_db:
+        return Path(env_db)
     return get_data_path("database", "League.db")
 
