@@ -17,6 +17,9 @@ from src.utils.nl_query_cache import NLQueryCache
 from src.utils.path_resolver import get_data_path
 from src.utils.api_key_manager import APIKeyManager
 from src.utils.global_server_manager import GlobalServerManager
+from src.visualization.viz_plot_builder import build_figure
+from src.ui.dialogs.viz_options_dialog import VizOptionsDialog
+from src.ui.dialogs.viz_viewer_dialog import VizViewerDialog
 from typing import Optional
 import os
 import requests
@@ -206,7 +209,7 @@ class NLQueryDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("NL-to-SQL Query")
-        self.setMinimumSize(1000, 700)
+        self.setMinimumSize(1250, 750)
         
         # Make dialog stay on top
         self.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint)
@@ -305,6 +308,7 @@ class NLQueryDialog(QDialog):
         self.api_key_input = QLineEdit()
         self.api_key_input.setEchoMode(QLineEdit.EchoMode.Password)
         self.api_key_input.setPlaceholderText("Enter your OpenAI API key...")
+        self.api_key_input.textChanged.connect(self._on_api_key_input_changed)
         
         # API Key buttons layout
         api_key_buttons_layout = QHBoxLayout()
@@ -415,8 +419,14 @@ class NLQueryDialog(QDialog):
         self.export_query_results_btn.setToolTip("Export formatted SQL query and results to separate folders")
         self.export_query_results_btn.clicked.connect(self._handle_export_query_results)
         
+        self.visualize_btn = QPushButton("Visualize")
+        self.visualize_btn.setToolTip("Create a chart from query results (bar, line, scatter, histogram, box)")
+        self.visualize_btn.clicked.connect(self._handle_visualize)
+        self.visualize_btn.setEnabled(False)
+        
         import_export_layout.addWidget(self.import_queries_btn)
         import_export_layout.addWidget(self.export_query_results_btn)
+        import_export_layout.addWidget(self.visualize_btn)
         import_export_layout.addStretch()
         
         self.execute_sql_btn = QPushButton("Execute SQL Query")
@@ -528,6 +538,22 @@ class NLQueryDialog(QDialog):
             return False
         return api_key.startswith("sk-") or len(api_key) > 40
     
+    def _on_api_key_input_changed(self):
+        """When user clears the API key field, remove saved key and allow submitting a new one."""
+        text = self.api_key_input.text().strip()
+        if text == "":
+            self.api_key_manager.clear_api_key()
+            self.api_key = None
+            self.submit_api_key_btn.setEnabled(True)
+            self.submit_api_key_btn.setText("Submit API Key")
+            self.api_key_input.setToolTip("Enter your OpenAI API key...")
+        elif self.api_key:
+            # User edited the field away from the masked key; allow submit for new key
+            masked = self.api_key[:7] + "*" * (len(self.api_key) - 11) + self.api_key[-4:]
+            if text != masked:
+                self.submit_api_key_btn.setEnabled(True)
+                self.submit_api_key_btn.setText("Submit API Key")
+    
     def _handle_api_key_submit(self):
         """Handle API key submission and start servers."""
         api_key = self.api_key_input.text().strip()
@@ -624,6 +650,7 @@ class NLQueryDialog(QDialog):
         self.results_table.setModel(None)
         self.query_results_df = None
         self._original_dataframe = None
+        self.visualize_btn.setEnabled(False)
         
         # Clear failure states
         self._fastapi_failure_msg = None
@@ -682,6 +709,7 @@ class NLQueryDialog(QDialog):
         self.results_table.setModel(None)
         self.query_results_df = None
         self._original_dataframe = None
+        self.visualize_btn.setEnabled(False)
         
         self._servers_ready_message_shown = False  # Allow one "Servers Ready" message after restart
         
@@ -770,11 +798,11 @@ class NLQueryDialog(QDialog):
         self.submit_api_key_btn.setText("API Key Validated ✓")
         self.submit_api_key_btn.setEnabled(False)
         
-        # Mask API key
+        # Mask API key (field stays editable so user can clear to enter a different key)
         if self.api_key:
             masked = self.api_key[:7] + "*" * (len(self.api_key) - 11) + self.api_key[-4:]
             self.api_key_input.setText(masked)
-        self.api_key_input.setReadOnly(True)
+            self.api_key_input.setToolTip("Clear the field to remove the saved key and enter a different one.")
         
         # Enable NL query section
         self.nl_query_input.setEnabled(True)
@@ -870,6 +898,7 @@ class NLQueryDialog(QDialog):
         self.results_table.setModel(None)
         self.query_results_df = None
         self._original_dataframe = None
+        self.visualize_btn.setEnabled(False)
         
         # Verify API key is available before starting thread
         if not self.api_key:
@@ -1048,6 +1077,7 @@ class NLQueryDialog(QDialog):
         self.query_results = None
         self.query_results_df = None
         self._original_dataframe = None
+        self.visualize_btn.setEnabled(False)
     
     def _format_sql(self, sql: str) -> str:
         """Format SQL for display."""
@@ -1073,6 +1103,7 @@ class NLQueryDialog(QDialog):
             self.results_status_label.setText("Query returned no results.")
             self.results_status_label.setVisible(True)
             self.results_table.setModel(None)
+            self.visualize_btn.setEnabled(False)
             return
         
         # Create and set model
@@ -1092,8 +1123,9 @@ class NLQueryDialog(QDialog):
         )
         self.results_status_label.setVisible(True)
         
-        # Enable table
+        # Enable table and visualize button when we have data
         self.results_table.setEnabled(True)
+        self.visualize_btn.setEnabled(True)
     
     def _refresh_cache_dropdown(self):
         """Refresh the cached queries dropdown with current cache."""
@@ -1336,6 +1368,32 @@ class NLQueryDialog(QDialog):
                 logger.warning(f"Failed to search cache for NL query: {e}", exc_info=True)
         
         return None
+    
+    def _handle_visualize(self):
+        """Open visualization options and show chart from query results."""
+        if self.query_results_df is None or self.query_results_df.empty:
+            QMessageBox.warning(
+                self,
+                "No Results",
+                "No query results to visualize. Execute a SQL query first."
+            )
+            return
+        try:
+            opts_dialog = VizOptionsDialog(self.query_results_df, parent=self)
+            if opts_dialog.exec() != QDialog.DialogCode.Accepted:
+                return
+            options = opts_dialog.get_options()
+            fig = build_figure(self.query_results_df.copy(), options)
+            viewer = VizViewerDialog(parent=self)
+            viewer.set_figure(fig)
+            viewer.exec()
+        except Exception as e:
+            logger.exception("Visualization failed")
+            QMessageBox.warning(
+                self,
+                "Visualization Error",
+                f"Could not create chart: {str(e)}"
+            )
     
     def _handle_export_query_results(self):
         """Export formatted SQL query and results to separate folders."""
@@ -1633,6 +1691,7 @@ class NLQueryDialog(QDialog):
             self.query_results_df = None
             self._original_dataframe = None
             self.query_results = None
+            self.visualize_btn.setEnabled(False)
             return
         
         try:
@@ -1653,6 +1712,7 @@ class NLQueryDialog(QDialog):
             self.query_results_df = None
             self._original_dataframe = None
             self.query_results = None
+            self.visualize_btn.setEnabled(False)
     
     def closeEvent(self, event: QCloseEvent):
         """Handle dialog close - stop servers and save API key."""
@@ -1682,14 +1742,9 @@ class NLQueryDialog(QDialog):
             self.local_execute_thread.wait(1000)  # Wait up to 1 second
         
         # Stop servers when dialog closes
-        # API key is saved, so user can easily restart servers when reopening dialog
+        # API key remains on disk for the session; cleared when program exits
         if self.global_server_manager:
             logger.info("Dialog closing - stopping servers")
             self.global_server_manager.stop_servers()
-        
-        # Save API key if it was changed
-        if self.api_key:
-            self.api_key_manager.save_api_key(self.api_key)
-            logger.info("API key saved - user can restart servers when reopening dialog")
         
         event.accept()

@@ -14,6 +14,7 @@ from src.utils.clear_db_startup import clear_database_on_startup
 from src.utils.print_filter import mute_print
 from src.utils.path_resolver import get_resource_path
 from src.utils.nl_sql_server import NLServerManager
+from src.utils.api_key_manager import APIKeyManager
 
 # --------------------------------------------------
 
@@ -62,6 +63,11 @@ if __name__ == "__main__":
     # If icon not found, continue without icon (no error)
 
     window = MainWindow(app)
+
+    # Clear saved API key when program exits (session-only persistence)
+    def clear_api_key_on_exit():
+        APIKeyManager().clear_api_key()
+    app.aboutToQuit.connect(clear_api_key_on_exit)
 
     sys.exit(app.exec())
 

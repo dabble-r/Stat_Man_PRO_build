@@ -1,4 +1,29 @@
 {
   "version": "1.0",
-  "queries": []
+  "queries": [
+    {
+      "id": "2b608150-40e9-4a5e-88de-e52dfe5a2484",
+      "nl_query": "show all temas",
+      "sql_query": "SELECT * FROM team LIMIT 100;",
+      "formatted_sql": "SELECT *\nFROM team\nLIMIT 100;",
+      "timestamp": 1770686620.313223,
+      "display_name": "show all temas"
+    },
+    {
+      "id": "95002e0e-9474-4cb3-8bb8-2271cdd3ba25",
+      "nl_query": "show all temas with players whoare also second baseman",
+      "sql_query": "SELECT DISTINCT team.* FROM team JOIN player ON team.teamID = player.teamID WHERE player.positions LIKE '%2B%' LIMIT 100;",
+      "formatted_sql": "SELECT DISTINCT team.*\nFROM team\nJOIN player ON team.teamID = player.teamID\nWHERE player.positions LIKE '%2B%'\nLIMIT 100;",
+      "timestamp": 1770686631.435712,
+      "display_name": "show all temas with players whoare also second bas"
+    },
+    {
+      "id": "afbf2379-fab1-421e-8e33-5b773590e09c",
+      "nl_query": "show all plauyers",
+      "sql_query": "SELECT * FROM player LIMIT 100",
+      "formatted_sql": "SELECT *\nFROM player\nLIMIT 100",
+      "timestamp": 1770686743.653419,
+      "display_name": "show all plauyers"
+    }
+  ]
 }
