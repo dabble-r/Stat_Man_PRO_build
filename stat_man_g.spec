@@ -92,7 +92,7 @@ else:
     print(f"ℹ Platform {sys.platform} detected, building without icon")
 
 # Collect PySide6 binaries and plugins
-from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs
+from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs, collect_submodules
 
 try:
     import PySide6
@@ -154,10 +154,17 @@ if nl_sql_path.exists():
 else:
     print(f"⚠ WARNING: nl_sql folder not found at {nl_sql_path}")
 
+# Numpy, pandas, matplotlib: submodules and DLLs for "could not find dependency" fix
+numpy_hiddenimports = collect_submodules('numpy')
+numpy_binaries = collect_dynamic_libs('numpy')
+pandas_hiddenimports = collect_submodules('pandas')
+pandas_binaries = collect_dynamic_libs('pandas')
+matplotlib_hiddenimports = collect_submodules('matplotlib')
+
 a = Analysis(
     ['main.py'],
     pathex=[],
-    binaries=pyside6_binaries,
+    binaries=pyside6_binaries + numpy_binaries + pandas_binaries,
     datas=pyside6_datas + assets_data + nl_sql_data,
     hiddenimports=[
         'PySide6',
@@ -176,6 +183,29 @@ a = Analysis(
         'pkg_resources',
         'jaraco',
         'jaraco.text',
+        # Server dependencies (nl_sql FastAPI/MCP: start_server.py, api_call, mcp_server)
+        'fastapi',
+        'starlette',  # FastAPI dependency
+        'uvicorn',
+        'uvicorn.logging',
+        'uvicorn.loops',
+        'uvicorn.loops.auto',
+        'uvicorn.protocols',
+        'uvicorn.protocols.http',
+        'uvicorn.protocols.http.auto',
+        'uvicorn.protocols.websockets',
+        'uvicorn.protocols.websockets.auto',
+        'uvicorn.lifespan',
+        'uvicorn.lifespan.on',
+        'openai',
+        'sqlglot',
+        'requests',
+        'httpx',
+        'pydantic',
+        # Numpy/pandas/matplotlib: all submodules (fix "could not find dependency numpy")
+        *numpy_hiddenimports,
+        *pandas_hiddenimports,
+        *matplotlib_hiddenimports,
     ],
     hookspath=[],
     hooksconfig={},

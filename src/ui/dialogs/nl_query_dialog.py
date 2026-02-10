@@ -613,6 +613,7 @@ class NLQueryDialog(QDialog):
         self.restart_servers_btn.setEnabled(False)  # Disable during startup
         self.stop_servers_btn.setEnabled(False)  # Disable during startup
         self._servers_ready_message_shown = False  # Allow one "Servers Ready" message this cycle
+        self._servers_starting = True  # So failure handlers can clear and re-enable button
         
         # Start servers using GlobalServerManager
         logger.info("[NLQueryDialog] Calling GlobalServerManager.start_servers()...")
@@ -866,48 +867,56 @@ class NLQueryDialog(QDialog):
         pass
     
     def _on_fastapi_failed(self, msg: str):
-        """Handle FastAPI server failure - store error, don't show immediately."""
-        # Don't process if dialog is closing
+        """Handle FastAPI server failure - clear starting state and re-enable button."""
         if self._is_closing:
             return
         
-        # Don't store error if server is actually running (false alarm)
         if self.server_manager and self.server_manager.is_fastapi_running():
             logger.warning(f"FastAPI failed signal received but server is running: {msg}")
-            self._fastapi_failure_msg = None  # Clear any previous failure
+            self._fastapi_failure_msg = None
             return
         
-        # Store failure message - will be shown when user tries to use servers
         self._fastapi_failure_msg = msg
-        logger.warning(f"FastAPI server failure stored: {msg}")
+        self._servers_starting = False  # So UI always recovers when servers fail
+        logger.warning(f"FastAPI server failure: {msg}")
         
-        # If servers are no longer starting, we can reset the button
-        if not self._servers_starting:
-            self.submit_api_key_btn.setEnabled(True)
-            self.submit_api_key_btn.setText("Submit API Key")
+        self.submit_api_key_btn.setEnabled(True)
+        self.submit_api_key_btn.setText("Submit API Key")
+        self.stop_servers_btn.setEnabled(False)
+        self.restart_servers_btn.setEnabled(True if self.api_key else False)
+        # Show once; if MCP also fails we skip so user sees only one dialog
+        if not self._mcp_failure_msg:
+            QMessageBox.warning(
+                self,
+                "Servers",
+                "Servers could not be started. Check the logs folder next to the app."
+            )
     
     def _on_mcp_failed(self, msg: str):
-        """Handle MCP server failure - store error, don't show immediately."""
-        # Don't process if dialog is closing
+        """Handle MCP server failure - clear starting state and re-enable button."""
         if self._is_closing:
             return
         
-        # Don't store error if server is actually running (false alarm)
         if self.server_manager and self.server_manager.is_mcp_running():
             logger.warning(f"MCP failed signal received but server is running: {msg}")
-            self._mcp_failure_msg = None  # Clear any previous failure
+            self._mcp_failure_msg = None
             return
         
-        # Store failure message - will be shown when user tries to use servers
         self._mcp_failure_msg = msg
-        logger.warning(f"MCP server failure stored: {msg}")
+        self._servers_starting = False  # So UI always recovers when servers fail
+        logger.warning(f"MCP server failure: {msg}")
         
-        # If servers are no longer starting, we can reset the buttons
-        if not self._servers_starting:
-            self.submit_api_key_btn.setEnabled(True)
-            self.submit_api_key_btn.setText("Submit API Key")
-            self.stop_servers_btn.setEnabled(False)
-            self.restart_servers_btn.setEnabled(True if self.api_key else False)
+        self.submit_api_key_btn.setEnabled(True)
+        self.submit_api_key_btn.setText("Submit API Key")
+        self.stop_servers_btn.setEnabled(False)
+        self.restart_servers_btn.setEnabled(True if self.api_key else False)
+        # Show once per failure; avoid duplicate if both FastAPI and MCP fail
+        if not self._fastapi_failure_msg:
+            QMessageBox.warning(
+                self,
+                "Servers",
+                "Servers could not be started. Check the logs folder next to the app."
+            )
     
     def _handle_nl_query_submit(self):
         """Handle NL query submission - only generates SQL, doesn't execute."""

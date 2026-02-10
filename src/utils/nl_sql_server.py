@@ -23,7 +23,7 @@ import time
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Callable
+from typing import Optional, Callable, List, Tuple
 from PySide6.QtCore import QProcess, QTimer, Signal, QObject
 
 from src.utils.path_resolver import get_app_base_path, get_database_path
@@ -74,6 +74,10 @@ class NLServerManager(QObject):
         self._fastapi_ready_flag = False
         self._mcp_ready_flag = False
         self._all_servers_ready_emitted = False  # Prevent multiple emissions
+        # Verification timeout: max retries before emitting failed (stops UI staying stuck)
+        self._fastapi_verify_retries = 0
+        self._mcp_verify_retries = 0
+        self._max_verify_retries = 15  # ~30s at 2s interval
         
         # Callbacks for output/error handling
         self.fastapi_output_callback: Optional[Callable[[str], None]] = None
@@ -117,25 +121,32 @@ class NLServerManager(QObject):
 
         return nl_sql_dir.resolve()
 
-    def _get_python_executable(self) -> str:
+    def _get_python_executable(self) -> Tuple[str, List[str]]:
         """
-        Return the Python executable to use for server subprocesses.
+        Return (executable, prefix_args) for server subprocesses.
         When frozen (onefile exe), sys.executable is the exe itself, so we must
-        use a system Python; otherwise the subprocess would re-run the app.
+        use a system Python. On Windows, also try the 'py' launcher.
+        prefix_args are prepended to the script path (e.g. ["-3"] for py -3 script.py).
         """
         if not getattr(sys, "frozen", False):
-            return sys.executable
+            return (sys.executable, [])
         # Prefer python3 then python so server scripts run with a real interpreter
         for name in ("python3", "python"):
             exe = shutil.which(name)
             if exe:
-                return exe
+                return (exe, [])
+        # Windows: try Python Launcher (py -3) so servers can start when only py is on PATH
+        if sys.platform.startswith("win"):
+            py_launcher = shutil.which("py")
+            if py_launcher:
+                print("[NL Server Manager] Using Python Launcher (py -3) for server subprocess")
+                return (py_launcher, ["-3"])
         # Fallback: sys.executable will launch the exe again; log and return it
         print(
-            "[NL Server Manager] Warning: No system Python found (python3/python). "
+            "[NL Server Manager] Warning: No system Python found (python3/python/py). "
             "NL servers may not start from the built exe. Install Python and add to PATH."
         )
-        return sys.executable
+        return (sys.executable, [])
 
     def _setup_file_logging(self):
         """Setup file logging for server output."""
@@ -332,6 +343,7 @@ class NLServerManager(QObject):
         time.sleep(0.3)
         
         self.fastapi_starting = True
+        self._fastapi_verify_retries = 0
         self.fastapi_output_callback = output_callback
         self.fastapi_error_callback = error_callback
         
@@ -404,7 +416,7 @@ class NLServerManager(QObject):
         self.fastapi_process.setProcessEnvironment(env)
         
         # Start the server using start_server.py script
-        python_exe = self._get_python_executable()
+        python_exe, py_prefix = self._get_python_executable()
         server_script = self.nl_sql_dir / "start_server.py"
         project_root = self.nl_sql_dir.parent
         new_pythonpath = env.value("PYTHONPATH", "")
@@ -424,13 +436,14 @@ class NLServerManager(QObject):
             # - Verifying uvicorn and api_call can be imported
             # - Supporting reload mode (disabled by default for subprocess)
             print(f"[NL Server Manager] Starting FastAPI server: {server_script}")
-            # Use absolute path to script
+            # Use absolute path to script; py launcher needs args like ["-3", script_path]
             script_path = str(server_script.resolve())
+            launch_args = py_prefix + [script_path]
             # Final port check right before starting
             if not self._check_and_free_port(8000):
                 print("[NL Server Manager] Warning: Port 8000 may still be in use, attempting server start anyway")
             time.sleep(0.2)  # Brief delay to ensure port is free
-            success = self.fastapi_process.start(python_exe, [script_path])
+            success = self.fastapi_process.start(python_exe, launch_args)
         else:
             # Fallback: use uvicorn directly
             if hasattr(self, '_fastapi_logger'):
@@ -438,7 +451,7 @@ class NLServerManager(QObject):
             print(f"[NL Server Manager] Script not found, using uvicorn directly")
             success = self.fastapi_process.start(
                 python_exe,
-                ["-m", "uvicorn", "api_call:app", "--host", "0.0.0.0", "--port", "8000"]
+                py_prefix + ["-m", "uvicorn", "api_call:app", "--host", "0.0.0.0", "--port", "8000"]
             )
         
         # Log QProcess.start() result
@@ -490,6 +503,7 @@ class NLServerManager(QObject):
             # Don't fail here - let the server try and handle the error if it occurs
         
         self.mcp_starting = True
+        self._mcp_verify_retries = 0
         self.mcp_output_callback = output_callback
         self.mcp_error_callback = error_callback
         
@@ -540,7 +554,7 @@ class NLServerManager(QObject):
         self.mcp_process.setProcessEnvironment(env)
         
         # Start the server using start_mcp_server.py script
-        python_exe = self._get_python_executable()
+        python_exe, py_prefix = self._get_python_executable()
         mcp_script = self.nl_sql_dir / "start_mcp_server.py"
         
         project_root = self.nl_sql_dir.parent
@@ -561,20 +575,21 @@ class NLServerManager(QObject):
             # - Verifying uvicorn and mcp_server can be imported
             # - Supporting reload mode (disabled by default for subprocess)
             print(f"[NL Server Manager] Starting MCP server: {mcp_script}")
-            # Use absolute path to script
+            # Use absolute path to script; py launcher needs args like ["-3", script_path]
             script_path = str(mcp_script.resolve())
+            launch_args = py_prefix + [script_path]
             # Final port check right before starting
             if not self._check_and_free_port(8001):
                 print("[NL Server Manager] Warning: Port 8001 may still be in use, attempting server start anyway")
             time.sleep(0.2)  # Brief delay to ensure port is free
-            success = self.mcp_process.start(python_exe, [script_path])
+            success = self.mcp_process.start(python_exe, launch_args)
         else:
             # Fallback: use uvicorn directly with proper module path
             print(f"[NL Server Manager] Script not found, using uvicorn directly")
             # Change to nl_sql directory and run uvicorn
             success = self.mcp_process.start(
                 python_exe,
-                ["-m", "uvicorn", "mcp_server:app", "--host", "0.0.0.0", "--port", "8001", "--no-reload"]
+                py_prefix + ["-m", "uvicorn", "mcp_server:app", "--host", "0.0.0.0", "--port", "8001", "--no-reload"]
             )
         
         # Don't immediately fail - QProcess.start() can return False even if process will start
@@ -732,10 +747,10 @@ class NLServerManager(QObject):
             error_msg = process.errorString()
             if not error_msg or error_msg == "Unknown error":
                 # Try to get more specific error
-                python_exe = self._get_python_executable()
-                
-                if not Path(python_exe).exists():
-                    error_msg = f"Python executable not found: {python_exe}"
+                python_exe, _ = self._get_python_executable()
+                exe_exists = (python_exe == "py" and shutil.which("py")) or Path(python_exe).exists()
+                if not exe_exists:
+                    error_msg = f"Python executable not found: {python_exe}. Install Python and add to PATH (or use 'py' launcher on Windows)."
                 elif not script.exists():
                     error_msg = f"Server script not found: {script}"
                 else:
@@ -956,10 +971,12 @@ class NLServerManager(QObject):
     def _verify_fastapi_ready(self):
         """
         Verify that FastAPI server is ready and responding.
-        
-        Checks the /docs endpoint to confirm server is running.
+        After max retries, emit fastapi_failed so the UI does not stay stuck.
         """
         import requests
+        if not self.fastapi_starting:
+            return
+        self._fastapi_verify_retries += 1
         try:
             response = requests.get("http://localhost:8000/docs", timeout=2)
             if response.status_code == 200:
@@ -967,15 +984,22 @@ class NLServerManager(QObject):
                 self.fastapi_starting = False
                 self._fastapi_ready_flag = True
                 self.fastapi_ready.emit()
-                # Check if both servers are ready
                 self._check_all_servers_ready()
             else:
-                # Server might still be starting
-                if self.fastapi_starting:
+                if self._fastapi_verify_retries >= self._max_verify_retries:
+                    self.fastapi_starting = False
+                    self.fastapi_failed.emit(
+                        "FastAPI server did not become ready in time. Check the logs folder next to the app."
+                    )
+                else:
                     QTimer.singleShot(2000, self._verify_fastapi_ready)
         except Exception:
-            # Server might still be starting
-            if self.fastapi_starting:
+            if self._fastapi_verify_retries >= self._max_verify_retries:
+                self.fastapi_starting = False
+                self.fastapi_failed.emit(
+                    "FastAPI server did not become ready in time. Check the logs folder next to the app."
+                )
+            else:
                 QTimer.singleShot(2000, self._verify_fastapi_ready)
     
     # MCP server signal handlers
@@ -1159,10 +1183,12 @@ class NLServerManager(QObject):
     def _verify_mcp_ready(self):
         """
         Verify that MCP server is ready and responding.
-        
-        Checks the /health endpoint to confirm server is running.
+        After max retries, emit mcp_failed so the UI does not stay stuck.
         """
         import requests
+        if not self.mcp_starting:
+            return
+        self._mcp_verify_retries += 1
         try:
             response = requests.get("http://localhost:8001/health", timeout=2)
             if response.status_code == 200:
@@ -1170,13 +1196,20 @@ class NLServerManager(QObject):
                 self.mcp_starting = False
                 self._mcp_ready_flag = True
                 self.mcp_ready.emit()
-                # Check if both servers are ready
                 self._check_all_servers_ready()
             else:
-                # Server might still be starting
-                if self.mcp_starting:
+                if self._mcp_verify_retries >= self._max_verify_retries:
+                    self.mcp_starting = False
+                    self.mcp_failed.emit(
+                        "MCP server did not become ready in time. Check the logs folder next to the app."
+                    )
+                else:
                     QTimer.singleShot(2000, self._verify_mcp_ready)
         except Exception:
-            # Server might still be starting
-            if self.mcp_starting:
+            if self._mcp_verify_retries >= self._max_verify_retries:
+                self.mcp_starting = False
+                self.mcp_failed.emit(
+                    "MCP server did not become ready in time. Check the logs folder next to the app."
+                )
+            else:
                 QTimer.singleShot(2000, self._verify_mcp_ready)
