@@ -172,6 +172,10 @@ a = Analysis(
         'numpy',
         'matplotlib',
         'src.ui.dialogs.nl_query_dialog',
+        # pkg_resources runtime hook (pyi_rth_pkgres) needs setuptools deps
+        'pkg_resources',
+        'jaraco',
+        'jaraco.text',
     ],
     hookspath=[],
     hooksconfig={},
@@ -181,7 +185,6 @@ a = Analysis(
         'IPython',
         'jupyter',
         'pytest',
-        'setuptools',
     ],
     win_no_prefer_redirects=False,  # Ignored on non-Windows platforms
     win_private_assemblies=False,   # Ignored on non-Windows platforms
