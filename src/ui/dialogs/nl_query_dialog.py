@@ -7,10 +7,10 @@ from PySide6.QtWidgets import (
     QDialog, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QLineEdit, QTextEdit, QPushButton,
     QMessageBox, QHeaderView, QSplitter, QTableView,
-    QComboBox, QAbstractItemView, QToolBar, QFileDialog
+    QComboBox, QAbstractItemView, QFileDialog
 )
 from PySide6.QtCore import QThread, Signal, Qt, QAbstractTableModel
-from PySide6.QtGui import QCloseEvent, QAction, QPixmap, QPainter, QColor
+from PySide6.QtGui import QCloseEvent, QAction, QPixmap, QPainter, QColor, QFontMetrics
 from PySide6.QtWidgets import QLabel
 from src.utils.nl_sql_server import NLServerManager
 from src.utils.nl_query_cache import NLQueryCache
@@ -269,9 +269,7 @@ class NLQueryDialog(QDialog):
         main_layout.setSpacing(10)
         main_layout.setContentsMargins(15, 15, 15, 15)
         
-        # Create toolbar at top
-        toolbar = self._create_toolbar()
-        main_layout.addWidget(toolbar)
+        # Toolbar removed; cache count is in right panel above Clear Cache
         
         # Content area with left and right panels
         content_layout = QHBoxLayout()
@@ -296,6 +294,11 @@ class NLQueryDialog(QDialog):
         
         # API Key Section
         api_key_label_layout = QHBoxLayout()
+        self.api_key_help_btn = QPushButton("?")
+        self.api_key_help_btn.setFixedSize(22, 22)
+        self.api_key_help_btn.setToolTip("How to get an API key")
+        self.api_key_help_btn.clicked.connect(self._show_api_key_help)
+        api_key_label_layout.addWidget(self.api_key_help_btn)
         api_key_label = QLabel("OpenAI API Key:")
         self.server_status_icon = QLabel()
         self.server_status_icon.setFixedSize(16, 16)
@@ -354,17 +357,6 @@ class NLQueryDialog(QDialog):
         panel.setLayout(layout)
         return panel
     
-    def _create_toolbar(self) -> QToolBar:
-        """Create toolbar with cache size indicator."""
-        toolbar = QToolBar("Query Cache Tools", self)
-        toolbar.setMovable(False)
-        
-        # Cache size indicator
-        self.cache_size_label = QLabel("Cache: 0/50")
-        toolbar.addWidget(self.cache_size_label)
-        
-        return toolbar
-    
     def _create_right_panel(self) -> QWidget:
         """Create right panel with cached queries, SQL display, execute button, and results."""
         panel = QWidget()
@@ -373,6 +365,13 @@ class NLQueryDialog(QDialog):
         
         # Cached Queries Section (top of right panel, above SQL display)
         # NOTE: This section is ALWAYS enabled, no API key required
+        # Cache count at top right, above Clear Cache button
+        cache_count_layout = QHBoxLayout()
+        cache_count_layout.addStretch()
+        self.cache_size_label = QLabel("Cache: 0/50")
+        cache_count_layout.addWidget(self.cache_size_label)
+        layout.addLayout(cache_count_layout)
+        
         cached_label = QLabel("Load Cached Query:")
         self.query_cache_combo = QComboBox()
         self.query_cache_combo.setEditable(False)
@@ -532,6 +531,37 @@ class NLQueryDialog(QDialog):
         self.server_manager.fastapi_failed.connect(self._on_fastapi_failed)
         self.server_manager.mcp_failed.connect(self._on_mcp_failed)
     
+    def _show_api_key_help(self):
+        """Show help dialog for obtaining an OpenAI API key. Bullets on separate lines, OpenAI link clickable."""
+        url = "https://platform.openai.com"
+        lines = [
+            "Create an account at " + url + ".",
+            "Open Dashboard → API Keys → Create new key.",
+            "Copy and store it securely.",
+        ]
+        help_html = (
+            "<ul style='margin: 0; padding-left: 20px;'>"
+            "<li>Create an account at <a href=\"" + url + "\">" + url + "</a>.</li>"
+            "<li>Open Dashboard → API Keys → Create new key.</li>"
+            "<li>Copy and store it securely.</li>"
+            "</ul>"
+        )
+        dlg = QDialog(self)
+        dlg.setWindowTitle("OpenAI API Key")
+        fm = QFontMetrics(dlg.font())
+        min_width = max(fm.horizontalAdvance(ln) for ln in lines) + 120
+        dlg.setMinimumWidth(min_width)
+        layout = QVBoxLayout(dlg)
+        label = QLabel(help_html)
+        label.setOpenExternalLinks(True)
+        label.setTextFormat(Qt.TextFormat.RichText)
+        label.setWordWrap(True)
+        layout.addWidget(label)
+        ok_btn = QPushButton("OK")
+        ok_btn.clicked.connect(dlg.accept)
+        layout.addWidget(ok_btn)
+        dlg.exec()
+
     def _validate_api_key_format(self, api_key: str) -> bool:
         """Validate API key format."""
         if not api_key or len(api_key) < 20:
