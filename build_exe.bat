@@ -5,6 +5,21 @@ REM This script builds the stat_man_g.exe using PyInstaller
 echo Building stat_man_g.exe...
 echo.
 
+REM Build from explicit branch: master
+if exist ".git" (
+    echo Checking out branch: master
+    git checkout master
+    if errorlevel 1 (
+        echo WARNING: git checkout master failed. Building current branch.
+    ) else (
+        echo Building from branch: master
+    )
+    echo.
+) else (
+    echo Not a git repo - building current directory.
+    echo.
+)
+
 REM Try to activate virtual environment if it exists
 REM Check common venv names
 if exist "myenv\Scripts\activate.bat" (
