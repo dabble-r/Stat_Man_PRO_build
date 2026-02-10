@@ -202,7 +202,7 @@ def create_search_template(
     """Create template for search dialog."""
     from src.ui.dialogs.dialog_handlers import search_toggle_handler
     
-    options = ["player", "team", "number", "nl_query"]
+    options = ["player", "team", "number", "Natural Language Query"]
     
     template = SearchTemplate.create_template(
         title="Search Team or Player",

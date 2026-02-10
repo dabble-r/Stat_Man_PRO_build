@@ -167,14 +167,16 @@ a = Analysis(
         'PySide6.QtCharts',  # Used in stat_dialog_ui
         'PySide6.QtOpenGL',  # Often needed for Qt apps
         'sqlite3',
+        # Natural Language Query dialog (lazy-imported from search_dialog)
+        'pandas',
+        'numpy',
+        'matplotlib',
+        'src.ui.dialogs.nl_query_dialog',
     ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
     excludes=[
-        'matplotlib',
-        'numpy',
-        'pandas',
         'scipy',
         'IPython',
         'jupyter',

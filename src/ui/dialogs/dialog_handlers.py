@@ -25,7 +25,7 @@ from src.ui.logic.dialogs.update_pitching_logic import (
     undo_stat as pitching_undo_stat,
     view_player_stats as pitching_view_player_stats
 )
-from PySide6.QtWidgets import QDialog
+from PySide6.QtWidgets import QDialog, QMessageBox, QApplication
 
 
 # ============================================================================
@@ -555,23 +555,46 @@ def theme_submit_handler(dialog):
 # Search Dialog Handlers
 # ============================================================================
 
+def _normalize_search_selection(selection: Optional[str]) -> Optional[str]:
+    """Map display label to internal option value for search type."""
+    if selection == "Natural Language Query":
+        return "nl_query"
+    return selection
+
+
 def search_toggle_handler(option: str, checked: bool, dialog):
     """Handle search type radio button toggle."""
-    from src.ui.dialogs.nl_query_dialog import NLQueryDialog
+    # Support both internal value and display label
+    is_nl = (option == "nl_query" or option == "Natural Language Query")
     
-    if checked and option == "nl_query":
-        # Show NL-to-SQL dialog
-        if not hasattr(dialog, '_nl_dialog') or not dialog._nl_dialog:
-            dialog._nl_dialog = NLQueryDialog(parent=dialog)
-        
-        dialog._nl_dialog.show()  # Non-modal - doesn't block search dialog
-        dialog._nl_dialog.raise_()
-        dialog._nl_dialog.activateWindow()
+    if checked and is_nl:
+        try:
+            from src.ui.dialogs.nl_query_dialog import NLQueryDialog
+        except Exception as e:
+            QMessageBox.warning(
+                dialog,
+                "Natural Language Query",
+                f"Could not open Natural Language Query dialog:\n{e}\n\n"
+                "Check that required packages are installed (e.g. when running from the built app)."
+            )
+            return
+        try:
+            if not hasattr(dialog, '_nl_dialog') or not dialog._nl_dialog:
+                dialog._nl_dialog = NLQueryDialog(parent=dialog)
+            dialog._nl_dialog.show()
+            QApplication.processEvents()
+            dialog._nl_dialog.raise_()
+            dialog._nl_dialog.activateWindow()
+        except Exception as e:
+            QMessageBox.warning(
+                dialog,
+                "Natural Language Query",
+                f"Could not show Natural Language Query dialog:\n{e}"
+            )
     
-    elif not checked and option == "nl_query":
+    elif not checked and is_nl:
         # Hide NL dialog and stop servers when switching away
         if hasattr(dialog, '_nl_dialog') and dialog._nl_dialog:
-            # Stop servers before hiding
             if hasattr(dialog._nl_dialog, 'server_manager') and dialog._nl_dialog.server_manager:
                 dialog._nl_dialog.server_manager.stop_all_servers()
             dialog._nl_dialog.hide()
@@ -579,19 +602,19 @@ def search_toggle_handler(option: str, checked: bool, dialog):
 
 def search_submit_handler(dialog):
     """Handle search submission."""
-    selection = dialog.get_selected_option('search_type')
+    raw_selection = dialog.get_selected_option('search_type')
+    selection = _normalize_search_selection(raw_selection)
     
     # Handle nl_query - show dialog instead of standard search
     if selection == "nl_query":
-        # Show dialog if not already visible
         if hasattr(dialog, '_nl_dialog') and dialog._nl_dialog:
             dialog._nl_dialog.show()
+            QApplication.processEvents()
             dialog._nl_dialog.raise_()
             dialog._nl_dialog.activateWindow()
         else:
-            # Dialog not created yet - toggle handler will create it
             dialog.show_validation_error(
-                "Please select 'nl_query' from the search type options to open the NL query dialog."
+                "Please select 'Natural Language Query' from the search type options to open the NL query dialog."
             )
         return
     
@@ -602,11 +625,11 @@ def search_submit_handler(dialog):
     if not selection:
         dialog.show_validation_error("Please select a search type.")
         return
-    
+
     if not search_text:
         dialog.show_validation_error("Please enter a search value.")
         return
-    
+
     # Setup tree widget based on selection
     tree_widget = dialog.get_custom_widget('search_tree')
     if tree_widget:
