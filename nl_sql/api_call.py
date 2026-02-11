@@ -32,7 +32,7 @@ import httpx
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from src.utils.path_resolver import get_database_path
+from src.utils.path_resolver import get_database_path, get_app_base_path
 
 app = FastAPI(title="NL-to-SQL Server", version="1.0.0")
 
@@ -53,37 +53,40 @@ _logger_initialized = False
 _app_logger: Optional[logging.Logger] = None
 
 def _setup_app_logging():
-    """Setup file logging for FastAPI application."""
+    """Setup file logging for FastAPI application. Issue 7: when frozen use writable app base for logs; do not crash on failure."""
     global _logger_initialized, _app_logger
     
     if _logger_initialized:
         return _app_logger
     
-    # Get project root and create logs directory
-    project_root = Path(__file__).parent.parent
-    logs_dir = project_root / "tests" / "logs"
-    logs_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Setup application log file
-    app_log_file = logs_dir / "fastapi_app.log"
     _app_logger = logging.getLogger("fastapi_app")
     _app_logger.setLevel(logging.DEBUG)
-    # Remove existing handlers to avoid duplicates
     _app_logger.handlers.clear()
-    app_handler = logging.FileHandler(app_log_file, mode='a', encoding='utf-8')
-    app_handler.setLevel(logging.DEBUG)
-    app_formatter = logging.Formatter(
-        '%(asctime)s - %(levelname)s - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
-    )
-    app_handler.setFormatter(app_formatter)
-    _app_logger.addHandler(app_handler)
     _app_logger.propagate = False
     
-    # Log initialization
-    _app_logger.info("=" * 80)
-    _app_logger.info(f"FastAPI Application Logging Initialized - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    
+    try:
+        # Issue 7: when frozen use app base (writable); avoid _MEIPASS which may be read-only
+        if getattr(sys, "frozen", False):
+            logs_dir = Path(get_app_base_path()) / "logs"
+        else:
+            project_root = Path(__file__).parent.parent
+            logs_dir = project_root / "tests" / "logs"
+        logs_dir.mkdir(parents=True, exist_ok=True)
+        app_log_file = logs_dir / "fastapi_app.log"
+        app_handler = logging.FileHandler(app_log_file, mode='a', encoding='utf-8')
+        app_handler.setLevel(logging.DEBUG)
+        app_formatter = logging.Formatter(
+            '%(asctime)s - %(levelname)s - %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+        app_handler.setFormatter(app_formatter)
+        _app_logger.addHandler(app_handler)
+        _app_logger.info("=" * 80)
+        _app_logger.info(f"FastAPI Application Logging Initialized - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    except Exception as e:
+        import sys as _sys
+        _sys.stderr.write(f"[FastAPI app] Could not setup file logging: {e}\n")
+        # _app_logger has no FileHandler; _log_print will still work for level, but file won't be written
     _logger_initialized = True
     return _app_logger
 

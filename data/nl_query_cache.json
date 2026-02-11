@@ -32,6 +32,14 @@
       "formatted_sql": "SELECT *\nFROM team\nWHERE logo IS NOT NULL\nLIMIT 100",
       "timestamp": 1770738711.362427,
       "display_name": "show all teams that have a logo"
+    },
+    {
+      "id": "9595d9ac-97f6-47b6-b1a4-447a45371182",
+      "nl_query": "show all players who are also pitchers",
+      "sql_query": "SELECT player.* FROM player INNER JOIN pitcher ON player.playerID = pitcher.playerID LIMIT 100;",
+      "formatted_sql": "SELECT player.*\nFROM player INNER\nJOIN pitcher ON player.playerID = pitcher.playerID\nLIMIT 100;",
+      "timestamp": 1770776454.564845,
+      "display_name": "show all players who are also pitchers"
     }
   ]
 }

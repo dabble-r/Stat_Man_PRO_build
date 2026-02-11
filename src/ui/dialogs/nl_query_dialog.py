@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
     QMessageBox, QHeaderView, QSplitter, QTableView,
     QComboBox, QAbstractItemView, QFileDialog
 )
-from PySide6.QtCore import QThread, Signal, Qt, QAbstractTableModel
+from PySide6.QtCore import QThread, Signal, Qt, QAbstractTableModel, QTimer
 from PySide6.QtGui import QCloseEvent, QAction, QPixmap, QPainter, QColor, QFontMetrics
 from PySide6.QtWidgets import QLabel
 from src.utils.nl_sql_server import NLServerManager
@@ -232,6 +232,9 @@ class NLQueryDialog(QDialog):
         self._mcp_failure_msg: Optional[str] = None
         self._servers_starting = False  # Track if servers are in startup phase
         self._servers_ready_message_shown = False  # Show "Servers Ready" only once per start
+        # Issue 4: optional periodic check while starting (catch missed ready signal)
+        self._servers_starting_poll_timer: Optional[QTimer] = None
+        self._servers_starting_poll_stop_timer: Optional[QTimer] = None
         
         # API Key Manager and Global Server Manager
         self.api_key_manager = APIKeyManager()
@@ -619,16 +622,8 @@ class NLQueryDialog(QDialog):
         logger.info("[NLQueryDialog] Calling GlobalServerManager.start_servers()...")
         if self.global_server_manager.start_servers(api_key, parent=self):
             logger.info("[NLQueryDialog] GlobalServerManager.start_servers() returned True")
-            # Get the server manager instance
-            self.server_manager = self.global_server_manager.get_server_manager()
-            if self.server_manager:
-                logger.info("[NLQueryDialog] Server manager instance obtained")
-                self._connect_server_signals()
-                logger.info("[NLQueryDialog] Server signals connected")
-                # Update status icon
-                self._update_server_status_icon(False)  # Will update when servers are ready
-            else:
-                logger.warning("[NLQueryDialog] Server manager instance is None after start_servers()")
+            # Solution 1: Defer post-start work so 300 ms in-process timer can run
+            QTimer.singleShot(0, self._on_start_servers_post_start)
         else:
             logger.error("[NLQueryDialog] GlobalServerManager.start_servers() returned False")
             QMessageBox.critical(self, "Server Error", 
@@ -638,7 +633,56 @@ class NLQueryDialog(QDialog):
         
         # Enable restart button after API key is set (even if servers fail, user can restart)
         # This will be updated when servers are ready or fail
-    
+
+    def _stop_servers_starting_poll(self):
+        """Issue 4: Stop periodic is_servers_running poll when ready or failed."""
+        if getattr(self, '_servers_starting_poll_timer', None) is not None:
+            try:
+                self._servers_starting_poll_timer.stop()
+            except Exception:
+                pass
+            self._servers_starting_poll_timer = None
+        if getattr(self, '_servers_starting_poll_stop_timer', None) is not None:
+            try:
+                self._servers_starting_poll_stop_timer.stop()
+            except Exception:
+                pass
+            self._servers_starting_poll_stop_timer = None
+
+    def _on_start_servers_post_start(self):
+        """Solution 1: Run after start_servers() return so 300 ms server timer can fire."""
+        self.server_manager = self.global_server_manager.get_server_manager()
+        if self.server_manager:
+            logger.info("[NLQueryDialog] Server manager instance obtained")
+            self._connect_server_signals()
+            logger.info("[NLQueryDialog] Server signals connected")
+            self._update_server_status_icon(False)
+            # If servers were already running (e.g. start_servers() returned without starting),
+            # all_servers_ready was emitted in the past so we never get it; sync UI now.
+            if self.global_server_manager.is_servers_running():
+                logger.info("[NLQueryDialog] Servers already running, syncing UI to ready state")
+                self._on_servers_ready()
+            else:
+                # Issue 4: periodic check in case ready signal was missed
+                self._stop_servers_starting_poll()
+                self._servers_starting_poll_timer = QTimer(self)
+                self._servers_starting_poll_timer.timeout.connect(self._on_servers_starting_poll)
+                self._servers_starting_poll_timer.start(1500)
+                self._servers_starting_poll_stop_timer = QTimer(self)
+                self._servers_starting_poll_stop_timer.setSingleShot(True)
+                self._servers_starting_poll_stop_timer.timeout.connect(self._stop_servers_starting_poll)
+                self._servers_starting_poll_stop_timer.start(40000)
+        else:
+            logger.warning("[NLQueryDialog] Server manager instance is None after start_servers()")
+
+    def _on_servers_starting_poll(self):
+        """Issue 4: If servers became ready without signal, sync UI."""
+        if not getattr(self, '_servers_starting', False):
+            return
+        if self.global_server_manager.is_servers_running():
+            self._stop_servers_starting_poll()
+            self._on_servers_ready()
+
     def _handle_stop_servers(self):
         """Handle stop servers button click."""
         if not self.server_manager:
@@ -686,6 +730,7 @@ class NLQueryDialog(QDialog):
         # Clear failure states
         self._fastapi_failure_msg = None
         self._mcp_failure_msg = None
+        self._stop_servers_starting_poll()
         self._servers_starting = False
         self._servers_ready_message_shown = False  # Reset so next start can show message once
         
@@ -816,6 +861,7 @@ class NLQueryDialog(QDialog):
     
     def _on_servers_ready(self):
         """Called when both servers are ready."""
+        self._stop_servers_starting_poll()
         self._servers_starting = False
         self._fastapi_failure_msg = None  # Clear any stored failures
         self._mcp_failure_msg = None
@@ -877,6 +923,7 @@ class NLQueryDialog(QDialog):
             return
         
         self._fastapi_failure_msg = msg
+        self._stop_servers_starting_poll()
         self._servers_starting = False  # So UI always recovers when servers fail
         logger.warning(f"FastAPI server failure: {msg}")
         
@@ -884,12 +931,13 @@ class NLQueryDialog(QDialog):
         self.submit_api_key_btn.setText("Submit API Key")
         self.stop_servers_btn.setEnabled(False)
         self.restart_servers_btn.setEnabled(True if self.api_key else False)
-        # Show once; if MCP also fails we skip so user sees only one dialog
+        # Solution 6: Show actual failure message for diagnosis
         if not self._mcp_failure_msg:
+            detail = (msg[:800] + "…") if len(msg) > 800 else (msg or "Check the logs folder next to the app.")
             QMessageBox.warning(
                 self,
                 "Servers",
-                "Servers could not be started. Check the logs folder next to the app."
+                "Servers could not be started.\n\n" + detail
             )
     
     def _on_mcp_failed(self, msg: str):
@@ -903,6 +951,7 @@ class NLQueryDialog(QDialog):
             return
         
         self._mcp_failure_msg = msg
+        self._stop_servers_starting_poll()
         self._servers_starting = False  # So UI always recovers when servers fail
         logger.warning(f"MCP server failure: {msg}")
         
@@ -910,12 +959,13 @@ class NLQueryDialog(QDialog):
         self.submit_api_key_btn.setText("Submit API Key")
         self.stop_servers_btn.setEnabled(False)
         self.restart_servers_btn.setEnabled(True if self.api_key else False)
-        # Show once per failure; avoid duplicate if both FastAPI and MCP fail
+        # Solution 6: Show actual failure message for diagnosis
         if not self._fastapi_failure_msg:
+            detail = (msg[:800] + "…") if len(msg) > 800 else (msg or "Check the logs folder next to the app.")
             QMessageBox.warning(
                 self,
                 "Servers",
-                "Servers could not be started. Check the logs folder next to the app."
+                "Servers could not be started.\n\n" + detail
             )
     
     def _handle_nl_query_submit(self):
