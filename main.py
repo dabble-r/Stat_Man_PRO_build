@@ -3,7 +3,12 @@ import os
 from pathlib import Path
 
 # --------------------------------------------------
-
+# server_fail_4 Solution A: when frozen, load uvicorn early so in-process server threads can import it
+if getattr(sys, 'frozen', False):
+    try:
+        import uvicorn  # noqa: F401
+    except ImportError:
+        pass
 # --------------------------------------------------
 
 from src.ui.main_window import MainWindow
@@ -11,6 +16,7 @@ from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QIcon
 from src.ui.styles.stylesheets import StyleSheets
 from src.utils.clear_db_startup import clear_database_on_startup
+from src.utils.ensure_nl_db import ensure_nl_database_schema
 from src.utils.print_filter import mute_print
 from src.utils.path_resolver import get_resource_path
 from src.utils.nl_sql_server import NLServerManager
@@ -45,7 +51,10 @@ if __name__ == "__main__":
 
     # Clear database before starting application
     clear_database_on_startup()
-    
+
+    # When frozen, ensure NL local-SQL DB has schema (league/team/player/pitcher)
+    ensure_nl_database_schema()
+
     # Ensure ports 8000 and 8001 are free
     ensure_ports_free()
     

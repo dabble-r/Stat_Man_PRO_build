@@ -158,8 +158,8 @@ class SQLExecuteThread(QThread):
 
 class LocalSQLExecuteThread(QThread):
     """Thread for executing SQL query locally on SQLite database (no server required)."""
-    
-    finished = Signal(list)  # Emits list of result dicts or None
+
+    finished = Signal(object)  # Emits list of result dicts or None on success (Shiboken-safe)
     
     def __init__(self, sql: str):
         super().__init__()

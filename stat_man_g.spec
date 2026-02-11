@@ -160,6 +160,8 @@ numpy_binaries = collect_dynamic_libs('numpy')
 pandas_hiddenimports = collect_submodules('pandas')
 pandas_binaries = collect_dynamic_libs('pandas')
 matplotlib_hiddenimports = collect_submodules('matplotlib')
+# server_fail_4 Solution A: ensure uvicorn and submodules are in bundle for in-process servers
+uvicorn_hiddenimports = collect_submodules('uvicorn')
 
 a = Analysis(
     ['main.py'],
@@ -197,8 +199,11 @@ a = Analysis(
         'uvicorn.protocols.websockets.auto',
         'uvicorn.lifespan',
         'uvicorn.lifespan.on',
+        *uvicorn_hiddenimports,  # server_fail_4 Solution A: full uvicorn collection
         'openai',
         'sqlglot',
+        'sqlglot.dialects',
+        'sqlglot.dialects.sqlite',  # server_fail_4 section 9: NL query validation (read="sqlite")
         'requests',
         'httpx',
         'pydantic',

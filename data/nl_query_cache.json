@@ -40,6 +40,14 @@
       "formatted_sql": "SELECT player.*\nFROM player INNER\nJOIN pitcher ON player.playerID = pitcher.playerID\nLIMIT 100;",
       "timestamp": 1770776454.564845,
       "display_name": "show all players who are also pitchers"
+    },
+    {
+      "id": "26fbc478-4036-4a9a-bc2f-7e3bd03a719a",
+      "nl_query": "show all second basemen",
+      "sql_query": "SELECT * FROM player WHERE positions LIKE '%2B%' LIMIT 100",
+      "formatted_sql": "SELECT *\nFROM player\nWHERE positions LIKE '%2B%'\nLIMIT 100",
+      "timestamp": 1770781236.386201,
+      "display_name": "show all second basemen"
     }
   ]
 }
