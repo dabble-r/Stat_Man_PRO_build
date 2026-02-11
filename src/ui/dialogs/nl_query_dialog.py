@@ -20,7 +20,7 @@ from src.utils.global_server_manager import GlobalServerManager
 from src.visualization.viz_plot_builder import build_figure
 from src.ui.dialogs.viz_options_dialog import VizOptionsDialog
 from src.ui.dialogs.viz_viewer_dialog import VizViewerDialog
-from typing import Optional
+from typing import Optional, Tuple
 import os
 import requests
 import logging
@@ -156,6 +156,34 @@ class SQLExecuteThread(QThread):
             self.finished.emit(None)
 
 
+def _query_db_log_path():
+    """Path for SQL execution log: tests/logs/query_db.log (under app base)."""
+    from pathlib import Path
+    from src.utils.path_resolver import get_app_base_path
+    base = Path(get_app_base_path())
+    log_dir = base / "tests" / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    return log_dir / "query_db.log"
+
+
+def _get_db_state(conn) -> str:
+    """Return a short description of DB state (table names and row counts) for logging."""
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
+    )
+    tables = [row[0] for row in cur.fetchall()]
+    lines = []
+    for t in tables:
+        try:
+            cur.execute(f"SELECT COUNT(*) FROM [{t}]")
+            n = cur.fetchone()[0]
+            lines.append(f"  {t}: {n} rows")
+        except Exception:
+            lines.append(f"  {t}: (count error)")
+    return "\n".join(lines) if lines else "  (no user tables)"
+
+
 class LocalSQLExecuteThread(QThread):
     """Thread for executing SQL query locally on SQLite database (no server required)."""
 
@@ -170,7 +198,8 @@ class LocalSQLExecuteThread(QThread):
         try:
             import sqlite3
             from src.utils.path_resolver import get_database_path
-            
+            from datetime import datetime
+
             db_path = get_database_path()
             logger.info(f"[LocalSQLExecute] Executing query locally on {db_path}")
             
@@ -179,6 +208,9 @@ class LocalSQLExecuteThread(QThread):
             conn.row_factory = sqlite3.Row  # Return rows as dict-like objects
             
             try:
+                # DB state for logging (before query)
+                db_state = _get_db_state(conn)
+
                 cursor = conn.cursor()
                 cursor.execute(self.sql)
                 
@@ -192,12 +224,52 @@ class LocalSQLExecuteThread(QThread):
                 
                 logger.info(f"[LocalSQLExecute] Query executed successfully, returned {len(results)} rows")
                 self.finished.emit(results)
+
+                # Log to tests/logs/query_db.log (no behavior change)
+                try:
+                    log_path = _query_db_log_path()
+                    max_rows_log = 100
+                    if len(results) > max_rows_log:
+                        results_repr = f"{results[:max_rows_log]} ... ({len(results) - max_rows_log} more rows)"
+                    else:
+                        results_repr = str(results)
+                    with open(log_path, "a", encoding="utf-8") as f:
+                        f.write(f"\n{'='*60}\n")
+                        f.write(f"[{datetime.now().isoformat()}] Execute SQL\n")
+                        f.write(f"db_path: {db_path}\n")
+                        f.write(f"query:\n{self.sql}\n")
+                        f.write(f"db_state (before query):\n{db_state}\n")
+                        f.write(f"results: {results_repr}\n")
+                except Exception as log_err:
+                    logger.debug(f"[LocalSQLExecute] Could not write query_db.log: {log_err}")
             finally:
                 conn.close()
                 
         except Exception as e:
             logger.error(f"[LocalSQLExecute] SQL execution error: {str(e)}", exc_info=True)
             self.finished.emit(None)
+            # Log failure to query_db.log
+            try:
+                from datetime import datetime
+                from src.utils.path_resolver import get_database_path
+                log_path = _query_db_log_path()
+                db_state = ""
+                try:
+                    import sqlite3
+                    conn = sqlite3.connect(str(get_database_path()))
+                    db_state = _get_db_state(conn)
+                    conn.close()
+                except Exception:
+                    db_state = "(could not get state)"
+                with open(log_path, "a", encoding="utf-8") as f:
+                    f.write(f"\n{'='*60}\n")
+                    f.write(f"[{datetime.now().isoformat()}] Execute SQL (FAILED)\n")
+                    f.write(f"db_path: {get_database_path()}\n")
+                    f.write(f"query:\n{self.sql}\n")
+                    f.write(f"db_state:\n{db_state}\n")
+                    f.write(f"error: {e}\n")
+            except Exception as log_err:
+                logger.debug(f"[LocalSQLExecute] Could not write query_db.log: {log_err}")
 
 
 class NLQueryDialog(QDialog):
@@ -1719,46 +1791,52 @@ class NLQueryDialog(QDialog):
         # Clean up multiple spaces
         raw_sql = re.sub(r'\s+', ' ', raw_sql)
         return raw_sql.strip()
-    
+
+    def _is_sql_safe_for_local_execute(self, sql: str) -> Tuple[bool, str]:
+        """
+        Check if SQL is allowed for local execution (SELECT only, no dangerous keywords).
+        Returns (True, "") if safe; (False, reason) if not.
+        """
+        if not sql or not sql.strip():
+            return False, "Empty query."
+        sql_upper = sql.strip().upper()
+        if not sql_upper.startswith("SELECT"):
+            return False, "Only SELECT queries are allowed for Execute SQL."
+        dangerous_keywords = ["INSERT", "UPDATE", "DELETE", "DROP", "ALTER", "CREATE", "TRUNCATE"]
+        for keyword in dangerous_keywords:
+            if keyword in sql_upper:
+                return False, f"Dangerous operation detected: {keyword}"
+        return True, ""
+
     def _handle_execute_sql(self):
         """Handle SQL execution - runs query on database and displays results in bottom right."""
         if not self.current_sql:
             QMessageBox.warning(self, "No SQL Query", "No SQL query available to execute.")
             return
         
-        # Disable button during execution
+        # Safety: only allow SELECT; reject dangerous keywords (same policy as MCP /execute)
+        ok, reason = self._is_sql_safe_for_local_execute(self.current_sql)
+        if not ok:
+            QMessageBox.warning(
+                self,
+                "Query Not Allowed",
+                reason,
+            )
+            self.results_status_label.setText(reason)
+            self.results_status_label.setVisible(True)
+            return
+
+        # Execute locally (cached and new formatted queries) — same DB path: get_database_path()
+        logger.info("[Execute SQL] Executing query locally (League.db at get_database_path())")
         self.execute_sql_btn.setEnabled(False)
         self.execute_sql_btn.setText("Executing...")
         self.results_table.setModel(None)
         self.results_status_label.setText("Executing query...")
         self.results_status_label.setVisible(True)
-        
-        # For cached queries, execute locally without server call
-        # For new queries, use MCP server (requires servers running)
-        if self._is_cached_query:
-            logger.info("[Execute SQL] Executing cached query locally (no server required)")
-            self.local_execute_thread = LocalSQLExecuteThread(self.current_sql)
-            self.local_execute_thread.finished.connect(self._on_execution_complete)
-            self.local_execute_thread.start()
-        else:
-            logger.info("[Execute SQL] Executing new query via MCP server")
-            # Check if servers are running before executing
-            if not self.global_server_manager.is_servers_running():
-                QMessageBox.warning(
-                    self,
-                    "Servers Not Running",
-                    "Servers are not running. Please submit your API key first to start servers."
-                )
-                self.execute_sql_btn.setEnabled(True)
-                self.execute_sql_btn.setText("Execute SQL Query")
-                self.results_status_label.setText("Servers not running. Please start servers first.")
-                self.results_status_label.setVisible(True)
-                return
-            
-            # Start execution thread via MCP server
-            self.execute_thread = SQLExecuteThread(self.current_sql, "http://localhost:8001")
-            self.execute_thread.finished.connect(self._on_execution_complete)
-            self.execute_thread.start()
+
+        self.local_execute_thread = LocalSQLExecuteThread(self.current_sql)
+        self.local_execute_thread.finished.connect(self._on_execution_complete)
+        self.local_execute_thread.start()
     
     def _on_execution_complete(self, results: Optional[list]):
         """Handle SQL execution completion."""

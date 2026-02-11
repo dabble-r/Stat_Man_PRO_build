@@ -1,9 +1,9 @@
 """
-Ensure the NL (local SQL) database has the expected schema when running frozen.
-Used after clear_database_on_startup so local Execute SQL has league/team/player/pitcher tables.
+Ensure the NL (local SQL) database has the expected schema on startup (dev and frozen).
+Used after clear_database_on_startup so League.db has league/team/player/pitcher tables
+for add-team, search, and formatted-query execution. Path: get_database_path().
 """
 import sqlite3
-import sys
 from pathlib import Path
 
 
@@ -43,12 +43,10 @@ def _schema_exists(db_path: Path) -> bool:
 
 def ensure_nl_database_schema():
     """
-    When running frozen, ensure the database at get_database_path() has the
-    league/team/player/pitcher schema. Idempotent: only runs init if the
-    team table is missing (e.g. first run or after clear_database_on_startup).
+    Ensure the database at get_database_path() has the league/team/player/pitcher
+    schema (and minimal rows from init_new_db). Runs in both dev and frozen.
+    Idempotent: only runs init if the team table is missing (e.g. after clear_database_on_startup).
     """
-    if not getattr(sys, "frozen", False):
-        return
     from src.utils.path_resolver import get_database_path
     from src.data.save.save_manager import init_new_db
 

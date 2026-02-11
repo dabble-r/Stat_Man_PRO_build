@@ -19,7 +19,9 @@ class SaveDialog(QDialog):
         elif hasattr(self.league, 'name') and self.league.name and self.league.name != 'League':
             league_name = self.league.name
         
-        # Construct database path - always use League.db as the filename for consistency
+        # Construct database path - always use League.db as the filename for consistency.
+        # Note: This may differ from the canonical NL/Execute SQL DB (data/database/League.db).
+        # See docs/League_db_paths.md for path consistency and user expectations.
         self.db = f"{self.file_dir}/DB/League.db"
         print(f"SaveDialog - Database path set to: {self.db}")
         self.selection = None  # "database", "csv", "database,csv", "cancel"
