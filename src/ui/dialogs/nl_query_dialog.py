@@ -157,11 +157,11 @@ class SQLExecuteThread(QThread):
 
 
 def _query_db_log_path():
-    """Path for SQL execution log: tests/logs/query_db.log (under app base)."""
+    """Path for SQL execution log: data/logs/query_db.log (under app base)."""
     from pathlib import Path
     from src.utils.path_resolver import get_app_base_path
     base = Path(get_app_base_path())
-    log_dir = base / "tests" / "logs"
+    log_dir = base / "data" / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
     return log_dir / "query_db.log"
 
