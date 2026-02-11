@@ -1852,9 +1852,10 @@ class NLQueryDialog(QDialog):
         
         # Convert results to pandas DataFrame
         if not results:
-            self.results_status_label.setText("Query returned no results.")
+            msg = "Save league to db before query"
+            self.results_status_label.setText(msg)
             self.results_status_label.setVisible(True)
-            QMessageBox.information(self, "No Results", "Query returned no results.")
+            QMessageBox.information(self, "No Results", msg)
             self.query_results_df = None
             self._original_dataframe = None
             self.query_results = None
