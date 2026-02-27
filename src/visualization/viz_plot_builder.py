@@ -22,9 +22,10 @@ def build_figure(df: pd.DataFrame, options: dict[str, Any]) -> plt.Figure:
     Build a matplotlib Figure from a DataFrame and options dict.
 
     Options expected:
-        chart_type: str - one of "bar", "line", "scatter", "histogram", "box"
+        chart_type: str - one of "bar", "line", "scatter", "histogram", "box", "pie"
         x_col: str - column name for X axis (or single numeric for histogram)
         y_col: optional str - column name for Y axis (bar/line/scatter)
+        y_cols: optional list[str] - multiple value columns for pie (wedges) or grouped bar
         series_col: optional str - column for grouping/series (bar/line/scatter)
         title: str
         x_label: str
@@ -32,10 +33,14 @@ def build_figure(df: pd.DataFrame, options: dict[str, Any]) -> plt.Figure:
         palette: str - seaborn palette name or "default"
         group_by: optional str - column to group by before plotting
         agg: optional str - "sum", "mean", "count" when group_by is set
+        chart_type_fallback_message: optional str - shown when chart type was fallback (ignored by renderer)
     """
     chart_type = (options.get("chart_type") or "bar").lower()
     x_col = options.get("x_col")
     y_col = options.get("y_col")
+    y_cols = options.get("y_cols")  # list of column names for multi-metric
+    if y_cols is not None and not isinstance(y_cols, list):
+        y_cols = None
     series_col = options.get("series_col")
     title = options.get("title") or ""
     x_label = options.get("x_label") or (x_col or "")
@@ -79,7 +84,20 @@ def build_figure(df: pd.DataFrame, options: dict[str, Any]) -> plt.Figure:
             pass
 
     if chart_type == "bar":
-        if not y_col or y_col not in plot_df.columns:
+        if y_cols and all(c in plot_df.columns for c in y_cols):
+            # Grouped bar: multiple metrics per x
+            x_vals = plot_df[x_col].astype(str).tolist()
+            x_pos = list(range(len(x_vals)))
+            n_series = len(y_cols)
+            width = 0.8 / max(1, n_series)
+            for i, col in enumerate(y_cols):
+                bars_x = [p + (i - 0.5 * (n_series - 1)) * width for p in x_pos]
+                vals = plot_df[col].values
+                ax.bar(bars_x, vals, width=width * 0.95, label=col)
+            ax.set_xticks(x_pos)
+            ax.set_xticklabels(x_vals, rotation=45, ha="right")
+            ax.legend()
+        elif not y_col or y_col not in plot_df.columns:
             # Count by x_col
             counts = plot_df[x_col].value_counts().sort_index()
             x_vals = counts.index.tolist()
@@ -147,6 +165,25 @@ def build_figure(df: pd.DataFrame, options: dict[str, Any]) -> plt.Figure:
         else:
             raise ValueError("Need at least one numeric column for box plot")
 
+    elif chart_type == "pie":
+        if y_cols and all(c in plot_df.columns for c in y_cols):
+            # One pie: wedge labels = y_cols, sizes = sum per column (or mean)
+            sizes = [plot_df[c].sum() for c in y_cols]
+            if sum(sizes) == 0:
+                sizes = [plot_df[c].mean() for c in y_cols]
+            labels = list(y_cols)
+            colors = plt.cm.viridis([i / max(1, len(y_cols)) for i in range(len(y_cols))])
+            ax.pie(sizes, labels=labels, autopct="%1.1f%%", colors=colors, startangle=90)
+        elif y_col and y_col in plot_df.columns and x_col and x_col in plot_df.columns:
+            # One pie: x_col as labels, y_col as sizes
+            plot_agg = plot_df.groupby(x_col, dropna=False)[y_col].sum().reset_index()
+            labels = plot_agg[x_col].astype(str).tolist()
+            sizes = plot_agg[y_col].tolist()
+            colors = plt.cm.viridis([i / max(1, len(sizes)) for i in range(len(sizes))])
+            ax.pie(sizes, labels=labels, autopct="%1.1f%%", colors=colors, startangle=90)
+        else:
+            raise ValueError("Pie chart requires y_cols (list) or x_col and y_col")
+
     else:
         raise ValueError(f"Unknown chart_type: {chart_type}")
 
@@ -154,7 +191,7 @@ def build_figure(df: pd.DataFrame, options: dict[str, Any]) -> plt.Figure:
         ax.set_title(title, fontsize=12)
     if x_label:
         ax.set_xlabel(x_label)
-    if y_label and chart_type != "histogram":
+    if y_label and chart_type not in ("histogram", "pie"):
         ax.set_ylabel(y_label)
 
     fig.tight_layout()

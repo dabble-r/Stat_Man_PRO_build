@@ -17,7 +17,7 @@ from PySide6.QtCore import Qt
 
 logger = logging.getLogger(__name__)
 
-CHART_TYPES = ["Bar", "Line", "Scatter", "Histogram", "Box"]
+CHART_TYPES = ["Bar", "Line", "Scatter", "Histogram", "Box", "Pie"]
 PALETTES = ["default", "viridis", "Set3", "colorblind", "pastel", "muted", "deep"]
 
 
@@ -110,6 +110,39 @@ class VizOptionsDialog(QDialog):
         layout.addLayout(btn_layout)
 
         self._on_chart_type_changed(self.chart_type_combo.currentText())
+
+    def set_initial_options(self, options: dict[str, Any]) -> None:
+        """Pre-fill the form from a chart options dict (e.g. from NL-plot)."""
+        ct = (options.get("chart_type") or "bar").lower()
+        if ct == "pie":
+            ct = "Pie"
+        else:
+            ct = ct.capitalize() if ct else "Bar"
+        idx = self.chart_type_combo.findText(ct)
+        if idx >= 0:
+            self.chart_type_combo.setCurrentIndex(idx)
+        for combo, key in [
+            (self.x_col_combo, "x_col"),
+            (self.y_col_combo, "y_col"),
+            (self.series_col_combo, "series_col"),
+            (self.group_by_combo, "group_by"),
+        ]:
+            val = options.get(key)
+            if val is not None and isinstance(val, str):
+                idx = combo.findData(val)
+                if idx >= 0:
+                    combo.setCurrentIndex(idx)
+        self.title_edit.setText((options.get("title") or "").strip())
+        self.x_label_edit.setText((options.get("x_label") or "").strip())
+        self.y_label_edit.setText((options.get("y_label") or "").strip())
+        pal = (options.get("palette") or "default").strip()
+        idx = self.palette_combo.findText(pal)
+        if idx >= 0:
+            self.palette_combo.setCurrentIndex(idx)
+        agg = (options.get("agg") or "mean").strip().lower()
+        idx = self.agg_combo.findText(agg)
+        if idx >= 0:
+            self.agg_combo.setCurrentIndex(idx)
 
     def _on_chart_type_changed(self, text: str):
         ct = (text or "").lower()

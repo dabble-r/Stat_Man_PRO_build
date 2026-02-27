@@ -11,10 +11,10 @@ from typing import Optional
 
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QPushButton,
-    QFileDialog, QMessageBox, QScrollArea, QWidget
+    QFileDialog, QMessageBox, QScrollArea, QWidget, QLabel
 )
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QCloseEvent
+from PySide6.QtGui import QCloseEvent, QImage, QPixmap
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ except ImportError:
 
 
 class VizViewerDialog(QDialog):
-    """Shows a matplotlib figure with Export image and Close."""
+    """Shows a matplotlib figure or PNG image with Export image and Close."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -37,6 +37,8 @@ class VizViewerDialog(QDialog):
         self.setMinimumSize(700, 500)
         self._canvas = None
         self._figure: Optional[Figure] = None
+        self._image_bytes: Optional[bytes] = None
+        self._image_label: Optional[QLabel] = None
         self._build_ui()
 
     def _build_ui(self):
@@ -74,6 +76,11 @@ class VizViewerDialog(QDialog):
         """Set the matplotlib figure to display. Call after showEvent or before show()."""
         if not HAS_MATPLOTLIB or figure is None:
             return
+        self._image_bytes = None
+        if self._image_label:
+            self._scroll_layout.removeWidget(self._image_label)
+            self._image_label.deleteLater()
+            self._image_label = None
         self._figure = figure
         if self._canvas:
             self._scroll_layout.removeWidget(self._canvas)
@@ -82,7 +89,53 @@ class VizViewerDialog(QDialog):
         self._scroll_layout.addWidget(self._canvas)
         self._canvas.draw()
 
+    def set_image_bytes(self, data: bytes):
+        """Set PNG image bytes to display (e.g. from MCP run_plot). Replaces any figure."""
+        if not data:
+            return
+        if not hasattr(self, "_scroll_layout") or self._scroll_layout is None:
+            return
+        self._image_bytes = data
+        if self._figure and HAS_MATPLOTLIB:
+            import matplotlib.pyplot as plt
+            plt.close(self._figure)
+            self._figure = None
+        if self._canvas:
+            self._scroll_layout.removeWidget(self._canvas)
+            self._canvas.deleteLater()
+            self._canvas = None
+        if self._image_label:
+            self._scroll_layout.removeWidget(self._image_label)
+            self._image_label.deleteLater()
+        image = QImage()
+        if not image.loadFromData(data):
+            logger.warning("VizViewerDialog: failed to load image from bytes")
+            return
+        pixmap = QPixmap.fromImage(image)
+        self._image_label = QLabel()
+        self._image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._image_label.setPixmap(pixmap)
+        self._image_label.setMinimumSize(400, 300)
+        self._scroll_layout.addWidget(self._image_label)
+
     def _export_image(self):
+        if self._image_bytes is not None:
+            path, _ = QFileDialog.getSaveFileName(
+                self,
+                "Export chart",
+                str(Path.home()),
+                "PNG (*.png)"
+            )
+            if not path:
+                return
+            try:
+                with open(path, "wb") as f:
+                    f.write(self._image_bytes)
+                QMessageBox.information(self, "Export", f"Saved to {path}")
+            except Exception as e:
+                logger.exception("Export image failed")
+                QMessageBox.warning(self, "Export failed", str(e))
+            return
         if not self._figure:
             return
         path, _ = QFileDialog.getSaveFileName(
@@ -106,4 +159,5 @@ class VizViewerDialog(QDialog):
             import matplotlib.pyplot as plt
             plt.close(self._figure)
             self._figure = None
+        self._image_bytes = None
         super().closeEvent(event)

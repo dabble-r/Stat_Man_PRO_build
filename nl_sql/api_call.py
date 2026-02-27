@@ -34,7 +34,13 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 from src.utils.path_resolver import get_database_path, get_app_base_path
-from src.visualization.nl_plot_pipeline import build_chart_config_prompt, parse_chart_config
+from src.visualization.nl_plot_pipeline import (
+    build_chart_config_prompt,
+    parse_chart_config,
+    get_heuristic_config,
+    build_plot_prompt_generator_prompt,
+    extract_plot_code,
+)
 from src.utils.nl_plot_log import get_nl_plot_logger
 
 app = FastAPI(title="NL-to-SQL Server", version="1.0.0")
@@ -117,6 +123,19 @@ class ChartConfigRequest(BaseModel):
     description: str
     columns: List[str]
     dtypes: Optional[Dict[str, str]] = None
+    data_summary: Optional[Dict[str, Dict[str, Any]]] = None
+
+
+class NlToPlotPngRequest(BaseModel):
+    """Request model for NL to plot PNG (LLM generates code, MCP runs it)."""
+    description: str
+    columns: List[str]
+    dtypes: Optional[Dict[str, str]] = None
+    data_summary: Optional[Dict[str, Dict[str, Any]]] = None
+    data: List[Dict[str, Any]]
+    distinct_values: Optional[Dict[str, List[str]]] = None
+    row_count: Optional[int] = None
+    chart_type_suggestion: Optional[str] = None  # e.g. "bar", "pie", "line"; hint only
 
 
 def get_api_key_from_header(authorization: Optional[str] = Header(None)) -> Optional[str]:
@@ -706,7 +725,8 @@ async def nl_to_chart_config(
         prompt = build_chart_config_prompt(
             request.description,
             request.columns,
-            request.dtypes
+            request.dtypes,
+            data_summary=request.data_summary,
         )
         log.info("prompt (formatted):\n%s", prompt)
 
@@ -727,7 +747,42 @@ async def nl_to_chart_config(
 
         content = response.choices[0].message.content.strip()
         log.info("llm_raw_response: %s", content)
-        options = parse_chart_config(content, request.columns)
+
+        def _parse():
+            return parse_chart_config(content, request.columns)
+
+        try:
+            options = _parse()
+        except ValueError as e:
+            log.warning("nl_to_chart_config first parse failed: %s", e)
+            # Retry once with refined prompt
+            retry_prompt = (
+                "Output ONLY a valid JSON object with these exact keys (use null for optional): "
+                "chart_type, x_col, y_col, y_cols, series_col, title, x_label, y_label, palette, group_by, agg. "
+                "Use only these column names: " + ", ".join(f'"{c}"' for c in request.columns) + ". "
+                "User description: " + request.description[:200]
+            )
+            retry_response = await client.chat.completions.create(
+                model=DEFAULT_MODEL,
+                messages=[
+                    {"role": "system", "content": "You output only a JSON object. No markdown, no code block."},
+                    {"role": "user", "content": retry_prompt}
+                ],
+                stream=False,
+                temperature=0,
+                max_tokens=400
+            )
+            if retry_response.choices and retry_response.choices[0].message.content:
+                content = retry_response.choices[0].message.content.strip()
+                log.info("llm_retry_response: %s", content)
+                try:
+                    options = parse_chart_config(content, request.columns)
+                except ValueError:
+                    options = get_heuristic_config(request.columns, request.dtypes)
+                    log.info("nl_to_chart_config using heuristic fallback")
+            else:
+                options = get_heuristic_config(request.columns, request.dtypes)
+                log.info("nl_to_chart_config using heuristic fallback (empty retry)")
         log.info("chart_config_output: %s", json.dumps(options, indent=2))
         log.info("nl_to_chart_config success chart_type=%s", options.get("chart_type"))
         return options
@@ -741,6 +796,162 @@ async def nl_to_chart_config(
         log.exception("nl_to_chart_config error")
         log.warning("nl_to_chart_config error_detail: %s", str(e))
         raise HTTPException(status_code=502, detail=f"Chart config error: {str(e)}")
+
+
+@app.post("/nl_to_plot_png")
+async def nl_to_plot_png(
+    request: NlToPlotPngRequest,
+    api_key: str = Depends(get_api_key),
+):
+    """
+    Convert natural language plot description to PNG via Plot-Prompt Generator → Code Generator (LLM) then MCP run_plot (nl_plot_data_4.md).
+
+    Request: description, columns, dtypes, data_summary, data (list of dict),
+    optional distinct_values, row_count, chart_type_suggestion.
+    Returns: JSON with png_base64 (str) on success, or 4xx/5xx with error detail.
+    """
+    log = get_nl_plot_logger()
+    log.info("--- nl_to_plot_png request ---")
+    log.info("nl_to_plot_png user query: %s", request.description)
+    if request.chart_type_suggestion:
+        log.info("nl_to_plot_png chart_type_suggestion: %s", request.chart_type_suggestion)
+    try:
+        if not api_key or not api_key.startswith("sk-"):
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid API key format. OpenAI API keys should start with 'sk-'."
+            )
+        if not request.columns:
+            raise HTTPException(status_code=400, detail="columns list cannot be empty")
+        if not request.data:
+            raise HTTPException(status_code=400, detail="data is required and cannot be empty")
+
+        data_sample = request.data[:10] if len(request.data) > 10 else request.data
+        client = AsyncOpenAI(api_key=api_key)
+
+        # --- Verbose logging: request context ---
+        log.info("nl_to_plot_png columns: %s", request.columns)
+        log.info("nl_to_plot_png row_count: %s", request.row_count)
+        log.info("nl_to_plot_png data rows: %d", len(request.data))
+        if request.data_summary:
+            log.info("nl_to_plot_png data_summary keys: %s", list(request.data_summary.keys()))
+        if request.distinct_values:
+            log.info("nl_to_plot_png distinct_values keys: %s", list(request.distinct_values.keys()))
+
+        # Step 1: Plot-Prompt Generator (LLM #1) — output is a standalone prompt for the code generator
+        PLOT_PROMPT_GENERATOR_SYSTEM = (
+            "You are a Plot-Prompt Generator. Your task is to read (1) a pandas DataFrame schema and sample rows, "
+            "and (2) a natural-language plotting request from a data analyst. Your output must be a complete, "
+            "standalone prompt that instructs a separate LLM to generate Python plotting code using matplotlib or seaborn. "
+            "DO NOT generate code yourself. DO NOT describe the DataFrame in prose; incorporate its fields (column names, "
+            "dtypes, sample values) directly into the prompt. The prompt must specify: which columns to use (by name, "
+            "only from the provided schema), what type of plot is appropriate, any transformations needed (e.g. filter, "
+            "aggregate), and matplotlib or seaborn preference. If the user's request is vague, infer a reasonable "
+            "visualization. Always include clear instructions for axis labels, titles, legends, and styling. "
+            "The code-generator LLM will have a variable df (pandas DataFrame) in scope and must set plot_png_bytes "
+            "to the PNG bytes of the figure (e.g. via io.BytesIO and plt.savefig). Your output must be only the "
+            "prompt text itself—no markdown fences, no 'here is the prompt' wrapper."
+        )
+        prompt_generator_user = build_plot_prompt_generator_prompt(
+            request.description,
+            request.columns,
+            column_dtypes=request.dtypes,
+            data_sample=data_sample,
+            data_summary=request.data_summary,
+            distinct_values=request.distinct_values,
+            row_count=request.row_count,
+            chart_type_suggestion=request.chart_type_suggestion,
+        )
+        log.info("nl_to_plot_png prompt generator user message length: %d", len(prompt_generator_user))
+        prompt_gen_response = await client.chat.completions.create(
+            model=DEFAULT_MODEL,
+            messages=[
+                {"role": "system", "content": PLOT_PROMPT_GENERATOR_SYSTEM},
+                {"role": "user", "content": prompt_generator_user},
+            ],
+            stream=False,
+            temperature=0.2,
+            max_tokens=1200,
+        )
+        generated_prompt = (prompt_gen_response.choices[0].message.content or "").strip()
+        if not generated_prompt:
+            raise HTTPException(status_code=502, detail="Plot-Prompt Generator returned empty response")
+        # Strip any accidental markdown wrapper
+        if generated_prompt.startswith("```") and "```" in generated_prompt[3:]:
+            generated_prompt = generated_prompt.split("```", 2)[1]
+            if generated_prompt.lower().startswith("text"):
+                generated_prompt = generated_prompt[4:].lstrip("\n")
+            generated_prompt = generated_prompt.strip()
+        log.info("nl_to_plot_png generated prompt length: %d", len(generated_prompt))
+        log.info("nl_to_plot_png generated prompt (for code generator):\n--- BEGIN GENERATED PROMPT ---\n%s\n--- END GENERATED PROMPT ---", generated_prompt)
+
+        # Step 2: Code Generator (LLM #2) — generates Python code from the prompt
+        code_gen_system = (
+            "You output only Python code. No markdown, no explanation. The code runs with df, pd, np, plt, sns, io in scope. "
+            "End by setting plot_png_bytes to the PNG bytes of the figure (e.g. buf = io.BytesIO(); plt.savefig(buf, format='png', bbox_inches='tight', dpi=150); buf.seek(0); plot_png_bytes = buf.getvalue())."
+        )
+        code_response = await client.chat.completions.create(
+            model=DEFAULT_MODEL,
+            messages=[
+                {"role": "system", "content": code_gen_system},
+                {"role": "user", "content": generated_prompt},
+            ],
+            stream=False,
+            temperature=0,
+            max_tokens=1500,
+        )
+
+        if not code_response.choices or not code_response.choices[0].message.content:
+            raise HTTPException(status_code=502, detail="Code Generator returned empty response")
+
+        content = code_response.choices[0].message.content.strip()
+        log.info("nl_to_plot_png code generator response length: %d", len(content))
+
+        try:
+            code = extract_plot_code(content)
+        except ValueError as e:
+            log.warning("nl_to_plot_png extract_plot_code failed: %s", e)
+            raise HTTPException(status_code=502, detail=f"Could not extract code from LLM response: {e}")
+
+        # --- Verbose: log the exact Python code sent to MCP (code run by MCP server) ---
+        log.info("nl_to_plot_png code sent to MCP (length=%d):", len(code))
+        log.info("--- BEGIN CODE SENT TO MCP ---\n%s\n--- END CODE SENT TO MCP ---", code)
+        mcp_payload = {"code": code, "data": request.data}
+        try:
+            mcp_response = requests.post(
+                f"{MCP_SERVER_URL}/run_plot",
+                json=mcp_payload,
+                timeout=35,
+            )
+        except requests.exceptions.Timeout:
+            raise HTTPException(status_code=504, detail="MCP run_plot timed out")
+        except requests.exceptions.RequestException as e:
+            log.exception("MCP run_plot request failed")
+            raise HTTPException(status_code=502, detail=f"MCP server error: {e}")
+
+        if mcp_response.status_code != 200:
+            try:
+                err_detail = mcp_response.json().get("detail", mcp_response.text)
+            except Exception:
+                err_detail = mcp_response.text or f"HTTP {mcp_response.status_code}"
+            raise HTTPException(status_code=mcp_response.status_code, detail=err_detail)
+
+        try:
+            result = mcp_response.json()
+        except ValueError:
+            raise HTTPException(status_code=502, detail="MCP returned non-JSON response")
+
+        png_base64 = result.get("png_base64")
+        if not png_base64:
+            raise HTTPException(status_code=502, detail="MCP response missing png_base64")
+
+        return {"png_base64": png_base64}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.exception("nl_to_plot_png error")
+        raise HTTPException(status_code=502, detail=f"Plot generation error: {str(e)}")
 
 
 if __name__ == "__main__":
