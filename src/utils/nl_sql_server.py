@@ -181,14 +181,8 @@ class NLServerManager(QObject):
         return (sys.executable, [])
 
     def _setup_file_logging(self):
-        """Setup file logging for server output."""
-        # When frozen, use app base (next to exe) for writable logs; else project tests/logs
-        if getattr(sys, "frozen", False):
-            project_root = Path(get_app_base_path())
-            logs_dir = project_root / "logs"
-        else:
-            project_root = Path(__file__).parent.parent.parent
-            logs_dir = project_root / "tests" / "logs"
+        """Setup file logging for server output. Logs go to data/logs under app base."""
+        logs_dir = Path(get_app_base_path()) / "data" / "logs"
         logs_dir.mkdir(parents=True, exist_ok=True)
         
         # Setup FastAPI server log file

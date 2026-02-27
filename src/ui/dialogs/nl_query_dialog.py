@@ -17,6 +17,7 @@ from src.utils.nl_query_cache import NLQueryCache
 from src.utils.path_resolver import get_data_path
 from src.utils.api_key_manager import APIKeyManager
 from src.utils.global_server_manager import GlobalServerManager
+from src.utils.nl_plot_log import get_nl_plot_logger
 from src.visualization.viz_plot_builder import build_figure
 from src.ui.dialogs.viz_options_dialog import VizOptionsDialog
 from src.ui.dialogs.viz_viewer_dialog import VizViewerDialog
@@ -24,6 +25,7 @@ from typing import Optional, Tuple
 import os
 import requests
 import logging
+import json
 import pandas as pd
 import csv
 import re
@@ -31,6 +33,20 @@ from datetime import datetime
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+# region agent log
+def _debug_log(location: str, message: str, data: dict, hypothesis_id: str = ""):
+    try:
+        import time
+        path = Path(__file__).resolve().parent.parent.parent / ".cursor" / "debug-ce9aca.log"
+        payload = {"sessionId": "ce9aca", "location": location, "message": message, "data": data, "timestamp": int(time.time() * 1000)}
+        if hypothesis_id:
+            payload["hypothesisId"] = hypothesis_id
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(__import__("json").dumps(payload) + "\n")
+    except Exception:
+        pass
+# endregion
 
 
 class PandasTableModel(QAbstractTableModel):
@@ -156,6 +172,62 @@ class SQLExecuteThread(QThread):
             self.finished.emit(None)
 
 
+class ChartConfigThread(QThread):
+    """Thread for fetching chart config from FastAPI /nl_to_chart_config."""
+    finished = Signal(str)   # JSON string of options dict on success (avoids Qt cross-thread copy of dict/list)
+    failed = Signal(str)     # error message on failure
+
+    def __init__(self, fastapi_url: str, api_key: str, description: str, columns: list, dtypes=None):
+        super().__init__()
+        self.fastapi_url = fastapi_url.rstrip("/")
+        self.api_key = api_key
+        self.description = description
+        self.columns = list(columns)
+        self.dtypes = dtypes or {}
+
+    def run(self):
+        try:
+            url = f"{self.fastapi_url}/nl_to_chart_config"
+            log = get_nl_plot_logger()
+            body = {"description": self.description, "columns": self.columns, "dtypes": self.dtypes}
+            log.info("NL-plot request url=%s", url)
+            log.info("NL-plot natural_language_query: %s", self.description)
+            log.info("NL-plot request_body: %s", json.dumps(body))
+            response = requests.post(
+                url,
+                json=body,
+                headers={"Authorization": f"Bearer {self.api_key}"},
+                timeout=(10, 60),
+            )
+            if response.status_code != 200:
+                detail = "Unknown error"
+                try:
+                    detail = response.json().get("detail", response.text[:200])
+                except Exception:
+                    detail = response.text[:200] if response.text else "Non-200 response"
+                log.warning("NL-plot request failed status=%s detail=%s", response.status_code, detail)
+                # If 422 and 'question' required, server likely has no /nl_to_chart_config (old or wrong endpoint)
+                if response.status_code == 422 and "question" in str(detail).lower():
+                    log.warning("NL-plot 422 with 'question' - server may lack /nl_to_chart_config; restart NL servers")
+                    detail = (
+                        "Server returned 422 (expected 'question'). "
+                        "The NL-plot endpoint may not be available. Restart the NL servers (Stop then start again) and try again."
+                    )
+                self.failed.emit(detail)
+                return
+            options = response.json()
+            log.info("NL-plot request success chart_type=%s", options.get("chart_type"))
+            log.info("NL-plot chart_config_output: %s", json.dumps(options, indent=2))
+            self.finished.emit(json.dumps(options))
+        except requests.exceptions.RequestException as e:
+            get_nl_plot_logger().warning("NL-plot request error: %s", e)
+            self.failed.emit(str(e))
+        except Exception as e:
+            logger.exception("Chart config request error")
+            get_nl_plot_logger().exception("NL-plot request error")
+            self.failed.emit(str(e))
+
+
 def _query_db_log_path():
     """Path for SQL execution log: data/logs/query_db.log (under app base)."""
     from pathlib import Path
@@ -225,7 +297,7 @@ class LocalSQLExecuteThread(QThread):
                 logger.info(f"[LocalSQLExecute] Query executed successfully, returned {len(results)} rows")
                 self.finished.emit(results)
 
-                # Log to tests/logs/query_db.log (no behavior change)
+                # Log to data/logs/query_db.log (under app base)
                 try:
                     log_path = _query_db_log_path()
                     max_rows_log = 100
@@ -480,6 +552,15 @@ class NLQueryDialog(QDialog):
         self.sql_display.setReadOnly(False)
         self.sql_display.setPlaceholderText("SQL query will appear here after submitting NL query...")
         self.sql_display.setMinimumHeight(200)
+        
+        # Plot description (for NL-plot / Visualize)
+        plot_desc_layout = QHBoxLayout()
+        plot_desc_layout.addWidget(QLabel("Plot description:"))
+        self.plot_description_line_edit = QLineEdit()
+        self.plot_description_line_edit.setPlaceholderText("e.g. bar chart of wins by team")
+        self.plot_description_line_edit.setEnabled(False)
+        plot_desc_layout.addWidget(self.plot_description_line_edit)
+        layout.addLayout(plot_desc_layout)
         
         # Import/Export buttons (uniform style with other buttons)
         import_export_layout = QHBoxLayout()
@@ -798,6 +879,7 @@ class NLQueryDialog(QDialog):
         self.query_results_df = None
         self._original_dataframe = None
         self.visualize_btn.setEnabled(False)
+        self.plot_description_line_edit.setEnabled(False)
         
         # Clear failure states
         self._fastapi_failure_msg = None
@@ -858,6 +940,7 @@ class NLQueryDialog(QDialog):
         self.query_results_df = None
         self._original_dataframe = None
         self.visualize_btn.setEnabled(False)
+        self.plot_description_line_edit.setEnabled(False)
         
         self._servers_ready_message_shown = False  # Allow one "Servers Ready" message after restart
         
@@ -1060,6 +1143,7 @@ class NLQueryDialog(QDialog):
         self.query_results_df = None
         self._original_dataframe = None
         self.visualize_btn.setEnabled(False)
+        self.plot_description_line_edit.setEnabled(False)
         
         # Verify API key is available before starting thread
         if not self.api_key:
@@ -1239,6 +1323,7 @@ class NLQueryDialog(QDialog):
         self.query_results_df = None
         self._original_dataframe = None
         self.visualize_btn.setEnabled(False)
+        self.plot_description_line_edit.setEnabled(False)
     
     def _format_sql(self, sql: str) -> str:
         """Format SQL for display."""
@@ -1265,6 +1350,7 @@ class NLQueryDialog(QDialog):
             self.results_status_label.setVisible(True)
             self.results_table.setModel(None)
             self.visualize_btn.setEnabled(False)
+            self.plot_description_line_edit.setEnabled(False)
             return
         
         # Create and set model
@@ -1287,6 +1373,7 @@ class NLQueryDialog(QDialog):
         # Enable table and visualize button when we have data
         self.results_table.setEnabled(True)
         self.visualize_btn.setEnabled(True)
+        self.plot_description_line_edit.setEnabled(True)
     
     def _refresh_cache_dropdown(self):
         """Refresh the cached queries dropdown with current cache."""
@@ -1531,7 +1618,7 @@ class NLQueryDialog(QDialog):
         return None
     
     def _handle_visualize(self):
-        """Open visualization options and show chart from query results."""
+        """Generate chart from query results: NL-plot (description) or manual VizOptionsDialog fallback."""
         if self.query_results_df is None or self.query_results_df.empty:
             QMessageBox.warning(
                 self,
@@ -1539,11 +1626,68 @@ class NLQueryDialog(QDialog):
                 "No query results to visualize. Execute a SQL query first."
             )
             return
+        
+        description = (self.plot_description_line_edit.text() or "").strip()
+        
+        # Fallback: if no description, open manual chart options dialog
+        if not description:
+            try:
+                opts_dialog = VizOptionsDialog(self.query_results_df, parent=self)
+                if opts_dialog.exec() != QDialog.DialogCode.Accepted:
+                    return
+                options = opts_dialog.get_options()
+                fig = build_figure(self.query_results_df.copy(), options)
+                viewer = VizViewerDialog(parent=self)
+                viewer.set_figure(fig)
+                viewer.exec()
+            except Exception as e:
+                logger.exception("Visualization failed")
+                QMessageBox.warning(
+                    self,
+                    "Visualization Error",
+                    f"Could not create chart: {str(e)}"
+                )
+            return
+        
+        # NL-plot path: fetch chart config from backend, then build_figure + VizViewerDialog
+        columns = list(self.query_results_df.columns)
+        dtypes = {}
         try:
-            opts_dialog = VizOptionsDialog(self.query_results_df, parent=self)
-            if opts_dialog.exec() != QDialog.DialogCode.Accepted:
-                return
-            options = opts_dialog.get_options()
+            for c in columns:
+                dtypes[str(c)] = str(self.query_results_df.dtypes[c])
+        except Exception:
+            pass
+        
+        self.visualize_btn.setEnabled(False)
+        self.plot_description_line_edit.setEnabled(False)
+        fastapi_url = "http://localhost:8000"
+        
+        self._chart_config_thread = ChartConfigThread(
+            fastapi_url, self.api_key or "", description, columns, dtypes
+        )
+        self._chart_config_thread.finished.connect(self._on_chart_config_finished)
+        self._chart_config_thread.failed.connect(self._on_chart_config_failed)
+        # #region agent log
+        _debug_log("nl_query_dialog.py:ChartConfigThread.start", "ChartConfigThread started", {"thread_id": id(self._chart_config_thread)}, "H5")
+        # #endregion
+        self._chart_config_thread.start()
+    
+    def _on_chart_config_finished(self, options_json: str):
+        """Build figure and show viewer when chart config request succeeds."""
+        # #region agent log
+        t = getattr(self, "_chart_config_thread", None)
+        _debug_log("nl_query_dialog.py:_on_chart_config_finished", "slot entered", {"thread_is_running": t.isRunning() if t else None, "thread_id": id(t) if t else None}, "H2")
+        # #endregion
+        self.visualize_btn.setEnabled(True)
+        self.plot_description_line_edit.setEnabled(True)
+        self._chart_config_thread = None
+        try:
+            options = json.loads(options_json)
+        except (json.JSONDecodeError, TypeError) as e:
+            logger.warning("NL-plot invalid options JSON: %s", e)
+            QMessageBox.warning(self, "Chart Config Error", "Invalid response from server.")
+            return
+        try:
             fig = build_figure(self.query_results_df.copy(), options)
             viewer = VizViewerDialog(parent=self)
             viewer.set_figure(fig)
@@ -1555,6 +1699,21 @@ class NLQueryDialog(QDialog):
                 "Visualization Error",
                 f"Could not create chart: {str(e)}"
             )
+    
+    def _on_chart_config_failed(self, msg: str):
+        """Show error and re-enable controls when chart config request fails."""
+        # #region agent log
+        t = getattr(self, "_chart_config_thread", None)
+        _debug_log("nl_query_dialog.py:_on_chart_config_failed", "slot entered", {"thread_is_running": t.isRunning() if t else None, "thread_id": id(t) if t else None}, "H2")
+        # #endregion
+        self.visualize_btn.setEnabled(True)
+        self.plot_description_line_edit.setEnabled(True)
+        self._chart_config_thread = None
+        QMessageBox.warning(
+            self,
+            "Chart Config Error",
+            f"Could not generate chart from description: {msg}"
+        )
     
     def _handle_export_query_results(self):
         """Export formatted SQL query and results to separate folders."""
@@ -1860,6 +2019,7 @@ class NLQueryDialog(QDialog):
             self._original_dataframe = None
             self.query_results = None
             self.visualize_btn.setEnabled(False)
+            self.plot_description_line_edit.setEnabled(False)
             return
         
         try:
@@ -1881,12 +2041,16 @@ class NLQueryDialog(QDialog):
             self._original_dataframe = None
             self.query_results = None
             self.visualize_btn.setEnabled(False)
+            self.plot_description_line_edit.setEnabled(False)
     
     def closeEvent(self, event: QCloseEvent):
         """Handle dialog close - stop servers and save API key."""
         # Set closing flag to prevent error messages
         self._is_closing = True
-        
+        # #region agent log
+        _debug_log("nl_query_dialog.py:closeEvent", "closeEvent entered", {}, "H4")
+        # #endregion
+
         # Disconnect failure signal handlers to prevent error messages during shutdown
         if self.server_manager:
             try:
@@ -1898,16 +2062,51 @@ class NLQueryDialog(QDialog):
         
         # Stop any running threads
         if self.query_thread and self.query_thread.isRunning():
+            # #region agent log
+            _debug_log("nl_query_dialog.py:closeEvent", "query_thread before wait", {"isRunning": True}, "H3")
+            # #endregion
             self.query_thread.terminate()
             self.query_thread.wait(1000)  # Wait up to 1 second
-        
+            # #region agent log
+            _debug_log("nl_query_dialog.py:closeEvent", "query_thread after wait", {"isRunning": self.query_thread.isRunning()}, "H3")
+            # #endregion
+
         if self.execute_thread and self.execute_thread.isRunning():
+            # #region agent log
+            _debug_log("nl_query_dialog.py:closeEvent", "execute_thread before wait", {"isRunning": True}, "H3")
+            # #endregion
             self.execute_thread.terminate()
             self.execute_thread.wait(1000)  # Wait up to 1 second
-        
+            # #region agent log
+            _debug_log("nl_query_dialog.py:closeEvent", "execute_thread after wait", {"isRunning": self.execute_thread.isRunning()}, "H3")
+            # #endregion
+
         if self.local_execute_thread and self.local_execute_thread.isRunning():
+            # #region agent log
+            _debug_log("nl_query_dialog.py:closeEvent", "local_execute_thread before wait", {"isRunning": True}, "H3")
+            # #endregion
             self.local_execute_thread.terminate()
             self.local_execute_thread.wait(1000)  # Wait up to 1 second
+            # #region agent log
+            _debug_log("nl_query_dialog.py:closeEvent", "local_execute_thread after wait", {"isRunning": self.local_execute_thread.isRunning()}, "H3")
+            # #endregion
+
+        # Wait for NL-plot thread so QThread is not destroyed while running
+        thread = getattr(self, "_chart_config_thread", None)
+        if thread is not None and thread.isRunning():
+            # #region agent log
+            _debug_log("nl_query_dialog.py:closeEvent", "chart_config_thread before wait", {"isRunning": True, "thread_id": id(thread)}, "H1")
+            # #endregion
+            try:
+                thread.finished.disconnect()
+                thread.failed.disconnect()
+            except (TypeError, RuntimeError):
+                pass
+            thread.wait(2000)
+            # #region agent log
+            _debug_log("nl_query_dialog.py:closeEvent", "chart_config_thread after wait", {"isRunning": thread.isRunning()}, "H1")
+            # #endregion
+            self._chart_config_thread = None
         
         # Stop servers when dialog closes
         # API key remains on disk for the session; cleared when program exits

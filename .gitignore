@@ -63,6 +63,9 @@ Thumbs.db
 # Logs
 *.log
 
+# all data from root 
+data/
+
 # Distribution / packaging
 .Python
 build/

@@ -15,10 +15,11 @@ import asyncio
 import os
 import sys
 import re
+import json
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List, Dict, Any
 from fastapi import FastAPI, HTTPException, Header, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -33,6 +34,8 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 from src.utils.path_resolver import get_database_path, get_app_base_path
+from src.visualization.nl_plot_pipeline import build_chart_config_prompt, parse_chart_config
+from src.utils.nl_plot_log import get_nl_plot_logger
 
 app = FastAPI(title="NL-to-SQL Server", version="1.0.0")
 
@@ -65,12 +68,8 @@ def _setup_app_logging():
     _app_logger.propagate = False
     
     try:
-        # Issue 7: when frozen use app base (writable); avoid _MEIPASS which may be read-only
-        if getattr(sys, "frozen", False):
-            logs_dir = Path(get_app_base_path()) / "logs"
-        else:
-            project_root = Path(__file__).parent.parent
-            logs_dir = project_root / "tests" / "logs"
+        # Logs under data/logs (app base in dev or frozen)
+        logs_dir = Path(get_app_base_path()) / "data" / "logs"
         logs_dir.mkdir(parents=True, exist_ok=True)
         app_log_file = logs_dir / "fastapi_app.log"
         app_handler = logging.FileHandler(app_log_file, mode='a', encoding='utf-8')
@@ -113,6 +112,13 @@ class QueryRequest(BaseModel):
     api_key: Optional[str] = None  # Optional, prefer Authorization header
 
 
+class ChartConfigRequest(BaseModel):
+    """Request model for NL to chart config."""
+    description: str
+    columns: List[str]
+    dtypes: Optional[Dict[str, str]] = None
+
+
 def get_api_key_from_header(authorization: Optional[str] = Header(None)) -> Optional[str]:
     """Extract API key from Authorization header."""
     if authorization and authorization.startswith("Bearer "):
@@ -121,43 +127,41 @@ def get_api_key_from_header(authorization: Optional[str] = Header(None)) -> Opti
 
 
 def get_api_key(
+    authorization: Optional[str] = Depends(get_api_key_from_header)
+) -> str:
+    """
+    Get API key from header or environment (for endpoints that don't have a request body with api_key).
+    Use get_api_key_for_query for /nl_to_sql which allows body fallback.
+    """
+    api_key = authorization
+    if not api_key:
+        api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise HTTPException(
+            status_code=400,
+            detail="API key required. Provide via Authorization header (Bearer <key>) or set OPENAI_API_KEY."
+        )
+    return api_key
+
+
+def get_api_key_for_query(
     request: QueryRequest,
     authorization: Optional[str] = Depends(get_api_key_from_header)
 ) -> str:
     """
     Get API key from request (header preferred, body fallback, then environment).
-    
-    Args:
-        request: Query request object
-        authorization: Authorization header value
-        
-    Returns:
-        str: API key
-        
-    Raises:
-        HTTPException: If no API key found
+    Only use with endpoints that have QueryRequest body (e.g. /nl_to_sql).
     """
-    # Priority: Header > Request body > Environment variable
     api_key = authorization
-    print(f"[API Key] Header received: {authorization[:20] if authorization else 'None'}...")
-    
     if not api_key and request.api_key:
         api_key = request.api_key
-        print(f"[API Key] Using API key from request body")
-    
     if not api_key:
         api_key = os.getenv("OPENAI_API_KEY")
-        if api_key:
-            print(f"[API Key] Using API key from environment variable")
-    
     if not api_key:
-        print(f"[API Key] ERROR: No API key found in header, body, or environment")
         raise HTTPException(
             status_code=400,
             detail="API key required. Provide via Authorization header (Bearer <key>) or request body."
         )
-    
-    print(f"[API Key] Extracted key length: {len(api_key)}, preview: {api_key[:7]}...{api_key[-4:] if len(api_key) > 11 else ''}")
     return api_key
 
 
@@ -326,7 +330,7 @@ async def health():
 @app.post("/mcp/ask")
 async def ask_nl_query(
     request: QueryRequest,
-    api_key: str = Depends(get_api_key)
+    api_key: str = Depends(get_api_key_for_query)
 ):
     """
     Convert natural language query to SQL and execute it.
@@ -448,7 +452,7 @@ SQL Query:"""
 @app.post("/nl_to_sql")
 async def nl_to_sql(
     request: QueryRequest,
-    api_key: str = Depends(get_api_key)
+    api_key: str = Depends(get_api_key_for_query)
 ):
     """
     Convert natural language query to SQL ONLY (does not execute).
@@ -673,6 +677,70 @@ SQL Query:"""
             status_code=500,
             detail=f"Unexpected error generating SQL: {error_type}: {error_msg}"
         )
+
+
+@app.post("/nl_to_chart_config")
+async def nl_to_chart_config(
+    request: ChartConfigRequest,
+    api_key: str = Depends(get_api_key)
+):
+    """
+    Convert natural language plot description to chart options dict.
+
+    Request: description (str), columns (list of column names), optional dtypes (dict).
+    Returns: JSON object with chart_type, x_col, y_col, series_col, title, etc. for build_figure().
+    """
+    log = get_nl_plot_logger()
+    log.info("--- NL-plot request ---")
+    log.info("natural_language_query: %s", request.description)
+    log.info("request_body: %s", json.dumps({"description": request.description, "columns": request.columns, "dtypes": request.dtypes or {}}))
+    try:
+        if not api_key or not api_key.startswith("sk-"):
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid API key format. OpenAI API keys should start with 'sk-'."
+            )
+        if not request.columns:
+            raise HTTPException(status_code=400, detail="columns list cannot be empty")
+
+        prompt = build_chart_config_prompt(
+            request.description,
+            request.columns,
+            request.dtypes
+        )
+        log.info("prompt (formatted):\n%s", prompt)
+
+        client = AsyncOpenAI(api_key=api_key)
+        response = await client.chat.completions.create(
+            model=DEFAULT_MODEL,
+            messages=[
+                {"role": "system", "content": "You output only a JSON object for chart configuration. No markdown, no explanation."},
+                {"role": "user", "content": prompt}
+            ],
+            stream=False,
+            temperature=0,
+            max_tokens=400
+        )
+
+        if not response.choices or not response.choices[0].message.content:
+            raise HTTPException(status_code=502, detail="OpenAI returned empty response")
+
+        content = response.choices[0].message.content.strip()
+        log.info("llm_raw_response: %s", content)
+        options = parse_chart_config(content, request.columns)
+        log.info("chart_config_output: %s", json.dumps(options, indent=2))
+        log.info("nl_to_chart_config success chart_type=%s", options.get("chart_type"))
+        return options
+
+    except HTTPException:
+        raise
+    except ValueError as e:
+        log.warning("nl_to_chart_config validation error: %s", e)
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        log.exception("nl_to_chart_config error")
+        log.warning("nl_to_chart_config error_detail: %s", str(e))
+        raise HTTPException(status_code=502, detail=f"Chart config error: {str(e)}")
 
 
 if __name__ == "__main__":

@@ -30,8 +30,8 @@ class NLQueryCache:
         self.persist = persist
         self.queries = {}  # Dict of {id: query_data}
         
-        # Get cache file path using path resolver
-        cache_file = get_data_path("nl_query_cache.json")
+        # Get cache file path using path resolver (data/logs/nl_query_cache.json under app base)
+        cache_file = get_data_path("logs", "nl_query_cache.json")
         self.cache_file = cache_file
         
         if self.persist:
