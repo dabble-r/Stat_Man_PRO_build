@@ -652,6 +652,8 @@ class NLQueryDialog(QDialog):
         self.sql_display.setReadOnly(False)
         self.sql_display.setPlaceholderText("SQL query will appear here after submitting NL query...")
         self.sql_display.setMinimumHeight(200)
+        # Option A (sql_exec_saveDB): keep current_sql in sync with display so Execute runs "what I see"
+        self.sql_display.textChanged.connect(self._on_sql_display_changed)
         
         # Plot description (for NL-plot) + Submit; Visualize = manual config only
         plot_desc_layout = QHBoxLayout()
@@ -2127,9 +2129,33 @@ class NLQueryDialog(QDialog):
                 f"Failed to import queries from CSV:\n{str(e)}"
             )
     
+    def _on_sql_display_changed(self):
+        """Option A (sql_exec_saveDB): keep current_sql in sync with SQL display so Execute runs what the user sees."""
+        text = self.sql_display.toPlainText().strip()
+        self.current_sql = self._extract_raw_sql(text) if text else None
+    
+    def _is_league_table_empty(self) -> bool:
+        """Option B (sql_exec_saveDB): return True if league table has 0 rows (or missing), else False."""
+        try:
+            from src.utils.path_resolver import get_database_path
+            import sqlite3
+            db_path = get_database_path()
+            conn = sqlite3.connect(str(db_path))
+            cursor = conn.cursor()
+            try:
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='league'")
+                if not cursor.fetchone():
+                    return True
+                cursor.execute("SELECT COUNT(*) FROM league")
+                (n,) = cursor.fetchone()
+                return n == 0
+            finally:
+                conn.close()
+        except Exception:
+            return True
+    
     def _extract_raw_sql(self, formatted_sql: str) -> str:
         """Extract raw SQL from formatted SQL (remove extra whitespace/newlines)."""
-        # Remove excessive newlines and whitespace
         lines = [line.strip() for line in formatted_sql.split('\n') if line.strip()]
         # Join with single spaces, preserving SQL keywords
         raw_sql = ' '.join(lines)
@@ -2154,13 +2180,17 @@ class NLQueryDialog(QDialog):
         return True, ""
 
     def _handle_execute_sql(self):
-        """Handle SQL execution - runs query on database and displays results in bottom right."""
-        if not self.current_sql:
+        """Handle SQL execution - runs query on database and displays results in bottom right.
+        Option A (sql_exec_saveDB): use displayed SQL when present, so we run what the user sees.
+        """
+        display_text = self.sql_display.toPlainText().strip()
+        sql_to_run = self._extract_raw_sql(display_text) if display_text else self.current_sql
+        if not sql_to_run:
             QMessageBox.warning(self, "No SQL Query", "No SQL query available to execute.")
             return
         
         # Safety: only allow SELECT; reject dangerous keywords (same policy as MCP /execute)
-        ok, reason = self._is_sql_safe_for_local_execute(self.current_sql)
+        ok, reason = self._is_sql_safe_for_local_execute(sql_to_run)
         if not ok:
             QMessageBox.warning(
                 self,
@@ -2179,7 +2209,7 @@ class NLQueryDialog(QDialog):
         self.results_status_label.setText("Executing query...")
         self.results_status_label.setVisible(True)
 
-        self.local_execute_thread = LocalSQLExecuteThread(self.current_sql)
+        self.local_execute_thread = LocalSQLExecuteThread(sql_to_run)
         self.local_execute_thread.finished.connect(self._on_execution_complete)
         self.local_execute_thread.start()
     
@@ -2197,7 +2227,12 @@ class NLQueryDialog(QDialog):
         
         # Convert results to pandas DataFrame
         if not results:
-            msg = "Save league to db before query"
+            # Option B (sql_exec_saveDB): differentiate empty result set
+            league_empty = self._is_league_table_empty()
+            if league_empty:
+                msg = "Save league to db before query"
+            else:
+                msg = "Query returned no rows. Save league to db or check the SQL/schema."
             self.results_status_label.setText(msg)
             self.results_status_label.setVisible(True)
             QMessageBox.information(self, "No Results", msg)

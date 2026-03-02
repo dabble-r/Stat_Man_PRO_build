@@ -433,8 +433,9 @@ class NLServerManager(QObject):
         if hasattr(self, '_fastapi_logger'):
             self._fastapi_logger.info("FastAPI server started in-process")
         QTimer.singleShot(0, self._on_fastapi_started)
-        # Solution 4: first verification 5s when frozen
-        QTimer.singleShot(5000, self._verify_fastapi_ready)
+        # Solution 4: first verification; on Windows use longer delay for cold start (server_fail_windows)
+        first_verify_ms = 8000 if sys.platform.startswith("win") else 5000
+        QTimer.singleShot(first_verify_ms, self._verify_fastapi_ready)
 
     def _start_mcp_inprocess(self, output_callback=None, error_callback=None):
         """Start MCP server in-process (uvicorn in a thread) when frozen. Heavy imports happen in the thread."""
@@ -446,8 +447,9 @@ class NLServerManager(QObject):
         if hasattr(self, '_mcp_logger'):
             self._mcp_logger.info("MCP server started in-process")
         QTimer.singleShot(0, self._on_mcp_started)
-        # Solution 4: first verification 5s when frozen
-        QTimer.singleShot(5000, self._verify_mcp_ready)
+        # Solution 4: first verification; on Windows use longer delay for cold start (server_fail_windows)
+        first_verify_ms = 8000 if sys.platform.startswith("win") else 5000
+        QTimer.singleShot(first_verify_ms, self._verify_mcp_ready)
     
     def _on_fastapi_port_check_done(self, port_ok: bool):
         """Issue 6: Called on main thread after port check worker finishes. Schedule start or emit failed."""
@@ -1307,12 +1309,12 @@ class NLServerManager(QObject):
             try:
                 try:
                     import requests
-                    response = requests.get("http://localhost:8000/docs", timeout=2)
+                    response = requests.get("http://127.0.0.1:8000/docs", timeout=2)
                     success = response.status_code == 200
                 except ImportError:
                     # Issue 3: fallback to urllib when requests not installed
                     import urllib.request
-                    req = urllib.request.urlopen("http://localhost:8000/docs", timeout=2)
+                    req = urllib.request.urlopen("http://127.0.0.1:8000/docs", timeout=2)
                     success = (req.getcode() == 200)
                     req.close()
             except Exception as e:
@@ -1341,10 +1343,18 @@ class NLServerManager(QObject):
         else:
             if self._fastapi_verify_retries >= self._max_verify_retries:
                 self.fastapi_starting = False
+                if hasattr(self, '_fastapi_logger') and error_msg:
+                    self._fastapi_logger.warning(
+                        f"FastAPI verification gave up after {self._max_verify_retries} attempts. Last error: {error_msg}"
+                    )
                 self.fastapi_failed.emit(
                     "FastAPI server did not become ready in time. Check the logs folder next to the app."
                 )
             else:
+                if hasattr(self, '_fastapi_logger') and error_msg:
+                    self._fastapi_logger.warning(
+                        f"FastAPI verification failed (attempt {self._fastapi_verify_retries}/{self._max_verify_retries}): {error_msg}"
+                    )
                 QTimer.singleShot(2000, self._verify_fastapi_ready)
     
     # MCP server signal handlers
@@ -1545,12 +1555,12 @@ class NLServerManager(QObject):
             try:
                 try:
                     import requests
-                    response = requests.get("http://localhost:8001/health", timeout=2)
+                    response = requests.get("http://127.0.0.1:8001/health", timeout=2)
                     success = response.status_code == 200
                 except ImportError:
                     # Issue 3: fallback to urllib when requests not installed
                     import urllib.request
-                    req = urllib.request.urlopen("http://localhost:8001/health", timeout=2)
+                    req = urllib.request.urlopen("http://127.0.0.1:8001/health", timeout=2)
                     success = (req.getcode() == 200)
                     req.close()
             except Exception as e:
@@ -1579,8 +1589,16 @@ class NLServerManager(QObject):
         else:
             if self._mcp_verify_retries >= self._max_verify_retries:
                 self.mcp_starting = False
+                if hasattr(self, '_mcp_logger') and error_msg:
+                    self._mcp_logger.warning(
+                        f"MCP verification gave up after {self._max_verify_retries} attempts. Last error: {error_msg}"
+                    )
                 self.mcp_failed.emit(
                     "MCP server did not become ready in time. Check the logs folder next to the app."
                 )
             else:
+                if hasattr(self, '_mcp_logger') and error_msg:
+                    self._mcp_logger.warning(
+                        f"MCP verification failed (attempt {self._mcp_verify_retries}/{self._max_verify_retries}): {error_msg}"
+                    )
                 QTimer.singleShot(2000, self._verify_mcp_ready)

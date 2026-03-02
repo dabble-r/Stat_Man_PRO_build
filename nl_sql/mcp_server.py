@@ -94,6 +94,75 @@ def get_schema(db_path: Path) -> str:
     return "\n".join(schema_parts)
 
 
+# Columns for which we return distinct values so NL-to-SQL uses actual DB values (e.g. "second base" not "2B")
+VALUE_HINT_COLUMNS = ["positions"]
+
+
+def get_distinct_values(db_path: Path, column: str, max_values: int = 200) -> List[str]:
+    """
+    Get distinct non-empty values for a column from tables that have it.
+    Used so NL-to-SQL prompts can tell the LLM to use exact DB values (e.g. "second base" not "2B").
+    """
+    if not column or column not in VALUE_HINT_COLUMNS:
+        return []
+    if not db_path.exists():
+        return []
+    conn = sqlite3.connect(str(db_path))
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+        tables = [row[0] for row in cursor.fetchall() if not row[0].startswith("sqlite_")]
+        seen: set = set()
+        result: List[str] = []
+        for table in tables:
+            try:
+                cursor.execute(f"PRAGMA table_info({table})")
+                cols = [row[1] for row in cursor.fetchall()]
+                if column not in cols:
+                    continue
+                cursor.execute(f'SELECT DISTINCT "{column}" FROM "{table}" WHERE "{column}" IS NOT NULL AND "{column}" != ""')
+                for (val,) in cursor.fetchall():
+                    val = (val or "").strip()
+                    if not val:
+                        continue
+                    # Column may store comma-separated values (e.g. "second base,outfield")
+                    for part in [p.strip() for p in val.split(",") if p.strip()]:
+                        if part not in seen:
+                            seen.add(part)
+                            result.append(part)
+                            if len(result) >= max_values:
+                                break
+                    if len(result) >= max_values:
+                        break
+            except sqlite3.Error:
+                continue
+            if len(result) >= max_values:
+                break
+        conn.close()
+        return sorted(result)
+    except Exception:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return []
+
+
+@app.get("/distinct_values")
+async def get_distinct_values_endpoint(column: str = ""):
+    """
+    Get distinct values for a column (e.g. positions) so NL-to-SQL uses exact DB values.
+    Query params: column (e.g. "positions").
+    """
+    try:
+        if not column.strip():
+            return {"values": [], "column": "", "message": "Query param 'column' required (e.g. positions)."}
+        values = get_distinct_values(DB_PATH, column.strip())
+        return {"values": values, "column": column.strip(), "database": str(DB_PATH)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting distinct values: {str(e)}")
+
+
 class RunPlotRequest(BaseModel):
     """Request body for running plot code."""
     code: str

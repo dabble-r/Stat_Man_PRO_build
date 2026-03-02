@@ -300,6 +300,28 @@ async def get_database_schema(use_cache: bool = True) -> str:
         return schema
 
 
+def get_distinct_values_for_prompt(column: str = "positions") -> str:
+    """
+    Get distinct values for a column from MCP so NL-to-SQL uses exact DB values
+    (e.g. "second base" not "2B"). Returns a prompt fragment or empty string.
+    """
+    try:
+        response = requests.get(f"{MCP_SERVER_URL}/distinct_values", params={"column": column}, timeout=5)
+        if response.status_code != 200:
+            return ""
+        data = response.json()
+        values = data.get("values") or []
+        if not values:
+            return ""
+        return (
+            f"\nWhen filtering by '{column}', use ONLY these exact values as stored in the database: "
+            + ", ".join(repr(v) for v in values)
+            + ". Do not use abbreviations (e.g. use 'second base' not '2B', 'pitcher' not 'P')."
+        )
+    except Exception:
+        return ""
+
+
 def get_fallback_schema() -> str:
     """
     Get fallback schema when database is empty or schema unavailable.
@@ -385,6 +407,7 @@ CRITICAL: Use EXACT table names from schema above:
 - Table name is "player" (singular, NOT "players")  
 - Table name is "pitcher" (singular, NOT "pitchers")
 - Table name is "league" (singular, NOT "leagues")
+{get_distinct_values_for_prompt("positions")}
 
 Rules:
 1. Only generate SELECT queries
@@ -557,6 +580,7 @@ async def nl_to_sql(
             schema_note = "\n⚠️ Note: Database appears to be empty. Using expected schema structure."
             schema = get_fallback_schema()
         
+        position_hint = get_distinct_values_for_prompt("positions")
         prompt = f"""You are a SQL expert. Convert the following natural language question into a SQLite SQL query.
 
 Database Schema:
@@ -567,6 +591,7 @@ CRITICAL: Use EXACT table names from schema above:
 - Table name is "player" (singular, NOT "players")  
 - Table name is "pitcher" (singular, NOT "pitchers")
 - Table name is "league" (singular, NOT "leagues")
+{position_hint}
 
 Rules:
 1. Only generate SELECT queries
