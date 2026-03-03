@@ -154,6 +154,17 @@ if nl_sql_path.exists():
 else:
     print(f"⚠ WARNING: nl_sql folder not found at {nl_sql_path}")
 
+# Plan 3 / server_summary_plan_3: Bundle src so QProcess subprocess (Windows frozen) can import src.
+# Subprocess runs from _MEIPASS/nl_sql/ with sys.path.insert(0, _MEIPASS); _MEIPASS/src/ must exist.
+src_path = base_dir / 'src'
+src_data = []
+if src_path.exists():
+    src_data = [(str(src_path), 'src')]
+    print(f"✓ Bundling src folder: {src_path}")
+    print(f"  src will be available at runtime in: src/ (required for QProcess server subprocess)")
+else:
+    print(f"⚠ WARNING: src folder not found at {src_path}")
+
 # server_fail_12 P13: Bundle tests/servers so tests.servers.server_pc_logic is importable when frozen
 # (timing, port hints, path normalization on Windows). Also allows run_server_tests_on_startup (P12).
 server_pc_logic_datas = []
@@ -179,9 +190,9 @@ uvicorn_hiddenimports = collect_submodules('uvicorn')
 
 a = Analysis(
     ['main.py'],
-    pathex=[],
+    pathex=['.', 'src'],
     binaries=pyside6_binaries + numpy_binaries + pandas_binaries,
-    datas=pyside6_datas + assets_data + nl_sql_data + server_pc_logic_datas,
+    datas=pyside6_datas + assets_data + nl_sql_data + src_data + server_pc_logic_datas,
     hiddenimports=[
         'PySide6',
         'PySide6.QtCore',
