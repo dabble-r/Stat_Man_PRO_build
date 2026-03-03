@@ -85,3 +85,16 @@ def get_database_path():
         return Path(env_db)
     return get_data_path("database", "League.db")
 
+
+def get_server_tests_log_path():
+    """
+    Return path to server test findings log: data/logs/server_tests.log under app base.
+    Ensures data/logs exists (creates parent directories). Use for all server test
+    log output so Windows and frozen builds write to the same file.
+    
+    Returns:
+        Path: Path to data/logs/server_tests.log
+    """
+    return get_data_path("logs", "server_tests.log")
+
+

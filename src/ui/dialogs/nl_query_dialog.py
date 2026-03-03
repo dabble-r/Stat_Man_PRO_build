@@ -876,10 +876,8 @@ class NLQueryDialog(QDialog):
                 run_all_to_log(verbose=False)
             except Exception as e:
                 try:
-                    from src.utils.path_resolver import get_app_base_path
-                    log_dir = Path(get_app_base_path()) / "data" / "logs"
-                    log_dir.mkdir(parents=True, exist_ok=True)
-                    log_path = log_dir / "server_tests.log"
+                    from src.utils.path_resolver import get_server_tests_log_path
+                    log_path = get_server_tests_log_path()
                     with open(log_path, "a", encoding="utf-8") as f:
                         f.write(f"\n[API key submit] Server tests could not run: {e}\n")
                 except Exception:

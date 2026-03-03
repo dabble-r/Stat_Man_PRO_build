@@ -84,7 +84,7 @@ class NLServerManager(QObject):
         # Verification timeout: max retries before emitting failed (stops UI staying stuck)
         self._fastapi_verify_retries = 0
         self._mcp_verify_retries = 0
-        self._max_verify_retries = 15  # ~30s at 2s interval
+        self._max_verify_retries = 18  # ~45s at 2.5s interval (P3: allow more time on slow Windows)
         
         # Callbacks for output/error handling
         self.fastapi_output_callback: Optional[Callable[[str], None]] = None
@@ -433,8 +433,8 @@ class NLServerManager(QObject):
         if hasattr(self, '_fastapi_logger'):
             self._fastapi_logger.info("FastAPI server started in-process")
         QTimer.singleShot(0, self._on_fastapi_started)
-        # Solution 4: first verification; on Windows use longer delay for cold start (server_fail_windows)
-        first_verify_ms = 8000 if sys.platform.startswith("win") else 5000
+        # P3 (server_fail_5): first verification; longer on Windows for slow/busy machines
+        first_verify_ms = 10000 if sys.platform.startswith("win") else 6000
         QTimer.singleShot(first_verify_ms, self._verify_fastapi_ready)
 
     def _start_mcp_inprocess(self, output_callback=None, error_callback=None):
@@ -447,8 +447,8 @@ class NLServerManager(QObject):
         if hasattr(self, '_mcp_logger'):
             self._mcp_logger.info("MCP server started in-process")
         QTimer.singleShot(0, self._on_mcp_started)
-        # Solution 4: first verification; on Windows use longer delay for cold start (server_fail_windows)
-        first_verify_ms = 8000 if sys.platform.startswith("win") else 5000
+        # P3 (server_fail_5): first verification; longer on Windows for slow/busy machines
+        first_verify_ms = 10000 if sys.platform.startswith("win") else 6000
         QTimer.singleShot(first_verify_ms, self._verify_mcp_ready)
     
     def _on_fastapi_port_check_done(self, port_ok: bool):
@@ -703,9 +703,9 @@ class NLServerManager(QObject):
         else:
             print(f"[NL Server Manager] FastAPI server process start() returned success")
         
-        # Wait for server to start, then verify it's responding
-        # This will be called regardless of initial start() return value
-        QTimer.singleShot(3000, self._verify_fastapi_ready)
+        # Wait for server to start, then verify it's responding (P3: longer on Windows)
+        first_verify_ms = 10000 if sys.platform.startswith("win") else 6000
+        QTimer.singleShot(first_verify_ms, self._verify_fastapi_ready)
     
     def start_mcp_server(self, output_callback=None, error_callback=None):
         """
@@ -864,9 +864,9 @@ class NLServerManager(QObject):
         else:
             print(f"[NL Server Manager] MCP server process start() returned success")
         
-        # Wait for server to start, then verify it's responding
-        # This will be called regardless of initial start() return value
-        QTimer.singleShot(3000, self._verify_mcp_ready)
+        # Wait for server to start, then verify it's responding (P3: longer on Windows)
+        first_verify_ms = 10000 if sys.platform.startswith("win") else 6000
+        QTimer.singleShot(first_verify_ms, self._verify_mcp_ready)
     
     def stop_fastapi_server(self):
         """Stop the FastAPI server gracefully."""
@@ -1127,7 +1127,7 @@ class NLServerManager(QObject):
                 "Waiting for application startup"
             ]):
                 # Server is starting up, verify it's ready
-                QTimer.singleShot(2000, self._verify_fastapi_ready)
+                QTimer.singleShot(2500, self._verify_fastapi_ready)
     
     def _on_fastapi_error(self):
         """Handle FastAPI server stderr output."""
@@ -1355,7 +1355,7 @@ class NLServerManager(QObject):
                     self._fastapi_logger.warning(
                         f"FastAPI verification failed (attempt {self._fastapi_verify_retries}/{self._max_verify_retries}): {error_msg}"
                     )
-                QTimer.singleShot(2000, self._verify_fastapi_ready)
+                QTimer.singleShot(2500, self._verify_fastapi_ready)
     
     # MCP server signal handlers
     
@@ -1396,7 +1396,7 @@ class NLServerManager(QObject):
                 "Waiting for application startup"
             ]):
                 # Server is starting up, verify it's ready
-                QTimer.singleShot(2000, self._verify_mcp_ready)
+                QTimer.singleShot(2500, self._verify_mcp_ready)
     
     def _on_mcp_error(self):
         """Handle MCP server stderr output."""
@@ -1601,4 +1601,4 @@ class NLServerManager(QObject):
                     self._mcp_logger.warning(
                         f"MCP verification failed (attempt {self._mcp_verify_retries}/{self._max_verify_retries}): {error_msg}"
                     )
-                QTimer.singleShot(2000, self._verify_mcp_ready)
+                QTimer.singleShot(2500, self._verify_mcp_ready)

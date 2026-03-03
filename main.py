@@ -18,7 +18,7 @@ from src.ui.styles.stylesheets import StyleSheets
 from src.utils.clear_db_startup import clear_database_on_startup
 from src.utils.ensure_nl_db import ensure_nl_database_schema
 from src.utils.print_filter import mute_print
-from src.utils.path_resolver import get_resource_path
+from src.utils.path_resolver import get_resource_path, get_data_path
 from src.utils.nl_sql_server import NLServerManager
 from src.utils.api_key_manager import APIKeyManager
 
@@ -58,10 +58,8 @@ def run_server_tests_on_startup():
         run_all_to_log(verbose=False)
     except Exception as e:
         try:
-            from src.utils.path_resolver import get_app_base_path
-            log_dir = Path(get_app_base_path()) / "data" / "logs"
-            log_dir.mkdir(parents=True, exist_ok=True)
-            log_path = log_dir / "server_tests.log"
+            from src.utils.path_resolver import get_server_tests_log_path
+            log_path = get_server_tests_log_path()
             with open(log_path, "a", encoding="utf-8") as f:
                 f.write(f"\n[Startup] Server tests could not run: {e}\n")
         except Exception:
@@ -71,6 +69,9 @@ def run_server_tests_on_startup():
 if __name__ == "__main__":
     # mute print statements unless STATMANG_DEBUG=1 is set
     mute_print() 
+
+    # Ensure data/logs exists (Windows/frozen build: same app base as exe so all log files write here)
+    get_data_path("logs").mkdir(parents=True, exist_ok=True)
 
     # Clear database before starting application
     clear_database_on_startup()
