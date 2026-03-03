@@ -32,6 +32,7 @@ import csv
 import re
 from datetime import datetime
 from pathlib import Path
+import threading
 
 logger = logging.getLogger(__name__)
 
@@ -863,6 +864,28 @@ class NLQueryDialog(QDialog):
                 self.submit_api_key_btn.setEnabled(True)
                 self.submit_api_key_btn.setText("Submit API Key")
     
+    def _run_server_tests_and_log(self):
+        """
+        Run the server test suite and append findings to data/logs/server_tests.log.
+        Intended to be called when the user submits an API key. Runs in a background
+        thread so the UI stays responsive.
+        """
+        def _do_run():
+            try:
+                from tests.servers.server_tests_windows_build import run_all_to_log
+                run_all_to_log(verbose=False)
+            except Exception as e:
+                try:
+                    from src.utils.path_resolver import get_app_base_path
+                    log_dir = Path(get_app_base_path()) / "data" / "logs"
+                    log_dir.mkdir(parents=True, exist_ok=True)
+                    log_path = log_dir / "server_tests.log"
+                    with open(log_path, "a", encoding="utf-8") as f:
+                        f.write(f"\n[API key submit] Server tests could not run: {e}\n")
+                except Exception:
+                    pass
+        threading.Thread(target=_do_run, daemon=True).start()
+    
     def _handle_api_key_submit(self):
         """Handle API key submission and start servers."""
         api_key = self.api_key_input.text().strip()
@@ -893,6 +916,9 @@ class NLQueryDialog(QDialog):
         self.stop_servers_btn.setEnabled(False)  # Disable during startup
         self._servers_ready_message_shown = False  # Allow one "Servers Ready" message this cycle
         self._servers_starting = True  # So failure handlers can clear and re-enable button
+        
+        # Run server test suite in background; append findings to data/logs/server_tests.log
+        self._run_server_tests_and_log()
         
         # Start servers using GlobalServerManager
         logger.info("[NLQueryDialog] Calling GlobalServerManager.start_servers()...")

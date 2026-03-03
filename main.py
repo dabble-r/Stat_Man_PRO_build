@@ -45,6 +45,29 @@ def ensure_ports_free():
     return port_8000_free and port_8001_free
 
 
+def run_server_tests_on_startup():
+    """
+    Run the server test suite on startup and append findings to data/logs/server_tests.log.
+
+    Uses tests.servers.server_tests_windows_build.run_all_to_log(verbose=False).
+    If the test module is unavailable (e.g. tests not bundled when frozen), appends
+    a single line to server_tests.log and returns without raising.
+    """
+    try:
+        from tests.servers.server_tests_windows_build import run_all_to_log
+        run_all_to_log(verbose=False)
+    except Exception as e:
+        try:
+            from src.utils.path_resolver import get_app_base_path
+            log_dir = Path(get_app_base_path()) / "data" / "logs"
+            log_dir.mkdir(parents=True, exist_ok=True)
+            log_path = log_dir / "server_tests.log"
+            with open(log_path, "a", encoding="utf-8") as f:
+                f.write(f"\n[Startup] Server tests could not run: {e}\n")
+        except Exception:
+            pass
+
+
 if __name__ == "__main__":
     # mute print statements unless STATMANG_DEBUG=1 is set
     mute_print() 
@@ -57,6 +80,9 @@ if __name__ == "__main__":
 
     # Ensure ports 8000 and 8001 are free
     ensure_ports_free()
+
+    # Run server test suite on startup; append findings to data/logs/server_tests.log
+    run_server_tests_on_startup()
     
     app = QApplication(sys.argv)
     styles = StyleSheets()
