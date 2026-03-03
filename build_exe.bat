@@ -8,7 +8,7 @@ echo.
 REM Build from explicit branch: master
 if exist ".git" (
     echo Checking out branch: master
-    git checkout server_pc_verify
+    git checkout master
     if errorlevel 1 (
         echo WARNING: git checkout master failed. Building current branch.
     ) else (
