@@ -39,6 +39,10 @@ try:
         normalize_server_paths,
         get_resolved_paths_log_line,
         get_subprocess_python_hint,
+        probe_port,
+        test_subprocess,
+        test_write,
+        log_event,
     )
     _server_pc_logic_available = True
 except ImportError:
@@ -48,6 +52,10 @@ except ImportError:
     normalize_server_paths = None
     get_resolved_paths_log_line = None
     get_subprocess_python_hint = None
+    probe_port = None
+    test_subprocess = None
+    test_write = None
+    log_event = None
 
 # server_fail_7 (F1b): Only first NLServerManager in process configures file logging and logs init
 _nl_server_logging_configured = False
@@ -253,6 +261,9 @@ class NLServerManager(QObject):
             mcp_handler.setLevel(logging.DEBUG)
             mcp_handler.setFormatter(formatter)
             self._mcp_logger.addHandler(mcp_handler)
+            # server_summary_plan_1 §2.5: verify log directory writable
+            if _server_pc_logic_available and test_write:
+                test_write(fastapi_log_file, lambda msg: self._fastapi_logger.info(msg))
         except (OSError, PermissionError) as e:
             stream = logging.StreamHandler()
             stream.setLevel(logging.DEBUG)
@@ -404,12 +415,22 @@ class NLServerManager(QObject):
     def _run_fastapi_inprocess(self):
         """Target for FastAPI uvicorn thread (Solution 3: in-process when frozen). Imports and server creation run here to avoid blocking GUI."""
         try:
+            def _log(msg: str) -> None:
+                if hasattr(self, "_fastapi_logger"):
+                    self._fastapi_logger.info(msg)
+            if _server_pc_logic_available and log_event:
+                log_event(_log, "server thread start")
             self._ensure_bundle_path()
             from uvicorn import Config, Server
             from nl_sql.api_call import app
-            config = Config(app=app, host="0.0.0.0", port=8000, log_level="info")
+            if _server_pc_logic_available and log_event:
+                log_event(_log, "uvicorn import")
+            config = Config(app=app, host="127.0.0.1", port=8000, log_level="info")
             server = Server(config)
             self._fastapi_server = server
+            if _server_pc_logic_available and log_event:
+                log_event(_log, "uvicorn config creation")
+                log_event(_log, "server run start")
             server.run()
         except BaseException as e:
             try:
@@ -446,12 +467,22 @@ class NLServerManager(QObject):
     def _run_mcp_inprocess(self):
         """Target for MCP uvicorn thread (Solution 3: in-process when frozen). Imports and server creation run here to avoid blocking GUI."""
         try:
+            def _log(msg: str) -> None:
+                if hasattr(self, "_mcp_logger"):
+                    self._mcp_logger.info(msg)
+            if _server_pc_logic_available and log_event:
+                log_event(_log, "server thread start")
             self._ensure_bundle_path()
             from uvicorn import Config, Server
             from nl_sql.mcp_server import app as mcp_app
-            config = Config(app=mcp_app, host="0.0.0.0", port=8001, log_level="info")
+            if _server_pc_logic_available and log_event:
+                log_event(_log, "uvicorn import")
+            config = Config(app=mcp_app, host="127.0.0.1", port=8001, log_level="info")
             server = Server(config)
             self._mcp_server = server
+            if _server_pc_logic_available and log_event:
+                log_event(_log, "uvicorn config creation")
+                log_event(_log, "server run start")
             server.run()
         except BaseException as e:
             try:
@@ -768,6 +799,9 @@ class NLServerManager(QObject):
             if not self._check_and_free_port(8000):
                 print("[NL Server Manager] Warning: Port 8000 may still be in use, attempting server start anyway")
             time.sleep(0.2)  # Brief delay to ensure port is free
+            # server_summary_plan_1 §2.4: subprocess echo test before launch (log-only)
+            if _server_pc_logic_available and test_subprocess and hasattr(self, "_fastapi_logger"):
+                test_subprocess(python_exe, lambda msg: self._fastapi_logger.info(msg))
             success = self.fastapi_process.start(python_exe, launch_args)
         else:
             # Fallback: use uvicorn directly
@@ -776,7 +810,7 @@ class NLServerManager(QObject):
             print(f"[NL Server Manager] Script not found, using uvicorn directly")
             success = self.fastapi_process.start(
                 python_exe,
-                py_prefix + ["-m", "uvicorn", "api_call:app", "--host", "0.0.0.0", "--port", "8000"]
+                py_prefix + ["-m", "uvicorn", "api_call:app", "--host", "127.0.0.1", "--port", "8000"]
             )
         
         # Log QProcess.start() result
@@ -948,6 +982,9 @@ class NLServerManager(QObject):
             if not self._check_and_free_port(8001):
                 print("[NL Server Manager] Warning: Port 8001 may still be in use, attempting server start anyway")
             time.sleep(0.2)  # Brief delay to ensure port is free
+            # server_summary_plan_1 §2.4: subprocess echo test before launch (log-only)
+            if _server_pc_logic_available and test_subprocess and hasattr(self, "_mcp_logger"):
+                test_subprocess(python_exe, lambda msg: self._mcp_logger.info(msg))
             success = self.mcp_process.start(python_exe, launch_args)
         else:
             # Fallback: use uvicorn directly with proper module path
@@ -955,7 +992,7 @@ class NLServerManager(QObject):
             # Change to nl_sql directory and run uvicorn
             success = self.mcp_process.start(
                 python_exe,
-                py_prefix + ["-m", "uvicorn", "mcp_server:app", "--host", "0.0.0.0", "--port", "8001", "--no-reload"]
+                py_prefix + ["-m", "uvicorn", "mcp_server:app", "--host", "127.0.0.1", "--port", "8001", "--no-reload"]
             )
         
         # Don't immediately fail - QProcess.start() can return False even if process will start
@@ -1416,6 +1453,9 @@ class NLServerManager(QObject):
         """
         if not self.fastapi_starting:
             return
+        # server_summary_plan_1 §2.3: startup socket probe before verification
+        if _server_pc_logic_available and probe_port and hasattr(self, "_fastapi_logger"):
+            probe_port(8000, lambda msg: self._fastapi_logger.info(msg))
         self._fastapi_verify_retries += 1
         # Solution 8: log when first verification runs
         if self._fastapi_verify_retries == 1:
@@ -1439,6 +1479,8 @@ class NLServerManager(QObject):
                     req.close()
             except Exception as e:
                 err_msg = str(e)
+            if _server_pc_logic_available and log_event and hasattr(self, "_fastapi_logger"):
+                log_event(lambda m: self._fastapi_logger.info(m), "verify_done emitted")
             self._verify_fastapi_done.emit(success, err_msg)
 
         threading.Thread(target=do_check, daemon=True).start()
@@ -1446,6 +1488,8 @@ class NLServerManager(QObject):
     def _on_fastapi_verify_done(self, success: bool, error_msg: Optional[str]):
         """Runs on Qt thread with result of FastAPI readiness check (done in worker thread).
         server_fail_6 (2a): On success always apply ready (no early return on not fastapi_starting)."""
+        if _server_pc_logic_available and log_event and hasattr(self, "_fastapi_logger"):
+            log_event(lambda msg: self._fastapi_logger.info(msg), "verify_done received on main thread")
         if success:
             if self._fastapi_ready_flag:
                 return  # Already applied (e.g. main-thread fallback ran first)
@@ -1679,6 +1723,9 @@ class NLServerManager(QObject):
         """
         if not self.mcp_starting:
             return
+        # server_summary_plan_1 §2.3: startup socket probe before verification
+        if _server_pc_logic_available and probe_port and hasattr(self, "_mcp_logger"):
+            probe_port(8001, lambda msg: self._mcp_logger.info(msg))
         self._mcp_verify_retries += 1
         # Solution 8: log when first verification runs
         if self._mcp_verify_retries == 1:
@@ -1702,6 +1749,8 @@ class NLServerManager(QObject):
                     req.close()
             except Exception as e:
                 err_msg = str(e)
+            if _server_pc_logic_available and log_event and hasattr(self, "_mcp_logger"):
+                log_event(lambda m: self._mcp_logger.info(m), "verify_done emitted")
             self._verify_mcp_done.emit(success, err_msg)
 
         threading.Thread(target=do_check, daemon=True).start()
@@ -1727,6 +1776,8 @@ class NLServerManager(QObject):
             return
         if self._fastapi_ready_flag:
             return
+        if _server_pc_logic_available and log_event and hasattr(self, "_fastapi_logger"):
+            log_event(lambda msg: self._fastapi_logger.info(msg), "verify_done received on main thread")
         print("\n\n[NL Server Manager] FastAPI server is ready (main-thread fallback)")
         self.fastapi_starting = False
         self._fastapi_ready_flag = True
@@ -1760,6 +1811,8 @@ class NLServerManager(QObject):
             return
         if self._mcp_ready_flag:
             return
+        if _server_pc_logic_available and log_event and hasattr(self, "_mcp_logger"):
+            log_event(lambda msg: self._mcp_logger.info(msg), "verify_done received on main thread")
         print("\n\n[NL Server Manager] MCP server is ready (main-thread fallback)")
         self.mcp_starting = False
         self._mcp_ready_flag = True
@@ -1775,6 +1828,8 @@ class NLServerManager(QObject):
     def _on_mcp_verify_done(self, success: bool, error_msg: Optional[str]):
         """Runs on Qt thread with result of MCP readiness check (done in worker thread).
         server_fail_6 (2a): On success always apply ready (no early return on not mcp_starting)."""
+        if _server_pc_logic_available and log_event and hasattr(self, "_mcp_logger"):
+            log_event(lambda msg: self._mcp_logger.info(msg), "verify_done received on main thread")
         if success:
             if self._mcp_ready_flag:
                 return  # Already applied (e.g. main-thread fallback ran first)

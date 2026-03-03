@@ -16,6 +16,8 @@ sys.path.insert(0, str(project_root))
 os.environ.setdefault("STATMANG_ENABLE_RELOAD", "false")
 
 if __name__ == "__main__":
+    import multiprocessing
+    multiprocessing.freeze_support()
     import uvicorn
     
     # Import app after path is set
@@ -27,7 +29,7 @@ if __name__ == "__main__":
     try:
         uvicorn.run(
             app,
-            host="0.0.0.0",
+            host="127.0.0.1",
             port=8001,
             log_level="info",
             reload=False  # Disable reload for subprocess execution
