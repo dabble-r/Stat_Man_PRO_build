@@ -506,9 +506,14 @@ source myenv/bin/activate  # Linux/Mac
 ### Troubleshooting NL-to-SQL
 
 **Servers won't start:**
-- Check that ports 8000 and 8001 are available
-- Verify OpenAI API key is valid
-- Check console for error messages
+- Check that ports 8000 and 8001 are available (on Windows they are not auto-freed; close the app using the port or run `netstat -ano | findstr :8000`).
+- If Windows Firewall blocks the app, allow it for ports 8000/8001; ensure ports are not reserved (e.g. by Hyper-V).
+- Verify OpenAI API key is valid.
+- **Windows frozen exe:** If you see "Missing dependency" or "DLL load failed", install the [Microsoft Visual C++ Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist) (x64), then restart the app.
+- **Running from source on Windows:** Install Python from python.org (not the Store stub), add to PATH, or set `STATMANG_PYTHON_EXE` to the full path to `python.exe`.
+
+**Building the Windows executable:**
+- Build on Windows (run `build_exe.bat` or see `tests/servers/server_fail_11.md`); do not copy a Linux `dist/` to Windows—the binary is platform-specific.
 
 **SQL generation fails:**
 - Verify API key has sufficient credits

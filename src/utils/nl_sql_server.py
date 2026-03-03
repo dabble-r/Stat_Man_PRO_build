@@ -38,6 +38,7 @@ try:
         format_not_ready_failure_message,
         normalize_server_paths,
         get_resolved_paths_log_line,
+        get_subprocess_python_hint,
     )
     _server_pc_logic_available = True
 except ImportError:
@@ -46,6 +47,7 @@ except ImportError:
     format_not_ready_failure_message = None
     normalize_server_paths = None
     get_resolved_paths_log_line = None
+    get_subprocess_python_hint = None
 
 # server_fail_7 (F1b): Only first NLServerManager in process configures file logging and logs init
 _nl_server_logging_configured = False
@@ -133,12 +135,6 @@ class NLServerManager(QObject):
         
         # Setup file logging
         self._setup_file_logging()
-        # server_startup_platform: log resolved paths once when frozen for diagnosis
-        if _server_pc_logic_available and get_resolved_paths_log_line and getattr(sys, "frozen", False):
-            meipass_path = Path(getattr(sys, "_MEIPASS", "")).resolve() if getattr(sys, "_MEIPASS", None) else None
-            line = get_resolved_paths_log_line(self.nl_sql_dir, meipass_path)
-            if hasattr(self, "_fastapi_logger"):
-                self._fastapi_logger.info(f"[server_startup_platform] {line}")
         # Issue 6: port check callbacks run on main thread when emitted from worker
         self._port_check_fastapi_done.connect(self._on_fastapi_port_check_done)
         self._port_check_mcp_done.connect(self._on_mcp_port_check_done)
@@ -193,79 +189,90 @@ class NLServerManager(QObject):
         Return (executable, prefix_args) for server subprocesses.
         When frozen (onefile exe), sys.executable is the exe itself, so we must
         use a system Python. On Windows, prefer 'py' launcher to avoid the
-        Microsoft Store python stub that prints "Python was not found".
+        Microsoft Store python stub. Supports STATMANG_PYTHON_EXE override.
+        server_fail_12 P9: when frozen, never return (sys.executable, []); return (None, []) if no valid Python.
         """
+        # User override (P9)
+        env_exe = os.environ.get("STATMANG_PYTHON_EXE", "").strip()
+        if env_exe:
+            p = Path(env_exe)
+            if p.exists() and not self._is_windows_store_python_stub(str(p.resolve())):
+                return (str(p.resolve()), [])
+            # Invalid or Store stub; fall through
+
         if not getattr(sys, "frozen", False):
             return (sys.executable, [])
-        # Windows: try py launcher first so we never use the Store stub (python/python3)
+
+        # Frozen: must use system Python, never the exe
         if sys.platform.startswith("win"):
             py_launcher = shutil.which("py")
             if py_launcher:
-                print("[NL Server Manager] Using Python Launcher (py -3) for server subprocess")
                 return (py_launcher, ["-3"])
-        # Then try python3, python (skip Windows Store stub on Windows)
         for name in ("python3", "python"):
             exe = shutil.which(name)
             if exe and not self._is_windows_store_python_stub(exe):
                 return (exe, [])
-        # Fallback: sys.executable will launch the exe again; log and return it
-        print(
-            "[NL Server Manager] Warning: No system Python found (py/python3/python). "
-            "On Windows, install Python and ensure 'py' launcher or python is on PATH (not the Store stub)."
-        )
-        return (sys.executable, [])
+        # P9: no valid Python; return sentinel so caller can emit failed with hint
+        return (None, [])
+
+    def _is_safe_python_for_subprocess(self, python_exe: Optional[str]) -> bool:
+        """Return True if python_exe is valid for starting server subprocess (not None, not the app exe when frozen, not Store stub)."""
+        if not python_exe:
+            return False
+        if getattr(sys, "frozen", False) and os.path.normpath(python_exe) == os.path.normpath(sys.executable):
+            return False
+        return not self._is_windows_store_python_stub(python_exe)
 
     def _setup_file_logging(self):
         """Setup file logging for server output. Logs go to data/logs under app base.
         server_fail_7 (F1b): Only the first manager in this process adds handlers and logs init; later instances reuse loggers.
+        server_fail_12 P2/P3: On failure (e.g. exe dir not writable), use stream handler only so manager does not raise.
         """
         global _nl_server_logging_configured
         if _nl_server_logging_configured:
             self._fastapi_logger = logging.getLogger("fastapi_server")
             self._mcp_logger = logging.getLogger("mcp_server")
             return
-        logs_dir = Path(get_app_base_path()) / "data" / "logs"
-        logs_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Setup FastAPI server log file
-        fastapi_log_file = logs_dir / "fastapi_server.log"
         self._fastapi_logger = logging.getLogger("fastapi_server")
-        self._fastapi_logger.setLevel(logging.DEBUG)
-        # Remove existing handlers to avoid duplicates
-        self._fastapi_logger.handlers.clear()
-        fastapi_handler = logging.FileHandler(fastapi_log_file, mode='a', encoding='utf-8')
-        fastapi_handler.setLevel(logging.DEBUG)
-        fastapi_formatter = logging.Formatter(
-            '%(asctime)s - %(levelname)s - %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S'
-        )
-        fastapi_handler.setFormatter(fastapi_formatter)
-        self._fastapi_logger.addHandler(fastapi_handler)
-        self._fastapi_logger.propagate = False
-        
-        # Setup MCP server log file
-        mcp_log_file = logs_dir / "mcp_server.log"
         self._mcp_logger = logging.getLogger("mcp_server")
+        self._fastapi_logger.setLevel(logging.DEBUG)
         self._mcp_logger.setLevel(logging.DEBUG)
-        # Remove existing handlers to avoid duplicates
+        self._fastapi_logger.handlers.clear()
         self._mcp_logger.handlers.clear()
-        mcp_handler = logging.FileHandler(mcp_log_file, mode='a', encoding='utf-8')
-        mcp_handler.setLevel(logging.DEBUG)
-        mcp_formatter = logging.Formatter(
-            '%(asctime)s - %(levelname)s - %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S'
-        )
-        mcp_handler.setFormatter(mcp_formatter)
-        self._mcp_logger.addHandler(mcp_handler)
+        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+        try:
+            logs_dir = Path(get_app_base_path()) / "data" / "logs"
+            logs_dir.mkdir(parents=True, exist_ok=True)
+            fastapi_log_file = logs_dir / "fastapi_server.log"
+            fastapi_handler = logging.FileHandler(fastapi_log_file, mode='a', encoding='utf-8')
+            fastapi_handler.setLevel(logging.DEBUG)
+            fastapi_handler.setFormatter(formatter)
+            self._fastapi_logger.addHandler(fastapi_handler)
+            mcp_log_file = logs_dir / "mcp_server.log"
+            mcp_handler = logging.FileHandler(mcp_log_file, mode='a', encoding='utf-8')
+            mcp_handler.setLevel(logging.DEBUG)
+            mcp_handler.setFormatter(formatter)
+            self._mcp_logger.addHandler(mcp_handler)
+        except (OSError, PermissionError) as e:
+            stream = logging.StreamHandler()
+            stream.setLevel(logging.DEBUG)
+            stream.setFormatter(formatter)
+            self._fastapi_logger.addHandler(stream)
+            self._mcp_logger.addHandler(stream)
+            self._fastapi_logger.warning(f"File logging unavailable ({e}); using stderr only.")
+        self._fastapi_logger.propagate = False
         self._mcp_logger.propagate = False
-        
-        # Log initialization (only once per process)
         self._fastapi_logger.info("=" * 80)
         self._fastapi_logger.info(f"FastAPI Server Logging Initialized - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         self._fastapi_logger.info(f"NLServerManager instance created - PID: {os.getpid()}")
         self._mcp_logger.info("=" * 80)
         self._mcp_logger.info(f"MCP Server Logging Initialized - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         self._mcp_logger.info(f"NLServerManager instance created - PID: {os.getpid()}")
+        # P15: log [server_startup_platform] only once per process (here, when logging is first configured)
+        if _server_pc_logic_available and get_resolved_paths_log_line and getattr(sys, "frozen", False):
+            meipass_path = Path(getattr(sys, "_MEIPASS", "")).resolve() if getattr(sys, "_MEIPASS", None) else None
+            line = get_resolved_paths_log_line(self.nl_sql_dir, meipass_path)
+            self._fastapi_logger.info(f"[server_startup_platform] {line}")
         _nl_server_logging_configured = True
     
     def _check_and_free_port(self, port: int) -> bool:
@@ -729,6 +736,12 @@ class NLServerManager(QObject):
         
         # Start the server using start_server.py script
         python_exe, py_prefix = self._get_python_executable()
+        if not self._is_safe_python_for_subprocess(python_exe):
+            hint = get_subprocess_python_hint() if _server_pc_logic_available and get_subprocess_python_hint else (
+                "No valid Python found for the server. Install Python, add to PATH, or set STATMANG_PYTHON_EXE to the path to python.exe."
+            )
+            self.fastapi_failed.emit(hint)
+            return
         server_script = self.nl_sql_dir / "start_server.py"
         project_root = self.nl_sql_dir.parent
         new_pythonpath = env.value("PYTHONPATH", "")
@@ -902,6 +915,12 @@ class NLServerManager(QObject):
         
         # Start the server using start_mcp_server.py script
         python_exe, py_prefix = self._get_python_executable()
+        if not self._is_safe_python_for_subprocess(python_exe):
+            hint = get_subprocess_python_hint() if _server_pc_logic_available and get_subprocess_python_hint else (
+                "No valid Python found for the server. Install Python, add to PATH, or set STATMANG_PYTHON_EXE to the path to python.exe."
+            )
+            self.mcp_failed.emit(hint)
+            return
         mcp_script = self.nl_sql_dir / "start_mcp_server.py"
         
         project_root = self.nl_sql_dir.parent

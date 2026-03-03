@@ -17,7 +17,7 @@ if getattr(sys, 'frozen', False):
 # --------------------------------------------------
 
 from src.ui.main_window import MainWindow
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QMessageBox
 from PySide6.QtGui import QIcon
 from src.ui.styles.stylesheets import StyleSheets
 from src.utils.clear_db_startup import clear_database_on_startup
@@ -92,7 +92,25 @@ if __name__ == "__main__":
     
     app = QApplication(sys.argv)
     styles = StyleSheets()
-    
+
+    # server_fail_12 P8: When frozen on Windows, check if server deps (uvicorn) can be imported.
+    # If not (e.g. missing VC++ runtime), show dialog with link and "Install and restart".
+    if getattr(sys, "frozen", False) and sys.platform.startswith("win"):
+        try:
+            from tests.servers.server_pc_logic import check_server_deps_importable, get_vc_runtime_hint
+            ok, err = check_server_deps_importable()
+            if not ok:
+                hint = get_vc_runtime_hint()
+                msg = f"Server dependencies could not be loaded.\n\n{err or 'Import failed'}\n\n{hint}"
+                QMessageBox.warning(
+                    None,
+                    "Missing dependency",
+                    msg,
+                    QMessageBox.StandardButton.Ok,
+                )
+        except Exception:
+            pass  # server_pc_logic not available or other error; continue
+
     app.setStyleSheet(styles.get_monochrome_1_style())
 
     # Set application icon (works in both development and packaged modes)

@@ -12,10 +12,12 @@ def get_app_base_path():
     Get the base path where the application is running from.
     For bundled executables, this is the directory containing the .exe.
     For development, this is the project root.
+    server_fail_12 P2/P3: When frozen on Windows, if exe dir is not writable,
+    fall back to %LOCALAPPDATA%/stat_man_g so data/logs can be created.
 
     When the process is a server subprocess started by the frozen app, the parent
     sets STATMANG_APP_BASE so the server uses the same data directory as the main app.
-    
+
     Returns:
         str: Absolute path to application base directory
     """
@@ -23,8 +25,23 @@ def get_app_base_path():
     if env_base:
         return env_base
     if getattr(sys, 'frozen', False):
-        # Running as bundled executable
-        return os.path.dirname(sys.executable)
+        exe_dir = os.path.dirname(sys.executable)
+        if sys.platform.startswith("win"):
+            # P2/P3: try exe dir first; if not writable, use LOCALAPPDATA
+            try:
+                test_dir = os.path.join(exe_dir, "data", "logs")
+                os.makedirs(test_dir, exist_ok=True)
+                return exe_dir
+            except (OSError, PermissionError):
+                localappdata = os.environ.get("LOCALAPPDATA", "")
+                if localappdata:
+                    fallback = os.path.join(localappdata, "stat_man_g")
+                    try:
+                        os.makedirs(os.path.join(fallback, "data", "logs"), exist_ok=True)
+                        return fallback
+                    except (OSError, PermissionError):
+                        pass
+        return exe_dir
     else:
         # Running in development mode
         return os.path.abspath(".")

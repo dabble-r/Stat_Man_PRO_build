@@ -154,6 +154,20 @@ if nl_sql_path.exists():
 else:
     print(f"⚠ WARNING: nl_sql folder not found at {nl_sql_path}")
 
+# server_fail_12 P13: Bundle tests/servers so tests.servers.server_pc_logic is importable when frozen
+# (timing, port hints, path normalization on Windows). Also allows run_server_tests_on_startup (P12).
+server_pc_logic_datas = []
+tests_init = base_dir / 'tests' / '__init__.py'
+tests_servers = base_dir / 'tests' / 'servers'
+if tests_init.exists():
+    server_pc_logic_datas.append((str(tests_init), 'tests'))
+if tests_servers.exists():
+    server_pc_logic_datas.append((str(tests_servers), 'tests/servers'))
+if server_pc_logic_datas:
+    print("✓ Bundling tests/servers (server_pc_logic) for frozen run")
+else:
+    print("⚠ WARNING: tests/servers not found; server_pc_logic will be missing when frozen")
+
 # Numpy, pandas, matplotlib: submodules and DLLs for "could not find dependency" fix
 numpy_hiddenimports = collect_submodules('numpy')
 numpy_binaries = collect_dynamic_libs('numpy')
@@ -167,7 +181,7 @@ a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=pyside6_binaries + numpy_binaries + pandas_binaries,
-    datas=pyside6_datas + assets_data + nl_sql_data,
+    datas=pyside6_datas + assets_data + nl_sql_data + server_pc_logic_datas,
     hiddenimports=[
         'PySide6',
         'PySide6.QtCore',
