@@ -413,11 +413,11 @@ class NLServerManager(QObject):
         return (True, None)
     
     def _run_fastapi_inprocess(self):
-        """Target for FastAPI uvicorn thread (Solution 3: in-process when frozen). Imports and server creation run here to avoid blocking GUI."""
+        """Target for FastAPI uvicorn thread (Solution 3: in-process when frozen). server_summary_plan_2 §2.2: deep instrumentation."""
+        def _log(msg: str) -> None:
+            if hasattr(self, "_fastapi_logger"):
+                self._fastapi_logger.info(msg)
         try:
-            def _log(msg: str) -> None:
-                if hasattr(self, "_fastapi_logger"):
-                    self._fastapi_logger.info(msg)
             if _server_pc_logic_available and log_event:
                 log_event(_log, "server thread start")
             self._ensure_bundle_path()
@@ -425,13 +425,41 @@ class NLServerManager(QObject):
             from nl_sql.api_call import app
             if _server_pc_logic_available and log_event:
                 log_event(_log, "uvicorn import")
-            config = Config(app=app, host="127.0.0.1", port=8000, log_level="info")
-            server = Server(config)
-            self._fastapi_server = server
-            if _server_pc_logic_available and log_event:
-                log_event(_log, "uvicorn config creation")
-                log_event(_log, "server run start")
-            server.run()
+
+            _log(">>> Creating uvicorn.Config")
+            try:
+                config = Config(
+                    app=app,
+                    host="127.0.0.1",
+                    port=8000,
+                    workers=1,
+                    reload=False,
+                    log_level="info",
+                )
+            except Exception as e:
+                _log(f"uvicorn.Config failed: {e!r}")
+                logging.getLogger(__name__).exception("uvicorn.Config failed")
+                QTimer.singleShot(0, lambda m=str(e)[:500]: self._on_fastapi_inprocess_failed(m))
+                return
+
+            _log(">>> Creating uvicorn.Server")
+            try:
+                server = Server(config)
+                self._fastapi_server = server
+            except Exception as e:
+                _log(f"uvicorn.Server failed: {e!r}")
+                logging.getLogger(__name__).exception("uvicorn.Server failed")
+                QTimer.singleShot(0, lambda m=str(e)[:500]: self._on_fastapi_inprocess_failed(m))
+                return
+
+            _log(">>> Calling uvicorn.Server.run()")
+            try:
+                server.run()
+                _log(">>> uvicorn.Server.run() returned normally")
+            except Exception as e:
+                _log(f"uvicorn.Server.run() raised: {e!r}")
+                logging.getLogger(__name__).exception("uvicorn.Server.run() raised")
+                QTimer.singleShot(0, lambda m=str(e)[:500]: self._on_fastapi_inprocess_failed(m))
         except BaseException as e:
             try:
                 err_msg = str(e)[:500] if e else "Server stopped unexpectedly"
@@ -465,11 +493,11 @@ class NLServerManager(QObject):
         self.fastapi_failed.emit(msg)
 
     def _run_mcp_inprocess(self):
-        """Target for MCP uvicorn thread (Solution 3: in-process when frozen). Imports and server creation run here to avoid blocking GUI."""
+        """Target for MCP uvicorn thread (Solution 3: in-process when frozen). server_summary_plan_2 §2.2: deep instrumentation."""
+        def _log(msg: str) -> None:
+            if hasattr(self, "_mcp_logger"):
+                self._mcp_logger.info(msg)
         try:
-            def _log(msg: str) -> None:
-                if hasattr(self, "_mcp_logger"):
-                    self._mcp_logger.info(msg)
             if _server_pc_logic_available and log_event:
                 log_event(_log, "server thread start")
             self._ensure_bundle_path()
@@ -477,13 +505,41 @@ class NLServerManager(QObject):
             from nl_sql.mcp_server import app as mcp_app
             if _server_pc_logic_available and log_event:
                 log_event(_log, "uvicorn import")
-            config = Config(app=mcp_app, host="127.0.0.1", port=8001, log_level="info")
-            server = Server(config)
-            self._mcp_server = server
-            if _server_pc_logic_available and log_event:
-                log_event(_log, "uvicorn config creation")
-                log_event(_log, "server run start")
-            server.run()
+
+            _log(">>> Creating uvicorn.Config")
+            try:
+                config = Config(
+                    app=mcp_app,
+                    host="127.0.0.1",
+                    port=8001,
+                    workers=1,
+                    reload=False,
+                    log_level="info",
+                )
+            except Exception as e:
+                _log(f"uvicorn.Config failed: {e!r}")
+                logging.getLogger(__name__).exception("uvicorn.Config failed")
+                QTimer.singleShot(0, lambda m=str(e)[:500]: self._on_mcp_inprocess_failed(m))
+                return
+
+            _log(">>> Creating uvicorn.Server")
+            try:
+                server = Server(config)
+                self._mcp_server = server
+            except Exception as e:
+                _log(f"uvicorn.Server failed: {e!r}")
+                logging.getLogger(__name__).exception("uvicorn.Server failed")
+                QTimer.singleShot(0, lambda m=str(e)[:500]: self._on_mcp_inprocess_failed(m))
+                return
+
+            _log(">>> Calling uvicorn.Server.run()")
+            try:
+                server.run()
+                _log(">>> uvicorn.Server.run() returned normally")
+            except Exception as e:
+                _log(f"uvicorn.Server.run() raised: {e!r}")
+                logging.getLogger(__name__).exception("uvicorn.Server.run() raised")
+                QTimer.singleShot(0, lambda m=str(e)[:500]: self._on_mcp_inprocess_failed(m))
         except BaseException as e:
             try:
                 err_msg = str(e)[:500] if e else "Server stopped unexpectedly"
@@ -522,9 +578,6 @@ class NLServerManager(QObject):
         self._fastapi_server = None
         self._fastapi_thread = threading.Thread(target=self._run_fastapi_inprocess, daemon=True)
         self._fastapi_thread.start()
-        print("[NL Server Manager] FastAPI server started in-process (uvicorn in thread)")
-        if hasattr(self, '_fastapi_logger'):
-            self._fastapi_logger.info("FastAPI server started in-process")
         QTimer.singleShot(0, self._on_fastapi_started)
         # P3 (server_fail_5) / server_startup_platform: first verification delay from platform config
         first_verify_ms = (
@@ -541,9 +594,6 @@ class NLServerManager(QObject):
         self._mcp_server = None
         self._mcp_thread = threading.Thread(target=self._run_mcp_inprocess, daemon=True)
         self._mcp_thread.start()
-        print("[NL Server Manager] MCP server started in-process (uvicorn in thread)")
-        if hasattr(self, '_mcp_logger'):
-            self._mcp_logger.info("MCP server started in-process")
         QTimer.singleShot(0, self._on_mcp_started)
         # P3 (server_fail_5) / server_startup_platform: first verification delay from platform config
         first_verify_ms = (
@@ -643,8 +693,8 @@ class NLServerManager(QObject):
             self._fastapi_logger.info(f"Current process state: {self.fastapi_process.state() if self.fastapi_process else 'No process'}")
             self._fastapi_logger.info(f"Already starting: {self.fastapi_starting}")
         
-        # Solution 3: when frozen, run server in-process (uvicorn in thread) to use bundled deps
-        if getattr(sys, "frozen", False):
+        # Solution 3: when frozen (non-Windows), run server in-process. server_summary_plan_2 §2.7: Windows frozen uses QProcess to avoid uvicorn/PyInstaller quirks.
+        if getattr(sys, "frozen", False) and not sys.platform.startswith("win"):
             # Issue 5: clear dead thread so new start can proceed
             if self._fastapi_thread is not None and not self._fastapi_thread.is_alive():
                 self._fastapi_thread = None
@@ -855,8 +905,8 @@ class NLServerManager(QObject):
             output_callback: Optional callback for stdout output (str) -> None
             error_callback: Optional callback for stderr output (str) -> None
         """
-        # Solution 3: when frozen, run server in-process (uvicorn in thread) to use bundled deps
-        if getattr(sys, "frozen", False):
+        # Solution 3: when frozen (non-Windows), run server in-process. server_summary_plan_2 §2.7: Windows frozen uses QProcess to avoid uvicorn/PyInstaller quirks.
+        if getattr(sys, "frozen", False) and not sys.platform.startswith("win"):
             # Issue 5: clear dead thread so new start can proceed
             if self._mcp_thread is not None and not self._mcp_thread.is_alive():
                 self._mcp_thread = None
@@ -1453,9 +1503,11 @@ class NLServerManager(QObject):
         """
         if not self.fastapi_starting:
             return
-        # server_summary_plan_1 §2.3: startup socket probe before verification
+        # server_summary_plan_2 §2.4 + §2.1: probe returns bool; log LISTENING only when port is open
         if _server_pc_logic_available and probe_port and hasattr(self, "_fastapi_logger"):
-            probe_port(8000, lambda msg: self._fastapi_logger.info(msg))
+            log_fn = lambda msg: self._fastapi_logger.info(msg)
+            if probe_port(8000, log_fn):
+                self._fastapi_logger.info("FastAPI server is LISTENING on 127.0.0.1:8000")
         self._fastapi_verify_retries += 1
         # Solution 8: log when first verification runs
         if self._fastapi_verify_retries == 1:
@@ -1487,7 +1539,9 @@ class NLServerManager(QObject):
 
     def _on_fastapi_verify_done(self, success: bool, error_msg: Optional[str]):
         """Runs on Qt thread with result of FastAPI readiness check (done in worker thread).
-        server_fail_6 (2a): On success always apply ready (no early return on not fastapi_starting)."""
+        server_fail_6 (2a): On success always apply ready (no early return on not fastapi_starting). server_summary_plan_2 §2.5: log verify_done result."""
+        if hasattr(self, "_fastapi_logger"):
+            self._fastapi_logger.info(f"verify_done: success={success}, error_msg={error_msg!r}")
         if _server_pc_logic_available and log_event and hasattr(self, "_fastapi_logger"):
             log_event(lambda msg: self._fastapi_logger.info(msg), "verify_done received on main thread")
         if success:
@@ -1723,9 +1777,11 @@ class NLServerManager(QObject):
         """
         if not self.mcp_starting:
             return
-        # server_summary_plan_1 §2.3: startup socket probe before verification
+        # server_summary_plan_2 §2.4 + §2.1: probe returns bool; log LISTENING only when port is open
         if _server_pc_logic_available and probe_port and hasattr(self, "_mcp_logger"):
-            probe_port(8001, lambda msg: self._mcp_logger.info(msg))
+            log_fn = lambda msg: self._mcp_logger.info(msg)
+            if probe_port(8001, log_fn):
+                self._mcp_logger.info("MCP server is LISTENING on 127.0.0.1:8001")
         self._mcp_verify_retries += 1
         # Solution 8: log when first verification runs
         if self._mcp_verify_retries == 1:
@@ -1827,7 +1883,9 @@ class NLServerManager(QObject):
 
     def _on_mcp_verify_done(self, success: bool, error_msg: Optional[str]):
         """Runs on Qt thread with result of MCP readiness check (done in worker thread).
-        server_fail_6 (2a): On success always apply ready (no early return on not mcp_starting)."""
+        server_fail_6 (2a): On success always apply ready (no early return on not mcp_starting). server_summary_plan_2 §2.5: log verify_done result."""
+        if hasattr(self, "_mcp_logger"):
+            self._mcp_logger.info(f"verify_done: success={success}, error_msg={error_msg!r}")
         if _server_pc_logic_available and log_event and hasattr(self, "_mcp_logger"):
             log_event(lambda msg: self._mcp_logger.info(msg), "verify_done received on main thread")
         if success:
