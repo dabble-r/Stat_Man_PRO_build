@@ -914,6 +914,7 @@ class NLQueryDialog(QDialog):
         self.stop_servers_btn.setEnabled(False)  # Disable during startup
         self._servers_ready_message_shown = False  # Allow one "Servers Ready" message this cycle
         self._servers_starting = True  # So failure handlers can clear and re-enable button
+        self._servers_post_start_done = False  # server_fail_6 (3a): idempotent post-start
         
         # Run server test suite in background; append findings to data/logs/server_tests.log
         self._run_server_tests_and_log()
@@ -924,6 +925,8 @@ class NLQueryDialog(QDialog):
             logger.info("[NLQueryDialog] GlobalServerManager.start_servers() returned True")
             # Solution 1: Defer post-start work so 300 ms in-process timer can run
             QTimer.singleShot(0, self._on_start_servers_post_start)
+            # server_fail_6 (3a): run post-start now so poll/signals run even if 0 ms timer never fires
+            self._on_start_servers_post_start()
         else:
             logger.error("[NLQueryDialog] GlobalServerManager.start_servers() returned False")
             QMessageBox.critical(self, "Server Error", 
@@ -950,7 +953,12 @@ class NLQueryDialog(QDialog):
             self._servers_starting_poll_stop_timer = None
 
     def _on_start_servers_post_start(self):
-        """Solution 1: Run after start_servers() return so 300 ms server timer can fire."""
+        """Solution 1: Run after start_servers() return so 300 ms server timer can fire.
+        server_fail_6 (3a): Idempotent so direct call + 0 ms timer do not double-connect or double-start poll.
+        """
+        if getattr(self, '_servers_post_start_done', False):
+            return
+        self._servers_post_start_done = True
         self.server_manager = self.global_server_manager.get_server_manager()
         if self.server_manager:
             logger.info("[NLQueryDialog] Server manager instance obtained")
@@ -1228,6 +1236,11 @@ class NLQueryDialog(QDialog):
             self._fastapi_failure_msg = None
             return
         
+        # server_fail_6 (2b): If both servers are actually running, sync to success (late servers_ready)
+        if self.global_server_manager.is_servers_running():
+            self._on_servers_ready()
+            return
+        
         self._fastapi_failure_msg = msg
         self._stop_servers_starting_poll()
         self._servers_starting = False  # So UI always recovers when servers fail
@@ -1254,6 +1267,11 @@ class NLQueryDialog(QDialog):
         if self.server_manager and self.server_manager.is_mcp_running():
             logger.warning(f"MCP failed signal received but server is running: {msg}")
             self._mcp_failure_msg = None
+            return
+        
+        # server_fail_6 (2b): If both servers are actually running, sync to success (late servers_ready)
+        if self.global_server_manager.is_servers_running():
+            self._on_servers_ready()
             return
         
         self._mcp_failure_msg = msg

@@ -2,6 +2,11 @@ import sys
 import os
 from pathlib import Path
 
+# server_startup_platform: ensure project root on path so tests.servers.server_pc_logic is importable
+_project_root = Path(__file__).resolve().parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
+
 # --------------------------------------------------
 # server_fail_4 Solution A: when frozen, load uvicorn early so in-process server threads can import it
 if getattr(sys, 'frozen', False):

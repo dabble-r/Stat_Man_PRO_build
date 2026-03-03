@@ -12,6 +12,14 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# server_startup_platform: optional env session hint for Windows
+_server_pc_logic_available = False
+try:
+    from tests.servers.server_pc_logic import get_env_session_hint
+    _server_pc_logic_available = True
+except ImportError:
+    get_env_session_hint = None
+
 
 class GlobalServerManager(QObject):
     """
@@ -134,7 +142,12 @@ class GlobalServerManager(QObject):
             # Set API key in environment
             import os
             os.environ['OPENAI_API_KEY'] = api_key
-            logger.info(f"[GlobalServerManager] OPENAI_API_KEY set in environment (length: {len(api_key)})")
+            log_line = f"[GlobalServerManager] OPENAI_API_KEY set in environment (length: {len(api_key)})"
+            if _server_pc_logic_available and get_env_session_hint:
+                hint = get_env_session_hint()
+                if hint:
+                    log_line += hint
+            logger.info(log_line)
             
             # Start servers
             logger.info("[GlobalServerManager] Starting FastAPI server...")

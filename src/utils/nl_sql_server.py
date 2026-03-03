@@ -29,6 +29,27 @@ from PySide6.QtCore import QProcess, QTimer, Signal, QObject
 
 from src.utils.path_resolver import get_app_base_path, get_database_path
 
+# server_startup_platform: optional platform-specific timing/messages (Windows vs Linux)
+_server_pc_logic_available = False
+try:
+    from tests.servers.server_pc_logic import (
+        get_timing_config,
+        format_port_in_use_message,
+        format_not_ready_failure_message,
+        normalize_server_paths,
+        get_resolved_paths_log_line,
+    )
+    _server_pc_logic_available = True
+except ImportError:
+    get_timing_config = None
+    format_port_in_use_message = None
+    format_not_ready_failure_message = None
+    normalize_server_paths = None
+    get_resolved_paths_log_line = None
+
+# server_fail_7 (F1b): Only first NLServerManager in process configures file logging and logs init
+_nl_server_logging_configured = False
+
 
 class NLServerManager(QObject):
     """
@@ -84,7 +105,10 @@ class NLServerManager(QObject):
         # Verification timeout: max retries before emitting failed (stops UI staying stuck)
         self._fastapi_verify_retries = 0
         self._mcp_verify_retries = 0
-        self._max_verify_retries = 18  # ~45s at 2.5s interval (P3: allow more time on slow Windows)
+        self._timing = get_timing_config() if _server_pc_logic_available and get_timing_config else None
+        self._max_verify_retries = (
+            self._timing["max_verify_retries"] if self._timing else 18
+        )  # ~45s at 2.5s interval (P3: allow more time on slow Windows)
         
         # Callbacks for output/error handling
         self.fastapi_output_callback: Optional[Callable[[str], None]] = None
@@ -109,6 +133,12 @@ class NLServerManager(QObject):
         
         # Setup file logging
         self._setup_file_logging()
+        # server_startup_platform: log resolved paths once when frozen for diagnosis
+        if _server_pc_logic_available and get_resolved_paths_log_line and getattr(sys, "frozen", False):
+            meipass_path = Path(getattr(sys, "_MEIPASS", "")).resolve() if getattr(sys, "_MEIPASS", None) else None
+            line = get_resolved_paths_log_line(self.nl_sql_dir, meipass_path)
+            if hasattr(self, "_fastapi_logger"):
+                self._fastapi_logger.info(f"[server_startup_platform] {line}")
         # Issue 6: port check callbacks run on main thread when emitted from worker
         self._port_check_fastapi_done.connect(self._on_fastapi_port_check_done)
         self._port_check_mcp_done.connect(self._on_mcp_port_check_done)
@@ -140,6 +170,11 @@ class NLServerManager(QObject):
                 "Please ensure the nl_sql directory exists in the project root (or is bundled)."
             )
 
+        if _server_pc_logic_available and normalize_server_paths and getattr(sys, "frozen", False):
+            resolved_nl, resolved_meipass = normalize_server_paths(
+                nl_sql_dir, getattr(sys, "_MEIPASS", None), frozen=True
+            )
+            return resolved_nl
         return nl_sql_dir.resolve()
 
     def _is_windows_store_python_stub(self, exe_path: str) -> bool:
@@ -181,7 +216,14 @@ class NLServerManager(QObject):
         return (sys.executable, [])
 
     def _setup_file_logging(self):
-        """Setup file logging for server output. Logs go to data/logs under app base."""
+        """Setup file logging for server output. Logs go to data/logs under app base.
+        server_fail_7 (F1b): Only the first manager in this process adds handlers and logs init; later instances reuse loggers.
+        """
+        global _nl_server_logging_configured
+        if _nl_server_logging_configured:
+            self._fastapi_logger = logging.getLogger("fastapi_server")
+            self._mcp_logger = logging.getLogger("mcp_server")
+            return
         logs_dir = Path(get_app_base_path()) / "data" / "logs"
         logs_dir.mkdir(parents=True, exist_ok=True)
         
@@ -217,13 +259,14 @@ class NLServerManager(QObject):
         self._mcp_logger.addHandler(mcp_handler)
         self._mcp_logger.propagate = False
         
-        # Log initialization
+        # Log initialization (only once per process)
         self._fastapi_logger.info("=" * 80)
         self._fastapi_logger.info(f"FastAPI Server Logging Initialized - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         self._fastapi_logger.info(f"NLServerManager instance created - PID: {os.getpid()}")
         self._mcp_logger.info("=" * 80)
         self._mcp_logger.info(f"MCP Server Logging Initialized - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         self._mcp_logger.info(f"NLServerManager instance created - PID: {os.getpid()}")
+        _nl_server_logging_configured = True
     
     def _check_and_free_port(self, port: int) -> bool:
         """
@@ -378,14 +421,20 @@ class NLServerManager(QObject):
         self.fastapi_failed.emit(msg)
 
     def _safety_timeout_fastapi(self):
-        """Solution 2: If still starting after 35s, emit failed. server_fail_2 Solution 1: do not override success. Issue 8: clear timer ref."""
+        """Solution 2: If still starting after safety window, emit failed. server_fail_2 Solution 1: do not override success. Issue 8: clear timer ref. server_startup_platform: message from platform config."""
         self._safety_timer_fastapi = None
         if getattr(self, '_fastapi_ready_flag', False):
             return
         if not self.fastapi_starting:
             return
         self.fastapi_starting = False
-        self.fastapi_failed.emit("Server did not start in time. Check the logs folder next to the app.")
+        base_msg = "Server did not start in time. Check the logs folder next to the app."
+        msg = (
+            format_not_ready_failure_message(base_msg)
+            if _server_pc_logic_available and format_not_ready_failure_message
+            else base_msg
+        )
+        self.fastapi_failed.emit(msg)
 
     def _run_mcp_inprocess(self):
         """Target for MCP uvicorn thread (Solution 3: in-process when frozen). Imports and server creation run here to avoid blocking GUI."""
@@ -414,14 +463,20 @@ class NLServerManager(QObject):
         self.mcp_failed.emit(msg)
 
     def _safety_timeout_mcp(self):
-        """Solution 2: If still starting after 35s, emit failed. server_fail_2 Solution 1: do not override success. Issue 8: clear timer ref."""
+        """Solution 2: If still starting after safety window, emit failed. server_fail_2 Solution 1: do not override success. Issue 8: clear timer ref. server_startup_platform: message from platform config."""
         self._safety_timer_mcp = None
         if getattr(self, '_mcp_ready_flag', False):
             return
         if not self.mcp_starting:
             return
         self.mcp_starting = False
-        self.mcp_failed.emit("Server did not start in time. Check the logs folder next to the app.")
+        base_msg = "Server did not start in time. Check the logs folder next to the app."
+        msg = (
+            format_not_ready_failure_message(base_msg)
+            if _server_pc_logic_available and format_not_ready_failure_message
+            else base_msg
+        )
+        self.mcp_failed.emit(msg)
 
     def _start_fastapi_inprocess(self, output_callback=None, error_callback=None):
         """Start FastAPI server in-process (uvicorn in a thread) when frozen. Heavy imports happen in the thread."""
@@ -433,9 +488,14 @@ class NLServerManager(QObject):
         if hasattr(self, '_fastapi_logger'):
             self._fastapi_logger.info("FastAPI server started in-process")
         QTimer.singleShot(0, self._on_fastapi_started)
-        # P3 (server_fail_5): first verification; longer on Windows for slow/busy machines
-        first_verify_ms = 10000 if sys.platform.startswith("win") else 6000
+        # P3 (server_fail_5) / server_startup_platform: first verification delay from platform config
+        first_verify_ms = (
+            self._timing["first_verify_ms"]
+            if self._timing
+            else (10000 if sys.platform.startswith("win") else 6000)
+        )
         QTimer.singleShot(first_verify_ms, self._verify_fastapi_ready)
+        QTimer.singleShot(first_verify_ms, self._do_main_thread_verify_fastapi)  # server_fail_6 (1a)
 
     def _start_mcp_inprocess(self, output_callback=None, error_callback=None):
         """Start MCP server in-process (uvicorn in a thread) when frozen. Heavy imports happen in the thread."""
@@ -447,9 +507,14 @@ class NLServerManager(QObject):
         if hasattr(self, '_mcp_logger'):
             self._mcp_logger.info("MCP server started in-process")
         QTimer.singleShot(0, self._on_mcp_started)
-        # P3 (server_fail_5): first verification; longer on Windows for slow/busy machines
-        first_verify_ms = 10000 if sys.platform.startswith("win") else 6000
+        # P3 (server_fail_5) / server_startup_platform: first verification delay from platform config
+        first_verify_ms = (
+            self._timing["first_verify_ms"]
+            if self._timing
+            else (10000 if sys.platform.startswith("win") else 6000)
+        )
         QTimer.singleShot(first_verify_ms, self._verify_mcp_ready)
+        QTimer.singleShot(first_verify_ms, self._do_main_thread_verify_mcp)  # server_fail_6 (1a)
     
     def _on_fastapi_port_check_done(self, port_ok: bool):
         """Issue 6: Called on main thread after port check worker finishes. Schedule start or emit failed."""
@@ -457,14 +522,22 @@ class NLServerManager(QObject):
             return
         if not port_ok:
             self.fastapi_starting = False
-            self.fastapi_failed.emit("Port 8000 in use and could not be freed. Stop other apps using the port or restart.")
+            base_msg = "Port 8000 in use and could not be freed. Stop other apps using the port or restart."
+            msg = (
+                format_port_in_use_message(8000, base_msg)
+                if _server_pc_logic_available and format_port_in_use_message
+                else base_msg
+            )
+            self.fastapi_failed.emit(msg)
             return
+        deferred_ms = self._timing["deferred_fastapi_ms"] if self._timing else 800
+        safety_ms = self._timing["safety_timeout_ms"] if self._timing else 35000
         if hasattr(self, '_fastapi_logger'):
-            self._fastapi_logger.info("[server_fail_1] Scheduling deferred FastAPI start in 800 ms")
-        print("[NL Server Manager] Scheduling deferred FastAPI start in 800 ms")
+            self._fastapi_logger.info(f"[server_fail_1] Scheduling deferred FastAPI start in {deferred_ms} ms")
+        print(f"[NL Server Manager] Scheduling deferred FastAPI start in {deferred_ms} ms")
         output_cb = getattr(self, 'fastapi_output_callback', None)
         error_cb = getattr(self, 'fastapi_error_callback', None)
-        QTimer.singleShot(800, lambda oc=output_cb, ec=error_cb: self._start_fastapi_inprocess(output_callback=oc, error_callback=ec))
+        QTimer.singleShot(deferred_ms, lambda oc=output_cb, ec=error_cb: self._start_fastapi_inprocess(output_callback=oc, error_callback=ec))
         # Issue 8: cancellable safety timer
         if self._safety_timer_fastapi is not None:
             try:
@@ -475,7 +548,7 @@ class NLServerManager(QObject):
         self._safety_timer_fastapi = QTimer(self)
         self._safety_timer_fastapi.setSingleShot(True)
         self._safety_timer_fastapi.timeout.connect(self._safety_timeout_fastapi)
-        self._safety_timer_fastapi.start(35000)
+        self._safety_timer_fastapi.start(safety_ms)
     
     def _on_mcp_port_check_done(self, port_ok: bool):
         """Issue 6: Called on main thread after port check worker finishes. Schedule start or emit failed."""
@@ -483,14 +556,22 @@ class NLServerManager(QObject):
             return
         if not port_ok:
             self.mcp_starting = False
-            self.mcp_failed.emit("Port 8001 in use and could not be freed. Stop other apps using the port or restart.")
+            base_msg = "Port 8001 in use and could not be freed. Stop other apps using the port or restart."
+            msg = (
+                format_port_in_use_message(8001, base_msg)
+                if _server_pc_logic_available and format_port_in_use_message
+                else base_msg
+            )
+            self.mcp_failed.emit(msg)
             return
+        deferred_ms = self._timing["deferred_mcp_ms"] if self._timing else 300
+        safety_ms = self._timing["safety_timeout_ms"] if self._timing else 35000
         if hasattr(self, '_mcp_logger'):
-            self._mcp_logger.info("[server_fail_1] Scheduling deferred MCP start in 300 ms")
-        print("[NL Server Manager] Scheduling deferred MCP start in 300 ms")
+            self._mcp_logger.info(f"[server_fail_1] Scheduling deferred MCP start in {deferred_ms} ms")
+        print(f"[NL Server Manager] Scheduling deferred MCP start in {deferred_ms} ms")
         output_cb = getattr(self, 'mcp_output_callback', None)
         error_cb = getattr(self, 'mcp_error_callback', None)
-        QTimer.singleShot(300, lambda oc=output_cb, ec=error_cb: self._start_mcp_inprocess(output_callback=oc, error_callback=ec))
+        QTimer.singleShot(deferred_ms, lambda oc=output_cb, ec=error_cb: self._start_mcp_inprocess(output_callback=oc, error_callback=ec))
         if self._safety_timer_mcp is not None:
             try:
                 self._safety_timer_mcp.stop()
@@ -500,7 +581,7 @@ class NLServerManager(QObject):
         self._safety_timer_mcp = QTimer(self)
         self._safety_timer_mcp.setSingleShot(True)
         self._safety_timer_mcp.timeout.connect(self._safety_timeout_mcp)
-        self._safety_timer_mcp.start(35000)
+        self._safety_timer_mcp.start(safety_ms)
     
     def start_fastapi_server(self, output_callback=None, error_callback=None):
         """
@@ -703,9 +784,14 @@ class NLServerManager(QObject):
         else:
             print(f"[NL Server Manager] FastAPI server process start() returned success")
         
-        # Wait for server to start, then verify it's responding (P3: longer on Windows)
-        first_verify_ms = 10000 if sys.platform.startswith("win") else 6000
+        # Wait for server to start, then verify it's responding (P3 / server_startup_platform: platform config)
+        first_verify_ms = (
+            self._timing["first_verify_ms"]
+            if self._timing
+            else (10000 if sys.platform.startswith("win") else 6000)
+        )
         QTimer.singleShot(first_verify_ms, self._verify_fastapi_ready)
+        QTimer.singleShot(first_verify_ms, self._do_main_thread_verify_fastapi)  # server_fail_6 (1a)
     
     def start_mcp_server(self, output_callback=None, error_callback=None):
         """
@@ -864,9 +950,14 @@ class NLServerManager(QObject):
         else:
             print(f"[NL Server Manager] MCP server process start() returned success")
         
-        # Wait for server to start, then verify it's responding (P3: longer on Windows)
-        first_verify_ms = 10000 if sys.platform.startswith("win") else 6000
+        # Wait for server to start, then verify it's responding (P3 / server_startup_platform: platform config)
+        first_verify_ms = (
+            self._timing["first_verify_ms"]
+            if self._timing
+            else (10000 if sys.platform.startswith("win") else 6000)
+        )
         QTimer.singleShot(first_verify_ms, self._verify_mcp_ready)
+        QTimer.singleShot(first_verify_ms, self._do_main_thread_verify_mcp)  # server_fail_6 (1a)
     
     def stop_fastapi_server(self):
         """Stop the FastAPI server gracefully."""
@@ -1095,8 +1186,12 @@ class NLServerManager(QObject):
         if hasattr(self, '_fastapi_logger'):
             self._fastapi_logger.info("\n\n" + "=" * 80)
             self._fastapi_logger.info("FastAPI server process STARTED successfully")
-            self._fastapi_logger.info(f"Process PID: {self.fastapi_process.processId() if self.fastapi_process else 'Unknown'}")
-            self._fastapi_logger.info(f"Process state: {self.fastapi_process.state() if self.fastapi_process else 'Unknown'}")
+            # server_fail_7 (F2a): in-process mode has no QProcess; log N/A instead of Unknown
+            if getattr(sys, "frozen", False) and self.fastapi_process is None:
+                self._fastapi_logger.info("In-process mode (no QProcess); PID/state N/A")
+            else:
+                self._fastapi_logger.info(f"Process PID: {self.fastapi_process.processId() if self.fastapi_process else 'Unknown'}")
+                self._fastapi_logger.info(f"Process state: {self.fastapi_process.state() if self.fastapi_process else 'Unknown'}")
         print("\n\n[NL Server Manager] FastAPI server process started")
         self.fastapi_started.emit()
     
@@ -1187,10 +1282,16 @@ class NLServerManager(QObject):
                 else:
                     # Could not free port, emit failure
                     self.fastapi_starting = False
-                    self.fastapi_failed.emit(
+                    base_port_msg = (
                         "Port 8000 is in use and could not be freed. "
                         "Please stop other servers or free the port manually."
                     )
+                    port_msg = (
+                        format_port_in_use_message(8000, base_port_msg)
+                        if _server_pc_logic_available and format_port_in_use_message
+                        else base_port_msg
+                    )
+                    self.fastapi_failed.emit(port_msg)
             # Note: Other errors might be warnings, so we don't stop startup immediately
     
     def _on_fastapi_finished(self, exit_code, exit_status):
@@ -1324,10 +1425,11 @@ class NLServerManager(QObject):
         threading.Thread(target=do_check, daemon=True).start()
 
     def _on_fastapi_verify_done(self, success: bool, error_msg: Optional[str]):
-        """Runs on Qt thread with result of FastAPI readiness check (done in worker thread)."""
-        if not self.fastapi_starting:
-            return
+        """Runs on Qt thread with result of FastAPI readiness check (done in worker thread).
+        server_fail_6 (2a): On success always apply ready (no early return on not fastapi_starting)."""
         if success:
+            if self._fastapi_ready_flag:
+                return  # Already applied (e.g. main-thread fallback ran first)
             print("\n\n[NL Server Manager] FastAPI server is ready")
             self.fastapi_starting = False
             self._fastapi_ready_flag = True
@@ -1340,7 +1442,9 @@ class NLServerManager(QObject):
                 self._safety_timer_fastapi = None
             self.fastapi_ready.emit()
             self._check_all_servers_ready()
-        else:
+            return
+        if not self.fastapi_starting:
+            return
             if self._fastapi_verify_retries >= self._max_verify_retries:
                 self.fastapi_starting = False
                 if hasattr(self, '_fastapi_logger') and error_msg:
@@ -1348,7 +1452,11 @@ class NLServerManager(QObject):
                         f"FastAPI verification gave up after {self._max_verify_retries} attempts. Last error: {error_msg}"
                     )
                 self.fastapi_failed.emit(
-                    "FastAPI server did not become ready in time. Check the logs folder next to the app."
+                    format_not_ready_failure_message(
+                        "FastAPI server did not become ready in time. Check the logs folder next to the app."
+                    )
+                    if _server_pc_logic_available and format_not_ready_failure_message
+                    else "FastAPI server did not become ready in time. Check the logs folder next to the app."
                 )
             else:
                 if hasattr(self, '_fastapi_logger') and error_msg:
@@ -1364,8 +1472,12 @@ class NLServerManager(QObject):
         if hasattr(self, '_mcp_logger'):
             self._mcp_logger.info("\n\n" + "=" * 80)
             self._mcp_logger.info("MCP server process STARTED successfully")
-            self._mcp_logger.info(f"Process PID: {self.mcp_process.processId() if self.mcp_process else 'Unknown'}")
-            self._mcp_logger.info(f"Process state: {self.mcp_process.state() if self.mcp_process else 'Unknown'}")
+            # server_fail_7 (F2a): in-process mode has no QProcess; log N/A instead of Unknown
+            if getattr(sys, "frozen", False) and self.mcp_process is None:
+                self._mcp_logger.info("In-process mode (no QProcess); PID/state N/A")
+            else:
+                self._mcp_logger.info(f"Process PID: {self.mcp_process.processId() if self.mcp_process else 'Unknown'}")
+                self._mcp_logger.info(f"Process state: {self.mcp_process.state() if self.mcp_process else 'Unknown'}")
         print("\n\n[NL Server Manager] MCP server process started")
         self.mcp_started.emit()
     
@@ -1439,10 +1551,16 @@ class NLServerManager(QObject):
                 else:
                     # Could not free port, emit failure
                     self.mcp_starting = False
-                    self.mcp_failed.emit(
+                    base_port_msg = (
                         "Port 8001 is in use and could not be freed. "
                         "Please stop other servers or free the port manually."
                     )
+                    port_msg = (
+                        format_port_in_use_message(8001, base_port_msg)
+                        if _server_pc_logic_available and format_port_in_use_message
+                        else base_port_msg
+                    )
+                    self.mcp_failed.emit(port_msg)
             # Note: Other errors might be warnings, so we don't stop startup immediately
     
     def _on_mcp_finished(self, exit_code, exit_status):
@@ -1569,11 +1687,78 @@ class NLServerManager(QObject):
 
         threading.Thread(target=do_check, daemon=True).start()
 
-    def _on_mcp_verify_done(self, success: bool, error_msg: Optional[str]):
-        """Runs on Qt thread with result of MCP readiness check (done in worker thread)."""
-        if not self.mcp_starting:
+    def _do_main_thread_verify_fastapi(self):
+        """server_fail_6 (1a): Main-thread verification fallback; runs after first delay, does HTTP check on main thread."""
+        if self._fastapi_ready_flag:
             return
+        success = False
+        try:
+            try:
+                import requests
+                response = requests.get("http://127.0.0.1:8000/docs", timeout=2)
+                success = response.status_code == 200
+            except ImportError:
+                import urllib.request
+                req = urllib.request.urlopen("http://127.0.0.1:8000/docs", timeout=2)
+                success = (req.getcode() == 200)
+                req.close()
+        except Exception:
+            pass
+        if not success:
+            return
+        if self._fastapi_ready_flag:
+            return
+        print("\n\n[NL Server Manager] FastAPI server is ready (main-thread fallback)")
+        self.fastapi_starting = False
+        self._fastapi_ready_flag = True
+        if getattr(self, '_safety_timer_fastapi', None) is not None:
+            try:
+                self._safety_timer_fastapi.stop()
+            except Exception:
+                pass
+            self._safety_timer_fastapi = None
+        self.fastapi_ready.emit()
+        self._check_all_servers_ready()
+
+    def _do_main_thread_verify_mcp(self):
+        """server_fail_6 (1a): Main-thread verification fallback; runs after first delay, does HTTP check on main thread."""
+        if self._mcp_ready_flag:
+            return
+        success = False
+        try:
+            try:
+                import requests
+                response = requests.get("http://127.0.0.1:8001/health", timeout=2)
+                success = response.status_code == 200
+            except ImportError:
+                import urllib.request
+                req = urllib.request.urlopen("http://127.0.0.1:8001/health", timeout=2)
+                success = (req.getcode() == 200)
+                req.close()
+        except Exception:
+            pass
+        if not success:
+            return
+        if self._mcp_ready_flag:
+            return
+        print("\n\n[NL Server Manager] MCP server is ready (main-thread fallback)")
+        self.mcp_starting = False
+        self._mcp_ready_flag = True
+        if getattr(self, '_safety_timer_mcp', None) is not None:
+            try:
+                self._safety_timer_mcp.stop()
+            except Exception:
+                pass
+            self._safety_timer_mcp = None
+        self.mcp_ready.emit()
+        self._check_all_servers_ready()
+
+    def _on_mcp_verify_done(self, success: bool, error_msg: Optional[str]):
+        """Runs on Qt thread with result of MCP readiness check (done in worker thread).
+        server_fail_6 (2a): On success always apply ready (no early return on not mcp_starting)."""
         if success:
+            if self._mcp_ready_flag:
+                return  # Already applied (e.g. main-thread fallback ran first)
             print("\n\n[NL Server Manager] MCP server is ready")
             self.mcp_starting = False
             self._mcp_ready_flag = True
@@ -1586,7 +1771,9 @@ class NLServerManager(QObject):
                 self._safety_timer_mcp = None
             self.mcp_ready.emit()
             self._check_all_servers_ready()
-        else:
+            return
+        if not self.mcp_starting:
+            return
             if self._mcp_verify_retries >= self._max_verify_retries:
                 self.mcp_starting = False
                 if hasattr(self, '_mcp_logger') and error_msg:
@@ -1594,7 +1781,11 @@ class NLServerManager(QObject):
                         f"MCP verification gave up after {self._max_verify_retries} attempts. Last error: {error_msg}"
                     )
                 self.mcp_failed.emit(
-                    "MCP server did not become ready in time. Check the logs folder next to the app."
+                    format_not_ready_failure_message(
+                        "MCP server did not become ready in time. Check the logs folder next to the app."
+                    )
+                    if _server_pc_logic_available and format_not_ready_failure_message
+                    else "MCP server did not become ready in time. Check the logs folder next to the app."
                 )
             else:
                 if hasattr(self, '_mcp_logger') and error_msg:
