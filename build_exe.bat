@@ -7,6 +7,11 @@ if not "%OS%"=="Windows_NT" (
     exit /b 1
 )
 
+REM Ensure we run from the directory containing this script (project root).
+REM When invoked from PowerShell (e.g. .\build_exe.bat), current dir may differ; this makes myenv path correct.
+cd /d "%~dp0"
+set "BUILD_ROOT=%CD%"
+echo Build root: %BUILD_ROOT%
 echo Building stat_man_g.exe...
 echo.
 
@@ -25,31 +30,25 @@ if exist ".git" (
     echo.
 )
 
-REM Activate virtual environment: prefer myenv (project standard for Windows build)
-REM This ensures PyInstaller bundles from a consistent env including server deps (uvicorn, fastapi).
-if exist "myenv\Scripts\activate.bat" (
-    echo Activating virtual environment: myenv
-    call myenv\Scripts\activate.bat
-) else if exist ".myenv\Scripts\activate.bat" (
-    echo Activating virtual environment: .myenv
-    call .myenv\Scripts\activate.bat
-) else if exist "venv\Scripts\activate.bat" (
-    echo Activating virtual environment: venv
-    call venv\Scripts\activate.bat
-) else if exist "env\Scripts\activate.bat" (
-    echo Activating virtual environment: env
-    call env\Scripts\activate.bat
-) else (
-    echo WARNING: No virtual environment found. Using system Python.
-    echo For a reliable build, create and use myenv: python -m venv myenv ^& myenv\Scripts\activate ^& pip install -r requirements.txt
-    echo Make sure PySide6, fastapi, and uvicorn are installed in the current Python environment.
+REM Create and activate winenv (Windows virtual environment). No venv check; always use winenv.
+if not exist "%BUILD_ROOT%\winenv\Scripts\activate.bat" (
+    echo Creating winenv...
+    python -m venv "%BUILD_ROOT%\winenv"
+    if errorlevel 1 (
+        echo ERROR: Failed to create winenv. Ensure Python is installed and on PATH.
+        pause
+        exit /b 1
+    )
+    echo winenv created.
 )
+echo Activating winenv [%BUILD_ROOT%\winenv]
+call "%BUILD_ROOT%\winenv\Scripts\activate.bat"
 
-REM Verify we're using the right Python (should be inside the activated venv, e.g. myenv)
+REM Verify we're using the right Python (should be inside winenv)
 echo.
 echo Using Python:
 python --version
-echo Python path (should be inside venv, e.g. ...\myenv\Scripts\python.exe):
+echo Python path (should be inside venv, e.g. ...\winenv\Scripts\python.exe):
 python -c "import sys; print(sys.executable)"
 echo.
 

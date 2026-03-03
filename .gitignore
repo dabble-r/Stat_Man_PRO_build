@@ -32,9 +32,11 @@ demo/
 
 # Virtual Environment
 myenv/
+winenv/
 venv/
 ENV/
 env/
+create_winenv_on_windows.txt
 
 # IDE
 .vscode/
