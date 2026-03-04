@@ -575,7 +575,6 @@ source myenv/bin/activate  # Linux/Mac
 - Advanced statistical analysis
 - Web-based interface
 - Mobile companion app
-- Enhanced NL-to-SQL with query history and saved queries
 - NL-plot presets and template charts
 
 ---
