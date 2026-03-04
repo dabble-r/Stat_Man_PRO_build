@@ -1,4 +1,5 @@
 class StyleSheets():
+    """Application styles. If adding QScrollBar styles later: use height for QScrollBar:horizontal, width for QScrollBar:vertical (wrong dimensions can hide scroll bars on Windows). See tests/gui/gui_fail_1.md."""
     def __init__(self):
         #self.main_styles = self.get_monochrome_style()
         self.light_styles = self.get_monochrome_1_style()

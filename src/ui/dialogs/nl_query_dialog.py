@@ -730,6 +730,8 @@ class NLQueryDialog(QDialog):
         self.results_table.setSortingEnabled(True)  # Enable sorting
         self.results_table.horizontalHeader().setStretchLastSection(True)
         self.results_table.setMinimumHeight(250)
+        self.results_table.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.results_table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         
         # Status label
         self.results_status_label = QLabel("Results will appear here after executing SQL query...")
