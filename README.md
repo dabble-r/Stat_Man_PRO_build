@@ -1,7 +1,7 @@
 # Stat Manager
 - v2.0
 
-A comprehensive baseball/softball league management application built with Python and PySide6, featuring AI-powered natural language database queries.
+A comprehensive baseball/softball league management application built with Python and PySide6, featuring **AI/LLM integration** for natural language database queries and chart generation.
 
 ## Features
 
@@ -16,6 +16,10 @@ A comprehensive baseball/softball league management application built with Pytho
   - Review and edit generated SQL before execution
   - Execute queries and view results in an interactive table
   - Requires OpenAI API key
+- **NL-plot (natural language to chart)**: Generate charts from query results using natural language
+  - After running a query, describe the chart you want (e.g., "bar chart of wins by team")
+  - LLM generates chart configuration or plotting code; results displayed as PNG in-app
+  - Uses the same OpenAI API key as NL-to-SQL
 
 ## Project Structure
 
@@ -24,16 +28,18 @@ stat_man_g/
 ├── main.py                  # Application entry point
 ├── requirements.txt         # Python dependencies
 ├── LICENSE.md               # License information
-├── build_exe.bat            # Build project in Windows (venv build)
-├── build_exe_.sh            # Build project in Linux (no venv build)
-├── build_exe_venv.sh        # Build project in Linux (venv build)
+├── stat_man_g.spec          # PyInstaller spec (Windows and Linux builds)
+├── build_exe.bat            # Build Windows executable (run on Windows only; uses winenv)
+├── build_exe.sh             # Build Linux executable (system Python)
+├── build_exe_venv.sh        # Build Linux executable (venv build)
 │
-├── nl_sql/                  # NL-to-SQL server infrastructure
+├── nl_sql/                  # NL-to-SQL and NL-plot server infrastructure
 │   ├── __init__.py          # Package marker
-│   ├── api_call.py          # FastAPI server (port 8000) - NL-to-SQL conversion
+│   ├── api_call.py          # FastAPI server (port 8000) - NL-to-SQL, NL-plot endpoints
 │   ├── mcp_server.py        # MCP server (port 8001) - Database operations
 │   ├── start_server.py      # FastAPI server startup script
-│   └── start_mcp_server.py  # MCP server startup script
+│   ├── start_mcp_server.py  # MCP server startup script
+│   └── run_plot_worker.py   # NL-plot code execution worker
 │
 ├── src/                     # Main source code
 │   ├── core/                # Core business logic
@@ -118,7 +124,9 @@ stat_man_g/
 │   ├── visualization/       # Charts and graphs
 │   │   ├── bar_graph.py     # Bar chart implementation
 │   │   ├── donut_graph.py   # Donut chart implementation
-│   │   └── graph_window.py  # Graph display window
+│   │   ├── graph_window.py  # Graph display window
+│   │   ├── nl_plot_pipeline.py  # NL-plot: LLM → chart config / plot code pipeline
+│   │   └── viz_plot_builder.py  # Build figures from DataFrame and options
 │   │
 │   ├── utils/               # Utility functions
 │   │   ├── file_dialog.py   # File/folder selection dialogs
@@ -159,7 +167,7 @@ stat_man_g/
 
 - Python 3.8 or higher
 - pip package manager
-- OpenAI API key (required for NL-to-SQL feature, optional for other features)
+- **OpenAI API key** (required for NL-to-SQL and NL-plot; optional for the rest of the app)
 
 ### Setup
 
@@ -182,14 +190,26 @@ stat_man_g/
    pip install -r requirements.txt
    ```
    
-   **Note**: The NL-to-SQL feature requires additional dependencies:
+   **Note**: NL-to-SQL and NL-plot require additional dependencies (included in `requirements.txt`):
    - `fastapi>=0.104.0` - Web framework for API server
-   - `uvicorn` - ASGI server (install separately: `pip install uvicorn`)
-   - `openai>=1.0.0` - OpenAI API client
+   - `uvicorn` - ASGI server (e.g. `pip install uvicorn`)
+   - `openai>=1.0.0` - OpenAI API client for SQL and chart generation
    - `sqlglot>=23.0.0` - SQL parsing and validation
-   - `requests>=2.31.0` - HTTP client
-   
-   These are included in `requirements.txt` but may need to be installed separately if using a minimal setup.
+   - `requests` - HTTP client
+   - `matplotlib`, `seaborn` - Chart rendering for NL-plot
+
+## Building standalone executables
+
+The project builds **platform-specific** executables with PyInstaller. Use the build script for the OS where you will run the app; do not copy a Linux build to Windows or vice versa.
+
+- **Windows**
+  - Run **`build_exe.bat`** on Windows only. The script creates/uses a `winenv` virtual environment, installs dependencies, and runs PyInstaller using `stat_man_g.spec`. Output: `dist/stat_man_g.exe`.
+  - On machines that run the exe (without Python), if you see "Missing dependency" or "DLL load failed", install the [Microsoft Visual C++ Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist) (x64), then restart the app.
+  - Optional: set `STATMANG_CONSOLE=1` before building to get a console window for debugging.
+- **Linux**
+  - Run **`build_exe.sh`** (system Python) or **`build_exe_venv.sh`** (venv). PyInstaller uses `stat_man_g.spec`; output is an ELF binary in `dist/`. Optional: install UPX for smaller binaries (`sudo apt-get install upx-ucl` on Debian/Ubuntu).
+
+See also: `tests/servers/server_fail_11.md` (Windows build details), `tests/servers/server_fail_12.md` (Linux vs Windows server behavior).
 
 ## Usage
 
@@ -245,7 +265,8 @@ STATMANG_DEBUG = 1 python3 main.py
   - AI-powered SQL generation using OpenAI GPT models
   - SQL validation and safety checks (SELECT only, LIMIT required)
   - Automatic schema detection from database
-  - Results displayed in interactive tree widget
+  - Results displayed in interactive table (DataFrame) with sort, export, and NL-plot visualization
+  - NL-plot: describe a chart in natural language to generate a chart from current query results (same API key)
   - Dialog stays on top for easy access
 - ![Alt text](/assets/screenshots/nl_query.jpg?raw=true "Natural Language Queries")
 
@@ -421,12 +442,13 @@ The application uses SQLite with four main tables:
 
 ### NL-to-SQL Architecture
 
-The NL-to-SQL feature uses a two-server architecture:
+The NL-to-SQL and NL-plot features use a two-server architecture (both require an OpenAI API key for SQL generation and chart generation):
 
-1. **FastAPI Server (Port 8000)**: 
+1. **FastAPI Server (Port 8000)**:
    - Converts natural language to SQL using OpenAI
+   - NL-plot: natural language chart description → chart config or plot code (LLM)
    - Validates generated SQL queries
-   - Endpoints: `/nl_to_sql` (SQL generation only), `/mcp/ask` (SQL + execution)
+   - Endpoints: `/nl_to_sql`, `/nl_to_chart_config`, `/nl_to_chart_png`, `/mcp/ask`, etc.
    - Requires OpenAI API key
 
 2. **MCP Server (Port 8001)**:
@@ -435,7 +457,7 @@ The NL-to-SQL feature uses a two-server architecture:
    - Endpoints: `/health`, `/schema`, `/execute`
    - No API key required
 
-Both servers are managed by `NLServerManager` and start automatically when you submit an API key in the NL query dialog. They stop automatically when the dialog is closed.
+Both servers are managed by `NLServerManager`. When running from source they start as subprocesses; when running the **frozen** executable, behavior is platform-specific: on Windows the servers run in a separate process (QProcess) using system Python and the bundled `nl_sql` and `src` trees, while on Linux/macOS they may run in-process. They start automatically when you submit an API key in the NL query dialog and stop when the dialog is closed.
 
 ### Contributing
 
@@ -485,7 +507,8 @@ source myenv/bin/activate  # Linux/Mac
 3. **SQL Validation**: Generated SQL is validated for safety (SELECT only, LIMIT required)
 4. **User Review**: SQL is displayed for review and optional editing
 5. **Execution**: User clicks "Execute SQL Query" to run on database
-6. **Results**: Query results displayed in interactive tree widget
+6. **Results**: Query results displayed in an interactive table (DataFrame) with sorting and export
+7. **NL-plot (optional)**: From the same dialog, enter a natural-language chart description and click Submit to generate a chart from the current results via the LLM (e.g. bar, pie, line)
 
 ### Security Features
 
@@ -513,7 +536,7 @@ source myenv/bin/activate  # Linux/Mac
 - **Running from source on Windows:** Install Python from python.org (not the Store stub), add to PATH, or set `STATMANG_PYTHON_EXE` to the full path to `python.exe`.
 
 **Building the Windows executable:**
-- Build on Windows (run `build_exe.bat` or see `tests/servers/server_fail_11.md`); do not copy a Linux `dist/` to Windows—the binary is platform-specific.
+- Build on Windows: run `build_exe.bat` (see **Building standalone executables** above). Do not copy a Linux `dist/` to Windows—the binary is platform-specific.
 
 **SQL generation fails:**
 - Verify API key has sufficient credits
@@ -538,6 +561,7 @@ source myenv/bin/activate  # Linux/Mac
 - Web-based interface
 - Mobile companion app
 - Enhanced NL-to-SQL with query history and saved queries
+- NL-plot presets and template charts
 
 ---
 
