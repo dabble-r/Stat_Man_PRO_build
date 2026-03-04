@@ -452,12 +452,27 @@ The NL-to-SQL and NL-plot features use a two-server architecture (both require a
    - Requires OpenAI API key
 
 2. **MCP Server (Port 8001)**:
-   - Provides database schema information
-   - Executes read-only SQL queries
-   - Endpoints: `/health`, `/schema`, `/execute`
-   - No API key required
+   - Provides database schema and executes read-only SQL; runs NL-plot Python code and returns PNG.
+   - Endpoints: `GET /health`, `GET /schema`, `GET /distinct_values`, `POST /execute`, `POST /run_plot`.
+   - No API key required. See **MCP server details** below for full endpoint descriptions.
 
 Both servers are managed by `NLServerManager`. When running from source they start as subprocesses; when running the **frozen** executable, behavior is platform-specific: on Windows the servers run in a separate process (QProcess) using system Python and the bundled `nl_sql` and `src` trees, while on Linux/macOS they may run in-process. They start automatically when you submit an API key in the NL query dialog and stop when the dialog is closed.
+
+### MCP server details (port 8001)
+
+The **MCP (Model Context Protocol) server** runs on port 8001 and handles all database access and plot execution for the NL-SQL and NL-plot features. It does **not** require an OpenAI API key. The FastAPI server (port 8000) calls the MCP server to get schema, run queries, and run NL-plot code.
+
+| Endpoint | Method | Purpose |
+|---------|--------|---------|
+| `/health` | GET | Liveness check; returns `{"status": "ok"}`. |
+| `/schema` | GET | Returns the SQLite database schema (table and column definitions) for LLM prompts. Response: `{"schema": "table_name(col1 type, ...)\n..."}`. |
+| `/distinct_values` | GET | Query param: `column` (e.g. `positions`). Returns distinct values for that column so NL-to-SQL prompts can use exact DB values. Response: `{"values": ["..."]}`. |
+| `/execute` | POST | Body: `{"sql": "SELECT ..."}`. Runs **read-only** SQL against `data/database/League.db`. Only `SELECT` is allowed; dangerous keywords (INSERT, UPDATE, DELETE, DROP, etc.) are rejected. Returns `{"success": true, "row_count": N, "results": [...]}`. |
+| `/run_plot` | POST | Body: `{"code": "python code", "data": [list of dicts]}`. Executes LLM-generated Python plotting code (e.g. matplotlib) with `df` as a pandas DataFrame; returns PNG as base64. Used by the NL-plot “natural language to chart” flow. |
+
+- **Database**: MCP uses the project database at `data/database/League.db` (or fallback from app path when bundled). Schema and execute both use this path.
+- **Security**: `/execute` validates SQL (SELECT only, table names must exist). `/run_plot` runs code in a subprocess with a timeout (e.g. 30s).
+- **Startup**: Started by `NLServerManager` together with the FastAPI server; see `nl_sql/start_mcp_server.py` and `src/utils/nl_sql_server.py`.
 
 ### Contributing
 
