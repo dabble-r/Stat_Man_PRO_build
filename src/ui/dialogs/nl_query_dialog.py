@@ -14,7 +14,7 @@ from PySide6.QtGui import QCloseEvent, QAction, QPixmap, QPainter, QColor, QFont
 from PySide6.QtWidgets import QLabel
 from src.utils.nl_sql_server import NLServerManager
 from src.utils.nl_query_cache import NLQueryCache
-from src.utils.path_resolver import get_data_path
+from src.utils.path_resolver import get_data_path, short_path_for_message, shorten_message_paths
 from src.utils.api_key_manager import APIKeyManager
 from src.utils.global_server_manager import GlobalServerManager
 from src.utils.nl_plot_log import get_nl_plot_logger
@@ -454,7 +454,7 @@ class NLQueryDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("NL-to-SQL Query")
-        self.setMinimumSize(1250, 750)
+        self.setMinimumSize(1275, 750)
         
         # Make dialog stay on top
         self.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint)
@@ -2048,7 +2048,7 @@ class NLQueryDialog(QDialog):
             QMessageBox.critical(
                 self,
                 "Export Failed",
-                f"Failed to export query and results:\n{str(e)}"
+                f"Failed to export query and results:\n{shorten_message_paths(str(e))}"
             )
     
     def _handle_import_queries_csv(self):
@@ -2163,14 +2163,14 @@ class NLQueryDialog(QDialog):
             QMessageBox.information(
                 self,
                 "Import Successful",
-                f"Successfully imported {imported_count} query/queries from:\n{file_path}"
+                f"Successfully imported {imported_count} query/queries from:\n{short_path_for_message(file_path)}"
             )
         except Exception as e:
             logger.error(f"Import failed: {e}", exc_info=True)
             QMessageBox.critical(
                 self,
                 "Import Failed",
-                f"Failed to import queries from CSV:\n{str(e)}"
+                f"Failed to import queries from CSV:\n{shorten_message_paths(str(e))}"
             )
     
     def _on_sql_display_changed(self):

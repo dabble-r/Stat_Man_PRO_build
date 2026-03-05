@@ -115,3 +115,43 @@ def get_server_tests_log_path():
     return get_data_path("logs", "server_tests.log")
 
 
+def short_path_for_message(path: "str | Path", base: "str | Path | None" = None) -> str:
+    """
+    Return a short path suitable for user-facing messages (e.g. save/load dialogs).
+    If path is under base, returns path relative to base. Otherwise returns
+    a short form (filename plus one parent) so the user can recognize the file.
+
+    Args:
+        path: File or directory path (absolute or relative).
+        base: Base path; if None, uses get_app_base_path().
+
+    Returns:
+        str: Short relative path or short form (e.g. "parent/file.csv").
+    """
+    path = Path(path).resolve()
+    if base is None:
+        base = Path(get_app_base_path()).resolve()
+    else:
+        base = Path(base).resolve()
+    try:
+        rel = path.relative_to(base)
+        return str(rel).replace("\\", "/")
+    except ValueError:
+        pass
+    # Outside base: return last two components (parent + name) or just name
+    parts = path.parts
+    if len(parts) >= 2:
+        return str(Path(parts[-2]) / parts[-1]).replace("\\", "/")
+    return path.name or str(path)
+
+
+def shorten_message_paths(text: str) -> str:
+    """
+    Replace the app base path in a string (e.g. exception message) so that
+    any paths in the message appear as relative or shorter form.
+    """
+    base = get_app_base_path()
+    if not base or base not in text:
+        return text
+    return text.replace(base, "").replace("\\\\", "/").lstrip("/\\")
+
