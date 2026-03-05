@@ -96,30 +96,23 @@ class SaveCSVHandler:
                 self.parent,
                 "Folder exists",
                 (f"The folder '{chosen_name}' already exists in '{self.csv_path}'.\n\n"
-                 "Do you want to overwrite it (delete all CSVs and save new files) or create a new folder?"),
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No | QMessageBox.StandardButton.Cancel,
-                QMessageBox.StandardButton.Cancel
+                 "Do you want to replace it (overwrite with new files)?\n\n"
+                 "Yes = Replace existing folder and save.\n"
+                 "No = Do not replace; cancel save."),
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No
             )
-            # Interpret: Yes -> Overwrite, No -> Create new, Cancel -> abort
-            if choice == QMessageBox.StandardButton.Cancel:
+            if choice != QMessageBox.StandardButton.Yes:
+                # No (or Cancel): do nothing, do not replace
                 return
-            elif choice == QMessageBox.StandardButton.Yes:
-                # Overwrite flow
-                try:
-                    self._clear_csvs_in_folder(target_folder)
-                    
-                except Exception as e:
-                    QMessageBox.critical(self.parent, "Error clearing folder",
-                                         f"Could not clear CSV files in folder:\n{e}")
-                    return
-                final_folder = target_folder
-            else:
-                # Create new -> add timestamp
-                ts = Timestamp.get_timestamp()
-                final_folder = self.csv_path / f"_{chosen_name}{ts}"
-                if final_folder.exists():
-                  ts = Timestamp.get_new_ts(ts, self.csv_path, chosen_name)
-                  final_folder = self.csv_path / f"_{chosen_name}{ts}"
+            # Yes: overwrite flow
+            try:
+                self._clear_csvs_in_folder(target_folder)
+            except Exception as e:
+                QMessageBox.critical(self.parent, "Error clearing folder",
+                                     f"Could not clear CSV files in folder:\n{e}")
+                return
+            final_folder = target_folder
         else:
             final_folder = target_folder
 
