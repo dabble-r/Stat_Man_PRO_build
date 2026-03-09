@@ -1,5 +1,5 @@
 # Stat Manager
-- v2.0
+- v2.1.0
 
 A comprehensive baseball/softball league management application built with Python and PySide6, featuring **AI/LLM integration** for natural language database queries and chart generation.
 
@@ -52,6 +52,9 @@ stat_man_g/
 │   │
 │   ├── ui/                  # User interface components
 │   │   ├── main_window.py   # Main application window
+│   │   ├── context/         # Shared application context (signals/slots)
+│   │   │   ├── __init__.py
+│   │   │   └── app_context.py  # AppContext QObject (league, selected, stack, undo, message, etc.; selection_changed, league_updated signals)
 │   │   │
 │   │   ├── dialogs/         # Dialog windows (modular BaseDialog system)
 │   │   │   ├── base_dialog.py             # Base dialog class (all modular dialogs extend this)
@@ -152,8 +155,14 @@ stat_man_g/
 │   └── icons/               # Application icons
 │
 ├── tests/                   # Unit tests and documentation
+│   ├── slot_signal/         # AppContext/signals refactor plan and notes
+│   │   ├── slot_signal_plan.md
+│   │   ├── curr_view_search.md
+│   │   └── fastapi_mcp_fail_after_context.md
+│   ├── search/              # Search dialog behavior and column handling
+│   │   └── dynamic_search_table_columns.md
 │   ├── server_test.py       # NL-to-SQL server test script
-│   └── *.md                 # Test documentation and analysis files
+│   └── *.md                 # Other test documentation and analysis files
 │
 ├── Documentation/           # Additional documentation
 ├── archive/                 # Archived/deprecated code
@@ -299,6 +308,9 @@ The project follows a modular architecture with clear separation of concerns:
 - **Utils (`src/utils/`)**: Shared utility functions
   - File dialogs, image handling, undo/redo, refresh logic
 
+- **Context (`src/ui/context/`)**: Shared application context
+  - **`AppContext`** (QObject): Holds league, selected, leaderboard, lv_teams, stack, undo, message, file_dir, styles. Emits `selection_changed` and `league_updated`. Dialogs and views take `(context: AppContext, parent=None)` instead of 6–10 positional arguments.
+
 - **Visualization (`src/visualization/`)**: Chart and graph components
 
 ### Architecture Pattern: UI/Logic Separation
@@ -324,6 +336,17 @@ This separation allows:
 - **Testability**: Logic can be tested independently of UI
 - **Reusability**: Logic functions can be reused across different UI contexts
 - **Maintainability**: Changes to UI or logic don't affect each other
+
+### AppContext and signals/slots (slot_signal refactor)
+
+To reduce long argument lists and centralize shared state, the UI uses a single **AppContext** (PySide6 `QObject`) created in the main window and passed into dialogs and views:
+
+- **`src/ui/context/app_context.py`**: Defines **AppContext** with properties: `league`, `selected`, `leaderboard`, `lv_teams`, `lv_players`, `stack`, `undo`, `message`, `file_dir`, `styles`. Signals: **`selection_changed`**, **`league_updated`**. Method **`to_dict()`** builds the dict expected by BaseDialog’s template context.
+- **Main window** creates the AppContext, wires league/selected/stack/undo/message/file_dir and the two views (`LeagueViewTeams`, `LeagueViewPlayers`), then passes **one** `context` into UpdateDialog, SearchDialog, RemoveDialog, and the stat dialog. When selection or league changes, the main window (or view) updates `context.selected` / `context.league` and emits the corresponding signal.
+- **Dialogs and views** that previously took 6–10 arguments now take **`(context: AppContext, parent=None)`**. They call `context.to_dict()` (and optionally set `self.context = context`) before `super().__init__(template, context_dict, parent)`. Update sub-dialogs (offense, pitching, admin, team stats, lineup, positions, league) and others (remove, search, bar graph, stat dialog) follow this pattern.
+- **Logic handlers** in `dialog_handlers.py` and in `src/ui/logic/dialogs/` take **`(dialog)`** (or `(context)` where applicable) and read `dialog.league`, `dialog.selected`, etc., instead of 5–8 separate parameters. This keeps handlers simple and avoids signature churn when new context fields are added.
+
+Plan and notes: `tests/slot_signal/slot_signal_plan.md`, `tests/slot_signal/curr_view_search.md`, `tests/slot_signal/fastapi_mcp_fail_after_context.md`.
 
 ### Modular Dialog System
 
@@ -399,19 +422,16 @@ def my_dialog_update_handler(dialog):
     value = dialog.get_input_value('input')
     # Process update...
 
-# 3. Create dialog class
+# 3. Create dialog class (caller passes AppContext from main window or parent dialog)
 class MyDialog(BaseDialog):
-    def __init__(self, league, selected, message, parent=None):
+    def __init__(self, context: AppContext, parent=None):
         template = create_my_dialog_template(
             update_handler=my_dialog_update_handler,
             undo_handler=my_dialog_undo_handler
         )
-        context = {
-            'league': league,
-            'selected': selected,
-            'message': message
-        }
-        super().__init__(template, context, parent=parent)
+        # Build context dict for BaseDialog from AppContext
+        super().__init__(template, context.to_dict(), parent=parent)
+        self.context = context  # optional: store for sub-dialogs or handlers
 ```
 
 #### Special Case Dialogs
