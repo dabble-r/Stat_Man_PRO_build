@@ -43,7 +43,7 @@ stat_man_g/
 │
 ├── src/                     # Main source code
 │   ├── core/                # Core business logic
-│   │   ├── league.py   # League data structure (uses Python list internally)
+│   │   ├── league.py        # League data structure (uses Python list internally)
 │   │   ├── team.py          # Team class with stat calculations
 │   │   ├── player.py        # Player and Pitcher classes with stat logic
 │   │   ├── node.py          # Stack node implementation (for undo functionality)
@@ -75,6 +75,8 @@ stat_man_g/
 │   │   │   ├── bar_graph_dialog.py        # Bar graph selection dialog (BaseDialog)
 │   │   │   ├── close.py                   # Application close confirmation (BaseDialog)
 │   │   │   ├── update_theme_dialog.py     # Theme selection dialog (BaseDialog)
+│   │   │   ├── viz_options_dialog.py      # Chart options dialog
+│   │   │   ├── viz_viewer_dialog.py       # Chart viewer dialog
 │   │   │   │
 │   │   │   ├── update_dialog_ui.py        # Main update dialog hub (special case)
 │   │   │   ├── new_player_ui.py           # Add new player dialog (special case)
@@ -90,14 +92,15 @@ stat_man_g/
 │   │   │   ├── selection.py               # Tree widget selection handler
 │   │   │   └── tab_widget.py              # Custom tab widget
 │   │   │
-│   │   ├── logic/           # Business logic extracted from UI (NEW)
+│   │   ├── logic/           # Business logic extracted from UI
 │   │   │   ├── dialogs/     # Dialog business logic
 │   │   │   │   ├── update_offense_logic.py      # Offense stat update logic
 │   │   │   │   ├── update_pitching_logic.py     # Pitching stat update logic
 │   │   │   │   ├── update_admin_logic.py        # Admin update logic
 │   │   │   │   ├── update_team_stats_logic.py   # Team stats update logic
-│   │   │   │   ├── update_lineup_logic.py       # Lineup management logic
-│   │   │   │   ├── update_dialog_logic.py       # Dialog helper logic
+│   │   │   │   ├── update_lineup_logic.py      # Lineup management logic
+│   │   │   │   ├── update_positions_logic.py   # Positions update logic
+│   │   │   │   ├── update_dialog_logic.py      # Dialog helper logic
 │   │   │   │   └── ...                         # Other dialog logic modules
 │   │   │   │
 │   │   │   ├── views/       # View business logic
@@ -107,7 +110,6 @@ stat_man_g/
 │   │   │   └── utils/       # UI utility logic
 │   │   │       └── ...      # Utility logic functions
 │   │   │
-│   │   ├── widgets/         # Custom UI widgets
 │   │   └── styles/          # Application styles and themes
 │   │
 │   ├── data/                # Data operations
@@ -116,13 +118,10 @@ stat_man_g/
 │   │   │   ├── load_dialog_ui.py     # Load dialog UI
 │   │   │   └── load.py               # Load utilities
 │   │   │
-│   │   ├── save/            # Database and CSV export
-│   │   │   ├── save_manager.py       # Main save logic (DB + CSV)
-│   │   │   ├── csv_export_handler.py # CSV export utilities
-│   │   │   └── save_dialog.py        # Save dialog UI
-│   │   │
-│   │   └── database/        # Database utilities
-│   │       └── ...          # DB initialization and schema
+│   │   └── save/            # Database and CSV export
+│   │       ├── save_manager.py       # Main save logic (DB + CSV)
+│   │       ├── csv_export_handler.py # CSV export utilities
+│   │       └── save_dialog.py        # Save dialog UI
 │   │
 │   ├── visualization/       # Charts and graphs
 │   │   ├── bar_graph.py     # Bar chart implementation
@@ -138,31 +137,22 @@ stat_man_g/
 │   │   ├── undo.py          # Undo functionality
 │   │   ├── tree_event_filter.py  # Tree widget event filtering
 │   │   ├── nl_sql_server.py # NL-to-SQL server manager (starts/stops FastAPI and MCP servers)
+│   │   ├── global_server_manager.py  # Singleton server manager for NL dialogs
 │   │   ├── path_resolver.py # Path resolution for dev and bundled modes
+│   │   ├── api_key_manager.py # API key storage for NL-to-SQL
 │   │   └── ...              # Other utility modules
 │   │
-│   └── config/              # Configuration
-│       └── ...              # App configuration files
 │
-├── data/                    # Runtime data
+├── data/                    # Runtime data (project root)
 │   ├── database/            # SQLite database
 │   │   └── League.db        # Main database file
 │   ├── exports/             # CSV exports (timestamped folders)
 │   │   └── save_*/          # Timestamped export folders
+│   ├── logs/                # Application and server logs
 │   └── images/              # User-uploaded images/logos
 │
 ├── assets/                  # Static assets
 │   └── icons/               # Application icons
-│
-├── tests/                   # Unit tests and documentation
-│   ├── slot_signal/         # AppContext/signals refactor plan and notes
-│   │   ├── slot_signal_plan.md
-│   │   ├── curr_view_search.md
-│   │   └── fastapi_mcp_fail_after_context.md
-│   ├── search/              # Search dialog behavior and column handling
-│   │   └── dynamic_search_table_columns.md
-│   ├── server_test.py       # NL-to-SQL server test script
-│   └── *.md                 # Other test documentation and analysis files
 │
 ├── Documentation/           # Additional documentation
 ├── archive/                 # Archived/deprecated code
@@ -217,8 +207,6 @@ The project builds **platform-specific** executables with PyInstaller. Use the b
   - Optional: set `STATMANG_CONSOLE=1` before building to get a console window for debugging.
 - **Linux**
   - Run **`build_exe.sh`** (system Python) or **`build_exe_venv.sh`** (venv). PyInstaller uses `stat_man_g.spec`; output is an ELF binary in `dist/`. Optional: install UPX for smaller binaries (`sudo apt-get install upx-ucl` on Debian/Ubuntu).
-
-See also: `tests/servers/server_fail_11.md` (Windows build details), `tests/servers/server_fail_12.md` (Linux vs Windows server behavior).
 
 ## Usage
 
@@ -291,22 +279,23 @@ The project follows a modular architecture with clear separation of concerns:
   - Stat calculation logic
 
 - **UI (`src/ui/`)**: PySide6 interface components
+  - **`context/`**: Shared AppContext (QObject with signals)
   - **`dialogs/`**: Dialog windows (UI only, delegates to logic)
   - **`views/`**: Main view components (UI only, delegates to logic)
   - **`logic/`**: Business logic extracted from UI components
     - **`dialogs/`**: Dialog business logic (stat updates, validation)
     - **`views/`**: View business logic (leaderboard, sorting)
     - **`utils/`**: UI utility logic
-  - **`widgets/`**: Custom UI widgets
   - **`styles/`**: Application themes and styling
 
 - **Data (`src/data/`)**: Persistence layer
   - **`load/`**: CSV import and database loading
   - **`save/`**: Database writes and CSV export
-  - **`database/`**: Database schema and utilities
+  - Database path and schema utilities live in **`src/utils/`** (e.g. path_resolver, ensure_nl_db) and **`data/database/`** at project root (League.db).
 
 - **Utils (`src/utils/`)**: Shared utility functions
-  - File dialogs, image handling, undo/redo, refresh logic
+  - File dialogs, image handling, undo/redo, refresh logic, path resolution
+  - NL-to-SQL: nl_sql_server, global_server_manager, api_key_manager, nl_query_cache
 
 - **Context (`src/ui/context/`)**: Shared application context
   - **`AppContext`** (QObject): Holds league, selected, leaderboard, lv_teams, stack, undo, message, file_dir, styles. Emits `selection_changed` and `league_updated`. Dialogs and views take `(context: AppContext, parent=None)` instead of 6–10 positional arguments.
@@ -345,8 +334,6 @@ To reduce long argument lists and centralize shared state, the UI uses a single 
 - **Main window** creates the AppContext, wires league/selected/stack/undo/message/file_dir and the two views (`LeagueViewTeams`, `LeagueViewPlayers`), then passes **one** `context` into UpdateDialog, SearchDialog, RemoveDialog, and the stat dialog. When selection or league changes, the main window (or view) updates `context.selected` / `context.league` and emits the corresponding signal.
 - **Dialogs and views** that previously took 6–10 arguments now take **`(context: AppContext, parent=None)`**. They call `context.to_dict()` (and optionally set `self.context = context`) before `super().__init__(template, context_dict, parent)`. Update sub-dialogs (offense, pitching, admin, team stats, lineup, positions, league) and others (remove, search, bar graph, stat dialog) follow this pattern.
 - **Logic handlers** in `dialog_handlers.py` and in `src/ui/logic/dialogs/` take **`(dialog)`** (or `(context)` where applicable) and read `dialog.league`, `dialog.selected`, etc., instead of 5–8 separate parameters. This keeps handlers simple and avoids signature churn when new context fields are added.
-
-Plan and notes: `tests/slot_signal/slot_signal_plan.md`, `tests/slot_signal/curr_view_search.md`, `tests/slot_signal/fastapi_mcp_fail_after_context.md`.
 
 ### Modular Dialog System
 
