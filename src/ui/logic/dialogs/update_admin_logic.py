@@ -2,14 +2,7 @@
 from typing import Tuple, Callable
 from src.core.team import Team
 from src.ui.dialogs.message import Message
-from src.core.league import League
-from src.core.stack import Stack
-from PySide6.QtWidgets import QLineEdit, QWidget
-from src.ui.views.leaderboard_ui import Leaderboard
-from src.ui.views.league_view_teams import LeagueViewTeams
-from src.utils.undo import Undo
-from src.ui.dialogs.update_lineup import UpdateLineupDialog
-from src.ui.dialogs.update_positions import UpdatePositionsDialog
+from PySide6.QtWidgets import QLineEdit
 
 # --------------------------------------------------
 
@@ -34,28 +27,17 @@ def set_new_stat_team(stat: str, input: str, team: Team, message_instance: Messa
 
 # --------------------------------------------------
 
-def update_lineup_handler(league_instance, selected, leaderboard_instance, lv_teams_instance, stack_instance, undo_instance, message_instance, parent=None):
-        """Open lineup dialog to adjust batting order for the current team."""
-        ##print('lineup handler called')
-        dialog = UpdateLineupDialog(league_instance, selected, leaderboard_instance, lv_teams_instance, stack_instance, undo_instance, message_instance, parent=parent)
-        dialog.exec()
 
-# --------------------------------------------------
+def update_stats(dialog, set_new_stat_team: Callable, normalize_stat_name_for_stack: Callable) -> None:
+        """Validate selection/value and update the chosen admin stat (manager or max_roster). Lineup/positions are opened by the UI layer."""
+        selected = dialog.selected
+        get_team_stat = lambda: dialog.get_selected_option('admin')
+        input = dialog.input_fields['input']
+        message_instance = dialog.message
+        league_instance = dialog.league
+        stack_instance = dialog.stack
+        undo_instance = dialog.undo
 
-def update_positions_handler(league_instance, selected, leaderboard_instance, lv_teams_instance, stack_instance, undo_instance, message_instance, parent=None):
-        """Open positions dialog to adjust player positions for the current team."""
-        ##print('positions handler called')
-        dialog = UpdatePositionsDialog(league_instance, selected, leaderboard_instance, lv_teams_instance, stack_instance, undo_instance, message_instance, parent=parent)
-        dialog.exec()
-
-# --------------------------------------------------
-
-def update_stats(selected: Tuple[str, int], get_team_stat: Callable, update_lineup_handler: Callable, 
-                update_positions_handler: Callable, input: QLineEdit, message_instance: Message, league_instance: League, 
-                stack_instance: Stack, undo_instance: Undo, leaderboard_instance: Leaderboard, lv_teams_instance: LeagueViewTeams, set_new_stat_team: Callable, normalize_stat_name_for_stack: Callable, parent: QWidget) -> None:
-
-        """Validate selection/value and update the chosen admin stat or open sub-dialogs."""
-        
         # Extract team name early for error handling
         team, avg = selected
         
@@ -70,28 +52,8 @@ def update_stats(selected: Tuple[str, int], get_team_stat: Callable, update_line
             message_instance.show_message(f"Error reading stat selection: {str(e)}", btns_flag=False, timeout_ms=2000)
             return
         
-        # Handle lineup dialog
-        if stat == 'lineup':
-            try:
-                update_lineup_handler(league_instance, selected, leaderboard_instance, lv_teams_instance, stack_instance, undo_instance, message_instance, parent=parent)
-            except TypeError as e:
-                message_instance.show_message(f"Lineup dialog error: Invalid arguments. {str(e)}", btns_flag=False, timeout_ms=2000)
-                return
-            except Exception as e:
-                message_instance.show_message(f"Failed to open lineup dialog: {str(e)}", btns_flag=False, timeout_ms=2000)
-                return
-            return
-        
-        # Handle positions dialog
-        if stat == 'positions':
-            try:
-                update_positions_handler(league_instance, selected, leaderboard_instance, lv_teams_instance, stack_instance, undo_instance, message_instance, parent=parent)
-            except TypeError as e:
-                message_instance.show_message(f"Positions dialog error: Invalid arguments. {str(e)}", btns_flag=False, timeout_ms=2000)
-                return
-            except Exception as e:
-                message_instance.show_message(f"Failed to open positions dialog: {str(e)}", btns_flag=False, timeout_ms=2000)
-                return
+        # Lineup and positions are handled in dialog_handlers; we only handle manager and max_roster here
+        if stat in ('lineup', 'positions'):
             return
 
         # Handle input-based stats (manager, max roster)

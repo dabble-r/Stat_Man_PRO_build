@@ -7,28 +7,16 @@ from src.ui.dialogs.dialog_handlers import (
     positions_update_handler,
     positions_undo_handler
 )
+from src.ui.context.app_context import AppContext
 
 
 class UpdatePositionsDialog(BaseDialog):
     """Dialog for updating player field positions."""
-    
-    def __init__(self, league, selected, leaderboard, lv_teams, stack, undo, message, parent=None):
-        # Create template
+
+    def __init__(self, context: AppContext, parent=None):
         template = create_positions_update_template(
             update_handler=positions_update_handler,
             undo_handler=positions_undo_handler
         )
-        
-        # Create context
-        context = {
-            'league': league,
-            'selected': selected,
-            'leaderboard': leaderboard,
-            'lv_teams': lv_teams,
-            'stack': stack,
-            'undo': undo,
-            'message': message
-        }
-        
-        # Initialize base dialog
-        super().__init__(template, context, parent=parent)
+        super().__init__(template, context.to_dict(), parent=parent)
+        self.context = context

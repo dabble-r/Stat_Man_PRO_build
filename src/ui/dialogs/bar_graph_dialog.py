@@ -3,47 +3,25 @@ Bar graph team selection dialog using modular BaseDialog system.
 """
 from src.ui.dialogs.base_dialog import BaseDialog
 from src.ui.dialogs.template_configs import create_bar_graph_template
+from src.ui.context.app_context import AppContext
 
 
 class BarGraphDialog(BaseDialog):
     """Dialog for selecting teams to display in bar graph."""
-    
-    def __init__(self, league, selected, message, teams, parent):
-        # Lazy import to avoid circular dependency
+
+    def __init__(self, context: AppContext, teams_selected, parent=None):
         from src.ui.dialogs.dialog_handlers import bar_graph_submit_handler
-        
-        # Get team names from league
+
+        league = context.league
         team_names = league.get_all_team_names() if league else []
-        
-        # Create template
-        template = create_bar_graph_template(
-            submit_handler=bar_graph_submit_handler
-        )
-        
-        # Update options with actual team names
+        template = create_bar_graph_template(submit_handler=bar_graph_submit_handler)
         if 'selection' in template:
             template['selection']['options'] = team_names
-        
-        # Create context
-        context = {
-            'league': league,
-            'selected': selected,
-            'leaderboard': None,
-            'lv_teams': None,
-            'stack': None,
-            'undo': None,
-            'message': message
-        }
-        
-        # Initialize base dialog
-        super().__init__(template, context, parent=parent)
-        
-        # Store parent and teams list for checkbox handler
+        ctx_dict = context.to_dict()
+        super().__init__(template, ctx_dict, parent=parent)
         self.parent_widget = parent
-        self.teams_selected = teams
+        self.teams_selected = teams_selected
         self.max_check = 6
-        
-        # Setup checkbox change handler
         if 'selection' in self.checkboxes:
             for checkbox in self.checkboxes['selection']:
                 checkbox.stateChanged.connect(self._check_on_change)

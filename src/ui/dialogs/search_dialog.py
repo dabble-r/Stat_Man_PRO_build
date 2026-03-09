@@ -14,32 +14,23 @@ from src.core.team import Team
 from PySide6.QtWidgets import QTreeWidgetItem, QTreeWidget
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QCloseEvent
+from src.ui.context.app_context import AppContext
 
 
 class SearchDialog(BaseDialog):
     """Dialog for searching teams or players."""
-    
-    def __init__(self, league, selected, stack, undo, message, parent=None):
-        # Create template
+
+    def __init__(self, context: AppContext, parent=None):
         template = create_search_template(
             search_handler=search_submit_handler,
             view_handler=search_view_handler,
             clear_handler=search_clear_handler
         )
-        
-        # Create context
-        context = {
-            'league': league,
-            'selected': None,  # Will be set when item is selected
-            'leaderboard': None,
-            'lv_teams': None,
-            'stack': stack,
-            'undo': undo,
-            'message': message
-        }
-        
-        # Initialize base dialog
-        super().__init__(template, context, parent=parent)
+        ctx_dict = context.to_dict()
+        ctx_dict["selected"] = None
+        ctx_dict["leaderboard"] = None
+        ctx_dict["lv_teams"] = None
+        super().__init__(template, ctx_dict, parent=parent)
         
         # Store search-specific state
         self.type = None

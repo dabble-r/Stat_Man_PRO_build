@@ -3,6 +3,7 @@
 
 # --------------------------------------------------
 
+from src.ui.context.app_context import AppContext
 from src.ui.views.league_view_players import LeagueViewPlayers
 from src.ui.views.league_view_teams import LeagueViewTeams
 from src.utils.tree_event_filter import TreeEventFilter
@@ -33,18 +34,24 @@ class MainWindow(QWidget):
         super().__init__()
         self.selected = None
         self.league = League()
-        # self.styles = StyleSheets()
         self.stack = Stack()
         self.app = app
         self.undo = Undo(self.stack, self.league)
-        # self.file_dir = None
         self.message = Message(parent=self)
-        # self.setStyleSheet(self.styles.light_styles)
         self.theme = None
         self.title = "Welcome to the league"
         self.setWindowTitle(self.title)
         self.setObjectName("Main Window")
-        
+
+        # Shared context for dialogs/views (signals/slots refactor)
+        self.context = AppContext(parent=self)
+        self.context._league = self.league
+        self.context._selected = self.selected
+        self.context._stack = self.stack
+        self.context._undo = self.undo
+        self.context._message = self.message
+        self.context._styles = None
+
         # Set window icon (works in both development and packaged modes)
         # Use get_resource_path to handle PyInstaller's _MEIPASS extraction
         icon_path_str = get_resource_path('assets/icons/pbl_logo_ICO.ico')
@@ -59,13 +66,18 @@ class MainWindow(QWidget):
         
         self.file_dialog = FileDialog(self.message, self)
         self.file_dir = self.file_dialog.get_file_dir()
+        self.context._file_dir = self.file_dir
 
         # --------------------------------------------------
-        # Initialization: View Components
+        # Initialization: View Components (context-based)
         # --------------------------------------------------
-        
-        self.league_view_teams = LeagueViewTeams(self.league, None, self.stack, self.file_dir, self.message, parent=self)  # self.styles
-        self.league_view_players = LeagueViewPlayers(self.league_view_teams, self.selected, self.league, None, self.undo, self.file_dir, self.message, parent=self)  # self.styles
+
+        self.league_view_teams = LeagueViewTeams(self.context, parent=self)
+        self.context._lv_teams = self.league_view_teams
+
+        self.league_view_players = LeagueViewPlayers(self.context, parent=self)
+        self.context._leaderboard = self.league_view_players.leaderboard
+        self.context._lv_players = self.league_view_players
 
         self.leaderboard = self.league_view_players.leaderboard
 
@@ -86,8 +98,8 @@ class MainWindow(QWidget):
         # Initialization: Stat Snapshot Popup
         # --------------------------------------------------
         
-        # Create stat snapshot dialog first
-        self.stat_widget_snapshot_ui = Ui_StatDialog(self.league, self.message, self.selected, parent=self, flag=False, resize=True) 
+        # Create stat snapshot dialog (uses context for league, message, selected)
+        self.stat_widget_snapshot_ui = Ui_StatDialog(self.context, parent=self, flag=False, resize=True) 
         self.stat_widget_snapshot_ui.setWindowFlags(Qt.WindowType.Popup | Qt.WindowType.FramelessWindowHint | Qt.WindowType.NoDropShadowWindowHint)
         # Enable hover tracking on the popup dialog
         self.stat_widget_snapshot_ui.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
@@ -199,7 +211,7 @@ class MainWindow(QWidget):
         # setup league basics on program start
         self.showMaximized()
         
-        self.league_dialog = UpdateLeagueDialog(self.league, self.selected, self.message, self.leaderboard, self.league_view_teams, self.stack, self.undo, None, parent=self)  # self.styles
+        self.league_dialog = UpdateLeagueDialog(self.context, parent=self)
         self.pos_center(self.league_dialog)
         #self.app.processEvents()
 
@@ -222,6 +234,8 @@ class MainWindow(QWidget):
             # Hovering over an item - show stats
             print(f"Hovering over item: {instance}")
             self.selected = instance
+            self.context._selected = instance
+            self.context.selection_changed.emit(instance)
             self.stat_widget_snapshot_ui.get_stats(instance)
             self.stat_widget_snapshot_ui.show()
         else:
@@ -351,6 +365,8 @@ class MainWindow(QWidget):
                 team = curr.text(1)
                 avg = curr.text(2)
                 self.selected = [name, team, avg]
+                self.context._selected = self.selected
+                self.context.selection_changed.emit(self.selected)
 
             else:
                 team = curr.text(0)
@@ -359,6 +375,8 @@ class MainWindow(QWidget):
                 if len(avg) > 5:
                     avg = avg[8:-1]
                 self.selected = [team, avg]
+                self.context._selected = self.selected
+                self.context.selection_changed.emit(self.selected)
             #print(self.selected)
             #self.setup_stat_ui()
             func()
@@ -369,19 +387,15 @@ class MainWindow(QWidget):
     # --------------------------------------------------
     
     def setup_stat_ui(self):
-        #print("Stat button clicked")
-        #print(f"Selected item: {self.selected}")
         # Allow stat dialog to open even with no selection (for team comparison)
-        self.stat_ui = Ui_StatDialog(self.league, self.message, self.selected, parent=self.stat_widget)
+        self.stat_ui = Ui_StatDialog(self.context, parent=self.stat_widget)
         self.stat_ui.get_stats(self.selected)
         self.stat_ui.exec()
-        #print("Stat dialog closed")
     
     # --------------------------------------------------
     
     def setup_update_ui(self):
-        #print("view update")
-        dialog = UpdateDialog(self.league, self.selected, self.leaderboard, self.league_view_teams, self.stack, self.undo, self.file_dir, None, self.message, parent=self)  # self.styles
+        dialog = UpdateDialog(self.context, parent=self)
         dialog.exec()
     
     # --------------------------------------------------
@@ -394,7 +408,7 @@ class MainWindow(QWidget):
         if not self.league.teams:
             self.message.show_message("There are no teams in league.", btns_flag=False, timeout_ms=2000)
             return
-        dialog = SearchDialog(self.league, self.selected, self.stack, self.undo, self.message, parent=self)
+        dialog = SearchDialog(self.context, parent=self)
         dialog.exec()
     
     # --------------------------------------------------
@@ -405,7 +419,7 @@ class MainWindow(QWidget):
         if not self.selected or len(self.selected) == 0:
             self.message.show_message("No Selection: Please select a team or player to remove.", btns_flag=False, timeout_ms=2000)
             return
-        dialog = RemoveDialog(self.league, self.selected, self.leaderboard, self.league_view_teams, self.league_view_players, parent=self)
+        dialog = RemoveDialog(self.context, parent=self)
         dialog.exec()
         print("Remove dialog closed")
     

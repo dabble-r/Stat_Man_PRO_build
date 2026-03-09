@@ -20,21 +20,22 @@ from src.ui.logic.views.league_view_teams_logic import (
     team_avg_text,
     team_logo_path,
 )
+from src.ui.context.app_context import AppContext
 
 
 class LeagueViewTeams(QWidget):
-    def __init__(self, league, styles, stack, file_dir, message, parent=None):
+    def __init__(self, context: AppContext, parent=None):
         """Bottom pane showing teams sorted by W-L and AVG with logos and actions."""
         super().__init__()
         self.setObjectName("league view teams - bottom")
         self.leaderboard_AVG = []
         self.selected_WL = None # only teams from WL tree widget, for stat dialog
         self.selected_AVG = None # only teams from AVG tree widget, for stat dialog
-        self.league = league
-        # self.styles = styles
-        self.stack = stack
-        self.file_dir = file_dir
-        self.message = message
+        self.context = context
+        self.league = context.league
+        self.stack = context.stack
+        self.file_dir = context.file_dir
+        self.message = context.message
         self.parent = parent
         
         # Bottom layout containing two tree widgets

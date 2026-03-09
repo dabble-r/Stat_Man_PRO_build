@@ -11,32 +11,21 @@ from src.ui.dialogs.dialog_handlers import (
 from PySide6.QtWidgets import QMessageBox
 from PySide6.QtCore import QDate
 from src.ui.dialogs.update_theme_dialog import UpdateTheme
+from src.ui.context.app_context import AppContext
 
 
 class UpdateLeagueDialog(BaseDialog):
     """Dialog to update league admin fields, season dates, and theme."""
-    
-    def __init__(self, league, selected, message, leaderboard, lv_teams, stack, undo, styles, parent=None):
-        # Create template
+
+    def __init__(self, context: AppContext, parent=None):
         template = create_league_update_template(
             update_handler=league_update_handler,
             launch_handler=league_launch_handler,
             close_handler=league_close_handler
         )
-        
-        # Create context
-        context = {
-            'league': league,
-            'selected': selected,
-            'leaderboard': leaderboard,
-            'lv_teams': lv_teams,
-            'stack': stack,
-            'undo': undo,
-            'message': message
-        }
-        
-        # Initialize base dialog
-        super().__init__(template, context, parent=parent)
+        ctx_dict = context.to_dict()
+        super().__init__(template, ctx_dict, parent=parent)
+        self.context = context
         
         # Store league-specific state
         self.league_name = self.league.isDefaultName()

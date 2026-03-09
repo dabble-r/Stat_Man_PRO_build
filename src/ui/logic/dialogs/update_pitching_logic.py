@@ -142,19 +142,27 @@ def refresh_pitcher_derived_stats(player, team) -> None:
     player.set_bb_9()
     team.set_team_era()
 
-def update_stats(selected: Tuple[str, str, int], stat: str, val: str, stack: Stack, message_instance: Message, 
-                 league_instance: League, enable_buttons: Callable) -> None:
-        """Validate selection and value, update pitcher stats, and push to the undo stack."""
+def update_stats(dialog) -> None:
+        """Validate selection and value, update pitcher stats, and push to the undo stack. Reads from dialog."""
+        selected = dialog.selected
+        stat = dialog.get_selected_option('stats')
+        val_str = dialog.get_input_value('input')
+        stack = dialog.stack
+        message_instance = dialog.message
+        league_instance = dialog.league
+
+        def enable_buttons():
+            if 'stats' in dialog.radio_buttons:
+                for radio in dialog.radio_buttons['stats']:
+                    radio.setEnabled(True)
+
         try:
-            stat = stat
-            val = int(val)
+            val = int(val_str)
             if not stat or not val:
                 message_instance.show_message("Must select a stat and enter value.", btns_flag=False, timeout_ms=2000)
-                #QMessageBox.warning(self, "Input Error", "Must select a stat and enter value.")
                 return
-        except:
+        except (TypeError, ValueError):
             message_instance.show_message("Must enter a number value to update stat.", btns_flag=False, timeout_ms=2000)
-            #QMessageBox.warning(self, "Input Error", "Must enter a number value to update stat.")
             return
 
         player, team, num = selected
@@ -171,22 +179,24 @@ def update_stats(selected: Tuple[str, str, int], stat: str, val: str, stack: Sta
 
         stat_stack = reformat_stack_stat(stat)
         stack.add_node(find_player, team, stat_stack, getattr(find_player, stat_stack), set_new_stat_pitcher, 'player')
-        
-        try: 
-           # Apply the stat update
-            set_new_stat_pitcher(stat, val, find_player)
 
-             # Handle UI callback if needed
+        try:
+            set_new_stat_pitcher(stat, val, find_player)
             if stat == 'games played':
                 enable_buttons()
-
             refresh_pitcher_derived_stats(find_player, find_team)
-
-        except:
+        except Exception:
             message_instance.show_message(f"Error updating pitching {stat}.", btns_flag=False, timeout_ms=2000)
+            return
+        return True
            
        
-def undo_stat(selected: Tuple[str, str, float], undo: Undo, league_instance: League, message_instance: Message) -> None:
+def undo_stat(dialog) -> None:
+    """Undo last pitching stat change; reads selected, undo, league, message from dialog."""
+    selected = dialog.selected
+    undo = dialog.undo
+    league_instance = dialog.league
+    message_instance = dialog.message
     player, team, avg = selected
 
     find_team = league_instance.find_team(team)
@@ -200,15 +210,15 @@ def undo_stat(selected: Tuple[str, str, float], undo: Undo, league_instance: Lea
     else:
         message_instance.show_message("Team not found.", btns_flag=False, timeout_ms=2000)
 
-def view_player_stats(selected: Tuple[str, str, float], league_instance: League, message_instance: Message, self) -> None:
-    # Lazy import to avoid circular dependency
+def view_player_stats(dialog) -> None:
+    """Open stat dialog for the selected player; dialog must have .context or .league/.message/.selected."""
     from src.ui.dialogs.stat_dialog_ui import Ui_StatDialog
-    
-    stat_widget = QDialog(self)
+    from src.ui.context.app_context import AppContext
+
+    stat_widget = QDialog(dialog)
     stat_widget.setWindowTitle("Stats")
     stat_widget.setModal(True)
-    #stat_layout = QVBoxLayout(stat_widget)
-
-    stat_ui = Ui_StatDialog(league_instance, message_instance, selected, parent=stat_widget)
-    stat_ui.get_stats(selected)
+    context = getattr(dialog, "context", None) or AppContext.from_dialog(dialog)
+    stat_ui = Ui_StatDialog(context, parent=stat_widget)
+    stat_ui.get_stats(dialog.selected)
     stat_ui.exec()

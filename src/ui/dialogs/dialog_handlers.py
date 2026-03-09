@@ -3,6 +3,7 @@ Handler functions that bridge BaseDialog and business logic layer.
 These functions are used as callbacks in dialog templates.
 """
 from typing import Callable, Optional
+from src.ui.context.app_context import AppContext
 from src.ui.logic.dialogs.update_offense_logic import (
     coerce_at_bat,
     should_enable_buttons,
@@ -136,12 +137,15 @@ def offense_view_handler(dialog):
     """Handle view player stats."""
     # Lazy import to avoid circular dependency
     from src.ui.dialogs.stat_dialog_ui import Ui_StatDialog
-    
+    from src.ui.context.app_context import AppContext
+
     stat_widget = QDialog(dialog)
     stat_widget.setWindowTitle("Stats")
     stat_widget.setModal(True)
-    
-    stat_ui = Ui_StatDialog(dialog.league, dialog.message, dialog.selected, parent=stat_widget)
+    context = getattr(dialog, "context", None) or AppContext.from_dialog(dialog)
+    if not isinstance(context, AppContext):
+        context = AppContext.from_dialog(dialog)
+    stat_ui = Ui_StatDialog(context, parent=stat_widget)
     stat_ui.get_stats(dialog.selected)
     stat_ui.exec()
 
@@ -170,29 +174,18 @@ def create_pitching_enablement_check(dialog):
 
 def pitching_update_handler(dialog):
     """Handle pitching stat update submission."""
-    stat = dialog.get_selected_option('stats')
-    val_str = dialog.get_input_value('input')
-    
-    if not stat or not val_str:
-        dialog.show_validation_error("Must select a stat and enter value.")
-        return
-    
-    # Use the logic layer function
-    enable_buttons_callback = lambda: dialog.enable_selection_options('stats', True)
-    
-    if pitching_update_stats(dialog.selected, stat, val_str, dialog.stack, dialog.message, 
-                            dialog.league, enable_buttons_callback):
+    if pitching_update_stats(dialog):
         dialog.input_fields['input'].clear()
 
 
 def pitching_undo_handler(dialog):
     """Handle pitching stat undo."""
-    pitching_undo_stat(dialog.selected, dialog.undo, dialog.league, dialog.message)
+    pitching_undo_stat(dialog)
 
 
 def pitching_view_handler(dialog):
     """Handle view player stats."""
-    pitching_view_player_stats(dialog.selected, dialog.league, dialog.message, dialog)
+    pitching_view_player_stats(dialog)
 
 
 # ============================================================================
@@ -296,12 +289,15 @@ def team_stats_view_handler(dialog):
     """Handle view team stats."""
     # Lazy import to avoid circular dependency
     from src.ui.dialogs.stat_dialog_ui import Ui_StatDialog
-    
+    from src.ui.context.app_context import AppContext
+
     stat_widget = QDialog(dialog)
     stat_widget.setWindowTitle("Stats")
     stat_widget.setModal(True)
-    
-    stat_ui = Ui_StatDialog(dialog.league, dialog.message, dialog.selected, parent=stat_widget)
+    context = getattr(dialog, "context", None) or AppContext.from_dialog(dialog)
+    if not isinstance(context, AppContext):
+        context = AppContext.from_dialog(dialog)
+    stat_ui = Ui_StatDialog(context, parent=stat_widget)
     stat_ui.get_stats(dialog.selected)
     stat_ui.exec()
 
@@ -330,8 +326,6 @@ def admin_update_handler(dialog):
         update_stats as admin_update_stats,
         set_new_stat_team,
         normalize_stat_name_for_stack,
-        update_lineup_handler,
-        update_positions_handler
     )
     
     stat = dialog.get_selected_option('admin')
@@ -341,39 +335,23 @@ def admin_update_handler(dialog):
         dialog.show_validation_error("Please select a stat option (manager, lineup, positions, or max roster).")
         return
     
-    # Create wrapper functions for lineup and positions handlers
-    def lineup_wrapper(league_instance, selected, leaderboard_instance, lv_teams_instance, 
-                      stack_instance, undo_instance, message_instance, parent=None):
+    # Open sub-dialogs with shared context
+    if stat == 'lineup':
         from src.ui.dialogs.update_lineup import UpdateLineupDialog
-        lineup_dialog = UpdateLineupDialog(league_instance, selected, leaderboard_instance, 
-                                          lv_teams_instance, stack_instance, undo_instance, 
-                                          message_instance, parent=parent)
+        lineup_dialog = UpdateLineupDialog(dialog.context, parent=dialog)
         lineup_dialog.exec()
-    
-    def positions_wrapper(league_instance, selected, leaderboard_instance, lv_teams_instance, 
-                         stack_instance, undo_instance, message_instance, parent=None):
+        return
+    if stat == 'positions':
         from src.ui.dialogs.update_positions import UpdatePositionsDialog
-        positions_dialog = UpdatePositionsDialog(league_instance, selected, leaderboard_instance, 
-                                                lv_teams_instance, stack_instance, undo_instance, 
-                                                message_instance, parent=parent)
+        positions_dialog = UpdatePositionsDialog(dialog.context, parent=dialog)
         positions_dialog.exec()
+        return
     
-    # Use the logic layer function
+    # Use the logic layer for manager / max_roster
     admin_update_stats(
-        dialog.selected,
-        lambda: stat,
-        lineup_wrapper,
-        positions_wrapper,
-        dialog.input_fields['input'],
-        dialog.message,
-        dialog.league,
-        dialog.stack,
-        dialog.undo,
-        dialog.leaderboard,
-        dialog.lv_teams,
+        dialog,
         set_new_stat_team,
         normalize_stat_name_for_stack,
-        parent=dialog
     )
 
 
@@ -704,8 +682,10 @@ def search_view_handler(dialog):
     stat_widget = QDialog(dialog)
     stat_widget.setWindowTitle("Stats")
     stat_widget.setModal(True)
-    
-    stat_ui = Ui_StatDialog(dialog.league, dialog.message, dialog.selected, parent=stat_widget)
+    context = getattr(dialog, "context", None) or AppContext.from_dialog(dialog)
+    if not isinstance(context, AppContext):
+        context = AppContext.from_dialog(dialog)
+    stat_ui = Ui_StatDialog(context, parent=stat_widget)
     stat_ui.get_stats(dialog.selected)
     stat_ui.exec()
 

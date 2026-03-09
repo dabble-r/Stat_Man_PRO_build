@@ -18,15 +18,18 @@ from src.core.player import SamplePlayer
 from src.visualization.graph_window import GraphWindow
 from decimal import getcontext, Decimal
 from src.utils.image import Icon
+from src.ui.context.app_context import AppContext
 import random
 
+
 class Ui_StatDialog(QDialog):
-    def __init__(self, league, message, selected=None, parent=None, flag=True, resize=False):
+    def __init__(self, context: AppContext, parent=None, flag=True, resize=False):
         """Stats dialog showing charts and trees for a selected player/team context."""
         super().__init__(parent)
-        self.league = league
-        self.message = message
-        self.selected = selected
+        self.league = context.league
+        self.message = context.message
+        self.selected = context.selected
+        self.context = context
         self.teams_selected = []
         self.parent = parent
 
@@ -264,7 +267,7 @@ class Ui_StatDialog(QDialog):
         
         stats = ['hits', 'so', 'runs', 'era', 'k', 'avg']
         
-        self.graph_dialog = BarGraphDialog(self.league, self.selected, self.message, self.teams_selected, self)
+        self.graph_dialog = BarGraphDialog(self.context, self.teams_selected, self)
         self.graph_dialog.exec()
 
         teams_selected = [x for x in self.teams_selected]

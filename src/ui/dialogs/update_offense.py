@@ -9,33 +9,22 @@ from src.ui.dialogs.dialog_handlers import (
     offense_view_handler,
     create_offense_enablement_check
 )
+from src.ui.context.app_context import AppContext
 
 
 class UpdateOffenseDialog(BaseDialog):
     """Dialog for updating player offense statistics."""
-    
-    def __init__(self, league, selected, leaderboard, lv_teams, stack, undo, styles, message, parent=None):
-        # Create template
+
+    def __init__(self, context: AppContext, parent=None):
         template = create_offense_update_template(
             update_handler=offense_update_handler,
             undo_handler=offense_undo_handler,
             view_handler=offense_view_handler,
-            enablement_check=None  # Will be set after initialization
+            enablement_check=None
         )
-        
-        # Create context
-        context = {
-            'league': league,
-            'selected': selected,
-            'leaderboard': leaderboard,
-            'lv_teams': lv_teams,
-            'stack': stack,
-            'undo': undo,
-            'message': message
-        }
-        
-        # Initialize base dialog
-        super().__init__(template, context, parent=parent)
+        ctx_dict = context.to_dict()
+        super().__init__(template, ctx_dict, parent=parent)
+        self.context = context
         
         # Set enablement check and apply to radio buttons
         enablement_check = create_offense_enablement_check(self)

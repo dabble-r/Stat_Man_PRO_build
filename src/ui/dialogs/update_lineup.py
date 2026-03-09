@@ -8,29 +8,17 @@ from src.ui.dialogs.dialog_handlers import (
     lineup_undo_handler,
     lineup_toggle_handler
 )
+from src.ui.context.app_context import AppContext
 
 
 class UpdateLineupDialog(BaseDialog):
     """Dialog for updating team batting lineup."""
-    
-    def __init__(self, league, selected, leaderboard, lv_teams, stack, undo, message, parent=None):
-        # Create template
+
+    def __init__(self, context: AppContext, parent=None):
         template = create_lineup_update_template(
             update_handler=lineup_update_handler,
             undo_handler=lineup_undo_handler,
             toggle_handler=lineup_toggle_handler
         )
-        
-        # Create context
-        context = {
-            'league': league,
-            'selected': selected,
-            'leaderboard': leaderboard,
-            'lv_teams': lv_teams,
-            'stack': stack,
-            'undo': undo,
-            'message': message
-        }
-        
-        # Initialize base dialog
-        super().__init__(template, context, parent=parent)
+        super().__init__(template, context.to_dict(), parent=parent)
+        self.context = context

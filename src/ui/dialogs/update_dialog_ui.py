@@ -14,21 +14,23 @@ from src.ui.logic.dialogs.update_dialog_logic import (
     set_team_logo,
     set_player_image,
 )
+from src.ui.context.app_context import AppContext
+
 
 class UpdateDialog(QDialog):
-    def __init__(self, league, selected, leaderboard, lv_teams, stack, undo, file_dir, styles, message, parent=None):
+    def __init__(self, context: AppContext, parent=None):
         """Hub dialog for updating players/teams (offense, pitching, admin, team stats)."""
         super().__init__(parent)
-        self.league = league
-        self.selected = selected
-        self.leaderboard = leaderboard
-        self.lv_teams = lv_teams
+        self.context = context
+        self.league = context.league
+        self.selected = context.selected
+        self.leaderboard = context.leaderboard
+        self.lv_teams = context.lv_teams
         self.leaderboard_AVG = []
-        self.stack = stack
-        self.undo = undo
-        self.file_dir = file_dir
-        # self.styles = styles
-        self.message = message
+        self.stack = context.stack
+        self.undo = context.undo
+        self.file_dir = context.file_dir
+        self.message = context.message
         self.parent = parent
         self.setObjectName("Update Dialog")
 
@@ -84,7 +86,8 @@ class UpdateDialog(QDialog):
 
         self.resize(400, 300)
 
-        if len(self.selected) == 2:
+        sel = self.selected if self.selected is not None else []
+        if len(sel) == 2:
             self.setWindowTitle("Update Team")
 
             main_layout.addWidget(self.admin_button, alignment=Qt.AlignCenter)
@@ -104,10 +107,10 @@ class UpdateDialog(QDialog):
 
     def update_offense_handler(self):
         """Open the offense update dialog for the selected player."""
-        dialog = UpdateOffenseDialog(self.league, self.selected, self.leaderboard, self.lv_teams, self.stack, self.undo, None, self.message, parent=self)  # self.styles
+        dialog = UpdateOffenseDialog(self.context, parent=self)
         dialog.setStyleSheet("QDialog { border: 2px solid black; }")
         dialog.exec()
-    
+
     def update_pitching_handler(self):
         """Open the pitching update dialog if player has 'pitcher' in positions."""
         player, team, avg = self.selected
@@ -116,17 +119,17 @@ class UpdateDialog(QDialog):
         if not player_has_pitching(getattr(find_player, 'positions', [])):
             self.message.show_message("Player has no pitching position.", btns_flag=False, timeout_ms=2000)
         else:
-            dialog = UpdatePitchingDialog(self.league, self.selected, self.leaderboard, self.lv_teams, self.stack, self.undo, self.message, parent=self)
+            dialog = UpdatePitchingDialog(self.context, parent=self)
             dialog.exec()
-    
+
     def update_admin_handler(self):
         """Open management/admin dialog to edit team admin fields."""
-        dialog = UpdateAdminDialog(self.league, self.selected, self.leaderboard, self.lv_teams, self.stack, self.undo, self.message, parent=self)
+        dialog = UpdateAdminDialog(self.context, parent=self)
         dialog.exec()
 
     def update_team_stats_handler(self):
         """Open team stats dialog for computed/display team statistics."""
-        dialog = UpdateTeamStatsDialog(self.league, self.selected, self.leaderboard, self.lv_teams, self.stack, self.undo, self.message, None, parent=self)  # self.styles
+        dialog = UpdateTeamStatsDialog(self.context, parent=self)
         dialog.exec()
     
     def upload_dialog(self):

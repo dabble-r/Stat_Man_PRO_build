@@ -28,22 +28,24 @@ import random
 # --- exp --- # 
 from src.data.save.csv_export_handler import SaveCSVHandler
 
-# New: logic for simple guards
 from src.ui.logic.views.league_view_players_logic import must_have_team_before_add
+from src.ui.context.app_context import AppContext
 
 
 class LeagueViewPlayers(QWidget):
-    def __init__(self, league_view, selected, league, styles, undo, file_dir, message, parent=None):
+    def __init__(self, context: AppContext, parent=None):
         super().__init__()
         self.setObjectName("league view players - top")
-        self.selected = selected
-        # self.styles = styles
-        self.undo = undo
-        self.file_dir = file_dir
-        self.db_path = f"{self.file_dir}/DB"
+        self.context = context
+        self.selected = context.selected
+        self.undo = context.undo
+        self.file_dir = context.file_dir
+        self.db_path = f"{self.file_dir}/DB" if self.file_dir else ""
         self.csv_path = None
-        self.message = message
+        self.message = context.message
         self.parent = parent
+        self.league = context.league
+        self.league_view_teams = context.lv_teams
 
         self.label_1 = QLabel("Players")
         self.label_1.setAlignment(Qt.AlignCenter)
@@ -56,14 +58,9 @@ class LeagueViewPlayers(QWidget):
         self.tree1_top.setObjectName("players - tree1 - top")
         self.tree2_top.setObjectName("players - tree2 - top")
 
-        self.selected_players = None 
-        self.selected_leaderboard = None #self.tree2_top.currentItem() # only players leaderboard view
-        self.league = league
-
+        self.selected_players = None
+        self.selected_leaderboard = None
         self.leaderboard = Leaderboard(self.tree2_top, self.league, parent=self)
-
-        self.league_view_teams = league_view
-
 
         self.tree1_top.setColumnCount(3)
         self.tree1_top.setHeaderLabels(["Player", "Team", "Number"])
