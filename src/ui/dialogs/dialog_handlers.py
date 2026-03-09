@@ -577,6 +577,23 @@ def search_toggle_handler(option: str, checked: bool, dialog):
                 dialog._nl_dialog.server_manager.stop_all_servers()
             dialog._nl_dialog.hide()
 
+    elif checked and not is_nl:
+        # Reconfigure tree when user switches to player, team, or number (without submit)
+        tree_widget = dialog.get_custom_widget('search_tree')
+        if tree_widget:
+            tree_widget.clear()
+            if option == "player" or option == "number":
+                tree_widget.setHeaderLabels(["Name", "Team", "Average"])
+                tree_widget.setColumnCount(3)
+            elif option == "team":
+                tree_widget.setHeaderLabels(["Team", "Average"])
+                tree_widget.setColumnCount(2)
+            tree_widget.setVisible(False)
+        if hasattr(dialog, 'resize'):
+            dialog.resize(500, 350)
+        if hasattr(dialog, 'type'):
+            dialog.type = None
+
 
 def search_submit_handler(dialog):
     """Handle search submission."""

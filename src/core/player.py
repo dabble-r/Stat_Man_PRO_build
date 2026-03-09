@@ -527,7 +527,7 @@ class Player:
         if self.at_bat == 0:
             return self.format_decimal(ret)
         if float(self.SLG) - float(self.AVG) > 0:
-            ret = ((1 * self.doubles) + (2 * self.triples) + (3 * self.hr)) / (float(self.SLG) - float(self.AVG))
+            ret = ((1 * self.doubles) + (2 * self.triples) + (3 * self.hr)) / self.at_bat
         return self.format_decimal(ret)
 
 # --------------------------------------------------
